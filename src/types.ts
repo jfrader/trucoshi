@@ -40,6 +40,7 @@ export interface IMatch {
     currentHand: IHand | null
     table: ITable
     turn: number
+    play(): IHandInstance | undefined
     addPoints(points: IPoints): void
     pushHand(hand: IHand): void
     setCurrentHand(hand: IHand | null): IHand | null
@@ -56,6 +57,25 @@ export type IPoints = {
 
 export type IGetNextPlayerResult = { currentPlayer?: IPlayer, currentRound?: IRound, points?: IPoints }
 
+export enum EHandPlayCommand {
+    TRUCO,
+    ENVIDO,
+    ENVIDO_ENVIDO,
+    REAL_ENVIDO,
+    FALTA_ENVIDO,
+    MAZO,
+    FLOR,
+    CONTRAFLOR,
+}
+
+export interface IHandInstance {
+    player: IPlayer | null
+    commands: Array<EHandPlayCommand> | null
+    rounds: Array<IRound> | null
+    use(idx: number): IRound | undefined | null
+    say(command: EHandPlayCommand): IHand | null
+}
+
 export interface IHand {
     idx: number
     turn: number
@@ -64,6 +84,7 @@ export interface IHand {
     rounds: Array<IRound>
     currentPlayer: IPlayer | null
     currentRound: IRound | null
+    play(): IHandInstance
     pushRound(round: IRound): IRound
     setTurn(turn: number): IPlayer
     addPoints(team: 0 | 1, points: number): void

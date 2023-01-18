@@ -1,5 +1,5 @@
 import { CARDS } from "./constants";
-import { ICard, IDeck, IHand, IMatch, IPlayedCard, IPlayer, IPoints, IRound, ITable, ITeam } from "./types";
+import { EHandPlayCommand, ICard, IDeck, IHand, IHandInstance, IMatch, IPlayedCard, IPlayer, IPoints, IRound, ITable, ITeam } from "./types";
 import { checkHandWinner, checkMatchWinner, getCardValue, shuffleArray } from "./utils";
 
 function Deck(): IDeck {
@@ -112,6 +112,9 @@ export function Match(teams: Array<ITeam> = [], matchPoint: number = 9): IMatch 
         table: Table(teams, size),
         turn: 0,
         currentHand: null,
+        play() {
+            return _match.currentHand?.play()
+        },
         addPoints(points: IPoints) {
             _match.teams[0].addPoints(points[0])
             _match.teams[1].addPoints(points[1])
@@ -142,7 +145,36 @@ export function Match(teams: Array<ITeam> = [], matchPoint: number = 9): IMatch 
     return _match;
 }
 
-function Hand(match: IMatch, deck: IDeck, idx: number): IHand {
+function HandInstance(hand: IHand) {
+
+    const _instance: IHandInstance = {
+        player: hand.currentPlayer,
+        commands: [],
+        rounds: hand.rounds,
+        use(idx: number) {
+            const player = hand.currentPlayer
+            const round = hand.currentRound
+            if (!player || !round) {
+                return null
+            }
+            const card = player.hand[idx]
+            if (card) {
+                return round.play({ player, card })
+            }
+            return null
+        },
+        say(command: EHandPlayCommand) {
+            if (!hand.currentPlayer) {
+                return null
+            }
+            return hand
+        }
+    }
+
+    return _instance
+}
+
+function Hand(match: IMatch, deck: IDeck, idx: number) {
 
     const truco = 1;
 
@@ -214,6 +246,9 @@ function Hand(match: IMatch, deck: IDeck, idx: number): IHand {
         },
         currentRound: null,
         currentPlayer: null,
+        play() {
+            return HandInstance(_hand)
+        },
         pushRound(round: IRound) {
             _hand.rounds.push(round)
             return round
@@ -287,13 +322,4 @@ export function Team(color: string, players: Array<IPlayer>): ITeam {
     players.forEach(player => _team._players.set(player.id, player))
 
     return _team;
-}
-
-export function PlayedCard({ player, card }: { player: IPlayer, card: ICard }): IPlayedCard {
-    const _card = {
-        player,
-        card
-    }
-
-    return _card;
 }

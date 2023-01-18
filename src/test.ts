@@ -1,6 +1,6 @@
 import * as readline from 'readline'
 import { COLORS } from './constants';
-import { Match, PlayedCard, Player, Team } from "./trucoshi";
+import { Match, Player, Team } from "./trucoshi";
 import { ICard, IPlayer, IRound } from './types';
 
 (async () => {
@@ -51,7 +51,7 @@ import { ICard, IPlayer, IRound } from './types';
                             resolve()
                         })();
                     }
-                    value.currentHand?.currentRound?.play(PlayedCard({ player: value.currentHand?.currentPlayer as IPlayer, card: playedCard as ICard }))
+                    value.currentHand?.currentRound?.play({ player: value.currentHand?.currentPlayer as IPlayer, card: playedCard as ICard })
                     console.log(currentHand && currentHand.rounds.length ? (currentHand.rounds.map((round: IRound) => round.cards.length ? round.cards.map(c => [c.player.id, c.card]) : '')) : '')
                     rl.close();
                     resolve()
