@@ -27,7 +27,7 @@ import { ICard, IPlayer, IRound } from './types';
 
             console.log(`\n${JSON.stringify(value.currentHand?.currentPlayer?.hand)}\n`)
 
-            const card = value.currentHand.currentPlayer.useCard(value.currentHand.currentPlayer.hand[0])
+            const card = value.currentHand.currentPlayer.useCard(value.currentHand.currentPlayer.hand[Math.round(Math.random() * (value.currentHand.currentPlayer.hand.length - 1))])
             value.currentHand.currentRound?.play({ card: card as ICard, player:  value.currentHand.currentPlayer })
         }
 

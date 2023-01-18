@@ -168,8 +168,6 @@ function Hand(match: IMatch, deck: Array<ICard>, idx: number): IHand {
     
             const teamIdx = checkHandWinner(_hand.rounds, dealer as 0 | 1)
 
-            console.log("Checking winner", teamIdx)
-
             if (teamIdx !== null) {
                 _hand.points[teamIdx] += truco
                 _hand.winner = true
