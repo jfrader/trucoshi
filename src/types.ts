@@ -21,6 +21,7 @@ export interface ITeam {
     _players: Map<string, IPlayer>
     players: Array<IPlayer>
     points: number
+    addPoints(points: number): number
 }
 
 export type IGetNextTurnResult = { currentPlayer?: IPlayer, currentRound?: IRound, winner?: ITeam }
@@ -29,15 +30,22 @@ export interface IMatch {
     teams: [ITeam, ITeam]
     hands: Array<IHand>
     winner: ITeam | null
-    currentPlayer: IPlayer | null
+    currentHand: IHand | null
     table: ITable
     turn: number
-    getCurrentHand(): IHand | null
+    addPoints(points: IPoints): void
+    pushHand(hand: IHand): void
+    setCurrentHand(hand: IHand | null): IHand | null
+    setWinner(winner: ITeam): void
     incrementTableTurn(): IMatch
-    getNextTurn(): IteratorResult<IGetNextTurnResult, IGetNextTurnResult | void>
+    getNextTurn(): IteratorResult<IMatch | null, IMatch | null | void>
 }
 
-export type IPoints = { 0: number, 1: number }
+export type IPoints = {
+    0: number // team 0
+    1: number // team 1
+    2: number // ties
+}
 
 export type IGetNextPlayerResult = { currentPlayer?: IPlayer, currentRound?: IRound, points?: IPoints }
 
@@ -49,8 +57,7 @@ export interface IHand {
     rounds: Array<IRound>
     currentPlayer: IPlayer | null
     currentRound: IRound | null
-    getCurrentRound(): IRound | null
-    getNextPlayer(): IteratorResult<IGetNextPlayerResult, IGetNextPlayerResult | void>
+    getNextPlayer(): IteratorResult<IHand, IHand | void>
 }
 
 export type ITable = Array<IPlayer>

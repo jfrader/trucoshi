@@ -45,8 +45,82 @@ function Round(): IRound {
     return _round
 }
 
-function Hand(match: IMatch, idx: number): IHand {
-    const deck = Deck();
+export function Match(teams: Array<ITeam> = [], matchPoint: number = 9): IMatch {
+
+    const size = teams[0].players.length
+
+    if (size !== teams[1].players.length) {
+        throw new Error("Team size mismatch")
+    }
+
+    function* handsGeneratorSequence() {
+        let handIdx = 0;
+        while (!_match.winner) {
+            const deck = Deck()
+            const hand = _match.setCurrentHand(Hand(_match, deck, handIdx)) as IHand
+            while(!hand.winner) {
+                const { value } = hand.getNextPlayer()
+                if (value && value.winner) {
+                    _match.addPoints(value.points)
+                    _match.setCurrentHand(null)
+                    break;
+                }
+                _match.setCurrentHand(value as IHand)
+                yield _match
+            }
+
+            const hasWinner = checkMatchWinner(teams, matchPoint)
+
+            if (hasWinner !== null) {
+                _match.setWinner(hasWinner)
+                _match.setCurrentHand(null)
+            }
+            handIdx++;
+            _match.incrementTableTurn()
+        }
+        yield _match
+    }
+
+    const handsGenerator = handsGeneratorSequence()
+
+    const _match: IMatch = {
+        winner: null,
+        teams: teams as [ITeam, ITeam],
+        hands: [],
+        table: Table(teams, size),
+        turn: 0,
+        currentHand: null,
+        addPoints(points: IPoints) {
+            _match.teams[0].addPoints(points[0])
+            _match.teams[1].addPoints(points[1])
+        },
+        pushHand(hand: IHand) {
+            _match.hands.push(hand)
+        },
+        setCurrentHand(hand: IHand) {
+            _match.currentHand = hand
+            return _match.currentHand
+        },
+        setWinner(winner: ITeam) {
+            _match.winner = winner
+        },
+        incrementTableTurn() {
+            if (_match.turn >= (size * 2) - 1) {
+                _match.turn = 0
+            } else {
+                _match.turn++;
+            }
+            return _match
+        },
+        getNextTurn() {
+            return handsGenerator.next()
+        }
+    }
+
+    return _match;
+}
+
+function Hand(match: IMatch, deck: Array<ICard>, idx: number): IHand {
 
     const truco = 1;
 
@@ -89,10 +163,12 @@ function Hand(match: IMatch, idx: number): IHand {
                 
                 i++
     
-                yield { currentRound: _hand.currentRound, currentPlayer: _hand.currentPlayer };
+                yield _hand;
             }
     
             const teamIdx = checkHandWinner(_hand.rounds, dealer as 0 | 1)
+
+            console.log("Checking winner", teamIdx)
 
             if (teamIdx !== null) {
                 _hand.points[teamIdx] += truco
@@ -100,7 +176,7 @@ function Hand(match: IMatch, idx: number): IHand {
             }
             currentRoundIdx++;
         }
-        yield { points: _hand.points }
+        yield _hand
     }
 
     const roundsGenerator = roundsGeneratorSequence()
@@ -112,13 +188,11 @@ function Hand(match: IMatch, idx: number): IHand {
         winner: false,
         points: {
             0: 0,
-            1: 0
+            1: 0,
+            2: 0 // ties
         },
         currentRound: null,
         currentPlayer: null,
-        getCurrentRound() {
-            return _hand.rounds.at(_hand.rounds.length - 1) || null
-        },
         getNextPlayer() {
             return roundsGenerator.next();
         },
@@ -154,83 +228,21 @@ export function Player(id: string, teamIdx: number): IPlayer {
 
 export function Team(color: string, players: Array<IPlayer>): ITeam {
     const _team = {
-        color,
         _players: new Map<string, IPlayer>(),
         get players() {
             return Array.from(_team._players.values())
         },
+        color,
         points: 0,
+        addPoints(points: number) {
+            _team.points += points
+            return _team.points
+        },
     }
 
     players.forEach(player => _team._players.set(player.id, player))
 
     return _team;
-}
-
-export function Match(teams: Array<ITeam> = [], matchPoint: number = 9): IMatch {
-
-    const size = teams[0].players.length
-
-    if (size !== teams[1].players.length) {
-        throw new Error("Team size mismatch")
-    }
-
-    function* handsGeneratorSequence() {
-        let handIdx = 0;
-        while (!_match.winner) {
-            const hand = Hand(_match, handIdx);
-            _match.hands.push(hand);
-            while(!hand.winner) {
-                const { value } = hand.getNextPlayer()
-                if (value && value.points) {
-                    break;
-                }
-                const { currentPlayer, currentRound } = value || {}
-                yield { currentPlayer, currentRound }
-            }
-            teams[0].points += hand.points[0]
-            teams[1].points += hand.points[1]
-
-            const hasWinner = checkMatchWinner(teams, matchPoint)
-
-            if (hasWinner !== null) {
-                _match.winner = hasWinner
-            }
-            handIdx++;
-            _match.incrementTableTurn()
-        }
-        yield { winner: _match.winner }
-    }
-
-    const handsGenerator = handsGeneratorSequence()
-
-    const _match: IMatch = {
-        winner: null,
-        teams: teams as [ITeam, ITeam],
-        hands: [],
-        table: Table(teams, size),
-        turn: 0,
-        currentPlayer: null,
-        getCurrentHand() {
-            return _match.hands.at(_match.hands.length - 1) || null
-        },
-        incrementTableTurn() {
-            _match.currentPlayer = _match.table[_match.turn]
-            if (_match.turn >= (size * 2) - 1) {
-                _match.turn = 0
-            } else {
-                _match.turn++;
-            }
-            return _match
-        },
-        getNextTurn() {
-            return handsGenerator.next()
-        }
-    }
-
-    _match.currentPlayer = _match.table[_match.turn]
-
-    return _match;
 }
 
 export function PlayedCard({ player, card }: { player: IPlayer, card: ICard }): IPlayedCard {

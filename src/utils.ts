@@ -16,7 +16,8 @@ export function shuffle<T = never>(array: Array<T>) {
 export function checkHandWinner(rounds: Array<IRound>, dealerTeamIdx: 0 | 1): null | 0 | 1 {
     const roundsWon: IPoints = {
         0: 0,
-        1: 0
+        1: 0,
+        2: 0 // tied rounds
     }
 
     for (let i = 0; i < rounds.length; i++) {
@@ -24,6 +25,7 @@ export function checkHandWinner(rounds: Array<IRound>, dealerTeamIdx: 0 | 1): nu
         if (round.tie) {
             roundsWon[0] += 1;
             roundsWon[1] += 1;
+            roundsWon[2] += 1;
             continue;
         }
         if (round.winner?.teamIdx === 0) {
@@ -34,7 +36,7 @@ export function checkHandWinner(rounds: Array<IRound>, dealerTeamIdx: 0 | 1): nu
         }
     }
     
-    if (roundsWon[0] > 2 && roundsWon[1] > 2) {
+    if ((roundsWon[0] > 2 && roundsWon[1] > 2) || (rounds.length > 2 && roundsWon[2] > 0)) {
         return dealerTeamIdx
     }
 
