@@ -79,16 +79,17 @@ export function Match(teams: Array<ITeam> = [], matchPoint: number = 9): IMatch 
         while (!_match.winner) {
             deck.shuffle()
             const hand = _match.setCurrentHand(Hand(_match, deck, handIdx)) as IHand
-            while(!hand.winner) {
+            while(!hand.finished) {
                 const { value } = hand.getNextPlayer()
-                if (value && value.winner) {
-                    _match.addPoints(value.points)
-                    _match.setCurrentHand(null)
-                    break;
+                if (value && value.finished) {
+                    continue;
                 }
                 _match.setCurrentHand(value as IHand)
                 yield _match
             }
+            
+            _match.addPoints(hand.points)
+            _match.setCurrentHand(null)
 
             const hasWinner = checkMatchWinner(teams, matchPoint)
 
@@ -153,34 +154,35 @@ function Hand(match: IMatch, deck: IDeck, idx: number): IHand {
         })
     })
 
-
     function* roundsGeneratorSequence() {
         let currentRoundIdx = 0;
-        let dealer = match.table[_hand.turn].teamIdx
+        let forehandTeamIdx = match.table[_hand.turn].teamIdx as 0 | 1
 
-        while (currentRoundIdx < 3 && !_hand.winner) {
+        while (currentRoundIdx < 3 && !_hand.finished) {
 
             let i = 0
 
-            _hand.currentRound = Round()
-            _hand.rounds.push(_hand.currentRound);
+            const round = Round()
+            _hand.setCurrentRound(round)
+            _hand.pushRound(round)
 
             let previousRound = _hand.rounds[currentRoundIdx - 1]
+
+            // Put previous round winner as forehand
             if (previousRound && previousRound.winner && !previousRound.tie) {
                 const newTurn = match.table.findIndex(player => player.id === previousRound?.winner?.id)
                 if (newTurn !== -1) {
-                    _hand.turn = newTurn
+                    _hand.setTurn(newTurn)
                 }
             }
 
             while (i < match.table.length) {
-                _hand.currentPlayer = match.table[_hand.turn];
-                
+                _hand.setCurrentPlayer(match.table[_hand.turn])
                 
                 if (_hand.turn >= match.table.length - 1) {
-                    _hand.turn = 0
+                    _hand.setTurn(0)
                 } else {
-                    _hand.turn++
+                    _hand.setTurn(_hand.turn + 1)
                 }
                 
                 i++
@@ -188,11 +190,11 @@ function Hand(match: IMatch, deck: IDeck, idx: number): IHand {
                 yield _hand;
             }
     
-            const teamIdx = checkHandWinner(_hand.rounds, dealer as 0 | 1)
+            const teamIdx = checkHandWinner(_hand.rounds, forehandTeamIdx)
 
             if (teamIdx !== null) {
-                _hand.points[teamIdx] += truco
-                _hand.winner = true
+                _hand.addPoints(teamIdx, truco)
+                _hand.setFinished(true)
             }
             currentRoundIdx++;
         }
@@ -205,14 +207,36 @@ function Hand(match: IMatch, deck: IDeck, idx: number): IHand {
         idx,
         turn: match.turn,
         rounds: [],
-        winner: false,
+        finished: false,
         points: {
             0: 0,
-            1: 0,
-            2: 0 // ties
+            1: 0
         },
         currentRound: null,
         currentPlayer: null,
+        pushRound(round: IRound) {
+            _hand.rounds.push(round)
+            return round
+        },
+        setTurn(turn: number) {
+            _hand.turn = turn
+            return match.table[_hand.turn]
+        },
+        addPoints(team: 0 | 1, points: number) {
+            _hand.points[team] = _hand.points[team] + points
+        },
+        setCurrentRound(round: IRound | null) {
+            _hand.currentRound = round
+            return _hand.currentRound
+        },
+        setCurrentPlayer(player: IPlayer | null) {
+            _hand.currentPlayer = player
+            return _hand.currentPlayer
+        },
+        setFinished(finshed: boolean) {
+            _hand.finished = finshed
+            return _hand.finished
+        },
         getNextPlayer() {
             return roundsGenerator.next();
         },

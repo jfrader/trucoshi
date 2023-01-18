@@ -15,7 +15,7 @@ import { ICard, IPlayer, IRound } from './types';
     const match = Match([team1, team2], 9);
 
     while(!match.winner) {
-        if (match.currentHand?.winner) {
+        if (match.currentHand?.finished) {
             console.log(match.currentHand && match.currentHand.rounds.length ? (match.currentHand.rounds.map((round: IRound) => round.cards.length ? round.cards.map(c => [c.player.id, c.card]) : '')) : '')
         }
         const { value } = match.getNextTurn()

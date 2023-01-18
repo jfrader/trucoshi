@@ -51,7 +51,7 @@ export interface IMatch {
 export type IPoints = {
     0: number // team 0
     1: number // team 1
-    2: number // number of tied rounds
+    2?: number // number of tied rounds
 }
 
 export type IGetNextPlayerResult = { currentPlayer?: IPlayer, currentRound?: IRound, points?: IPoints }
@@ -59,11 +59,17 @@ export type IGetNextPlayerResult = { currentPlayer?: IPlayer, currentRound?: IRo
 export interface IHand {
     idx: number
     turn: number
-    winner: boolean
+    finished: boolean
     points: IPoints
     rounds: Array<IRound>
     currentPlayer: IPlayer | null
     currentRound: IRound | null
+    pushRound(round: IRound): IRound
+    setTurn(turn: number): IPlayer
+    addPoints(team: 0 | 1, points: number): void
+    setCurrentRound(round: IRound | null): IRound | null
+    setCurrentPlayer(player: IPlayer | null): IPlayer | null
+    setFinished(finshed: boolean): boolean
     getNextPlayer(): IteratorResult<IHand, IHand | void>
 }
 
