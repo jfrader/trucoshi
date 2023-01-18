@@ -1,9 +1,27 @@
 import { CARDS } from "./constants";
-import { ICard, IHand, IMatch, IPlayedCard, IPlayer, IPoints, IRound, ITable, ITeam } from "./types";
-import { checkHandWinner, checkMatchWinner, shuffle } from "./utils";
+import { ICard, IDeck, IHand, IMatch, IPlayedCard, IPlayer, IPoints, IRound, ITable, ITeam } from "./types";
+import { checkHandWinner, checkMatchWinner, shuffleArray } from "./utils";
 
-function Deck(): Array<ICard> {
-    return shuffle<ICard>(Object.keys(CARDS) as Array<ICard>)
+function Deck(): IDeck {
+    const _deck: IDeck = {
+        cards: Object.keys(CARDS) as Array<ICard>,
+        usedCards: [],
+        takeCard() {
+            const card = _deck.cards.shift() as ICard
+            _deck.usedCards.push(card)
+            return card
+        },
+        shuffle() {
+            _deck.cards = _deck.cards.concat(_deck.usedCards)
+            _deck.usedCards = []
+            _deck.cards = shuffleArray(_deck.cards)
+            if (_deck.cards.length !== 40) {
+                throw new Error("This is not good")
+            }
+            return _deck.cards
+        }
+    }
+    return _deck
 }
 
 function Table(teams: Array<ITeam>, size: number): ITable {
@@ -47,6 +65,8 @@ function Round(): IRound {
 
 export function Match(teams: Array<ITeam> = [], matchPoint: number = 9): IMatch {
 
+    const deck = Deck()
+
     const size = teams[0].players.length
 
     if (size !== teams[1].players.length) {
@@ -56,7 +76,7 @@ export function Match(teams: Array<ITeam> = [], matchPoint: number = 9): IMatch 
     function* handsGeneratorSequence() {
         let handIdx = 0;
         while (!_match.winner) {
-            const deck = Deck()
+            deck.shuffle()
             const hand = _match.setCurrentHand(Hand(_match, deck, handIdx)) as IHand
             while(!hand.winner) {
                 const { value } = hand.getNextPlayer()
@@ -120,13 +140,14 @@ export function Match(teams: Array<ITeam> = [], matchPoint: number = 9): IMatch 
     return _match;
 }
 
-function Hand(match: IMatch, deck: Array<ICard>, idx: number): IHand {
+function Hand(match: IMatch, deck: IDeck, idx: number): IHand {
 
     const truco = 1;
 
     match.teams.forEach((team) => {
         team.players.forEach(player => {
-            player.setHand([deck.shift() as ICard, deck.shift() as ICard, deck.shift() as ICard])
+            const playerHand = [deck.takeCard(), deck.takeCard(), deck.takeCard()]
+            player.setHand(playerHand)
             // player.setHand(["5c", "4c", "6c"])
         })
     })

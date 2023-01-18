@@ -1,6 +1,6 @@
 import { IPoints, IRound, ITeam } from "./types";
 
-export function shuffle<T = never>(array: Array<T>) {
+export function shuffleArray<T = never>(array: Array<T>) {
     let currentIndex = array.length, randomIndex;
 
     while (currentIndex != 0) {

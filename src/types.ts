@@ -2,6 +2,13 @@ import { CARDS } from "./constants"
 
 export type ICard = keyof typeof CARDS
 
+export interface IDeck {
+    cards: Array<ICard>
+    usedCards: Array<ICard>
+    takeCard(): ICard
+    shuffle(): Array<ICard>
+}
+
 export interface IPlayedCard {
     player: IPlayer
     card: ICard
@@ -44,7 +51,7 @@ export interface IMatch {
 export type IPoints = {
     0: number // team 0
     1: number // team 1
-    2: number // ties
+    2: number // number of tied rounds
 }
 
 export type IGetNextPlayerResult = { currentPlayer?: IPlayer, currentRound?: IRound, points?: IPoints }
