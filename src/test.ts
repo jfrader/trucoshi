@@ -2,7 +2,6 @@ import * as readline from 'readline'
 import { COLORS } from './constants';
 import { Match, PlayedCard, Player, Team } from "./trucoshi";
 import { ICard, IPlayer, IRound } from './types';
-import { checkHandWinner } from './utils';
 
 (async () => {
     const player1 = Player('lukini', 0)
@@ -22,7 +21,7 @@ import { checkHandWinner } from './utils';
             //  value.currentRound?.play({ card, player: value.currentPlayer })
             const prom = () => new Promise<void>((resolve) => {
 
-                process.stdout.write('\u001B[2J\u001B[0;0f');
+                // process.stdout.write('\u001B[2J\u001B[0;0f');
                 const rl = readline.createInterface(process.stdin, process.stdout);
 
                 const currentHand: any = match.getCurrentHand() || {};

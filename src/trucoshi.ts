@@ -22,17 +22,18 @@ function Table(teams: Array<ITeam>, size: number): ITable {
 }
 
 
-function Round(canTie: boolean): IRound {
+function Round(): IRound {
     const _round: IRound = {
         highest: -1,
         winner: null,
         cards: [],
         tie: false,
         play({ card, player }: IPlayedCard) {
-            if (canTie && _round.highest > -1 && CARDS[card] === _round.highest) {
+            if (_round.highest > -1 && CARDS[card] === _round.highest) {
                 _round.tie = true
             }
             if (CARDS[card] > _round.highest) {
+                _round.tie = false
                 _round.highest = CARDS[card]
                 _round.winner = player
             }
@@ -52,7 +53,7 @@ function Hand(match: IMatch, idx: number): IHand {
     match.teams.forEach((team) => {
         team.players.forEach(player => {
             player.setHand([deck.shift() as ICard, deck.shift() as ICard, deck.shift() as ICard])
-            // player.setHand(["5c", "4c", "6c"])
+            player.setHand(["5c", "4c", "6c"])
         })
     })
 
@@ -65,19 +66,29 @@ function Hand(match: IMatch, idx: number): IHand {
 
             let i = 0
 
-            const previousRound = _hand.rounds[i]
-
-            _hand.currentRound = Round(currentRoundIdx === 0 || (previousRound && previousRound.tie))
+            _hand.currentRound = Round()
             _hand.rounds.push(_hand.currentRound);
+
+            let previousRound = _hand.rounds[currentRoundIdx - 1]
+            console.log({ previousRound })
+            if (previousRound && previousRound.winner && !previousRound.tie) {
+                const newTurn = match.table.findIndex(player => player.id === previousRound?.winner?.id)
+                console.log("found previous winner", newTurn, previousRound?.winner?.id)
+                if (newTurn !== -1) {
+                    _hand.turn = newTurn
+                }
+            }
 
             while (i < match.table.length) {
                 _hand.currentPlayer = match.table[_hand.turn];
+                
                 
                 if (_hand.turn >= match.table.length - 1) {
                     _hand.turn = 0
                 } else {
                     _hand.turn++
                 }
+                
                 i++
     
                 yield { currentRound: _hand.currentRound, currentPlayer: _hand.currentPlayer };
