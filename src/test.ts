@@ -28,9 +28,9 @@ import { checkHandWinner } from './utils';
                 const currentHand: any = match.getCurrentHand() || {};
                 const name = value.currentPlayer?.id.toUpperCase()
 
-                console.log(`=== Mano ${currentHand.idx + 1} = Ronda ${currentHand.rounds.length} === Turno de ${name} ===\n`)
+                console.log(`=== Mano ${currentHand.idx + 1} === Ronda ${currentHand.rounds.length} === Turno de ${name} ===\n`)
 
-                match.teams.map((team, id) => console.log(`=== Team ${id} -> ${team.points} Puntos ===\n`))
+                match.teams.map((team, id) => console.log(`=== Team ${id} = ${team.points} Puntos ===\n`))
 
                 console.log(currentHand && currentHand.rounds.length ? (currentHand.rounds.map((round: IRound) => round.cards.length ? round.cards.map(c => [c.player.id, c.card]) : '')) : '')
 
