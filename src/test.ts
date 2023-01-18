@@ -1,7 +1,8 @@
 import * as readline from 'readline'
 import { COLORS } from './constants';
 import { Match, PlayedCard, Player, Team } from "./trucoshi";
-import { ICard, IPlayer } from './types';
+import { ICard, IPlayer, IRound } from './types';
+import { checkHandWinner } from './utils';
 
 (async () => {
     const player1 = Player('lukini', 0)
@@ -20,10 +21,20 @@ import { ICard, IPlayer } from './types';
             //  const card = value.currentPlayer.useCard(Math.round(Math.random() * 2))
             //  value.currentRound?.play({ card, player: value.currentPlayer })
             const prom = () => new Promise<void>((resolve) => {
-                const rl = readline.createInterface(process.stdin, process.stdout);
-                console.log(match.getCurrentHand()?.rounds.map(round => round.cards.map(c => [c.player.id, c.card])))
 
-                rl.setPrompt(`Player ${value.currentPlayer?.id}\n\nPick a card to play [1, 2, 3]: ${JSON.stringify(value.currentPlayer?.hand)}\n`);
+                process.stdout.write('\u001B[2J\u001B[0;0f');
+                const rl = readline.createInterface(process.stdin, process.stdout);
+
+                const currentHand: any = match.getCurrentHand() || {};
+                const name = value.currentPlayer?.id.toUpperCase()
+
+                console.log(`=== Mano ${currentHand.idx + 1} = Ronda ${currentHand.rounds.length} === Turno de ${name} ===\n`)
+
+                match.teams.map((team, id) => console.log(`=== Team ${id} -> ${team.points} Puntos ===\n`))
+
+                console.log(currentHand && currentHand.rounds.length ? (currentHand.rounds.map((round: IRound) => round.cards.length ? round.cards.map(c => [c.player.id, c.card]) : '')) : '')
+
+                rl.setPrompt(`\n${name} elije una carta [1, 2, 3]: ${JSON.stringify(value.currentPlayer?.hand)}\n`);
                 rl.prompt();
                 rl.on('line', (idx: string) => {
                     const index = Number(idx) - 1
@@ -40,7 +51,7 @@ import { ICard, IPlayer } from './types';
                     }
                     value.currentRound?.play(PlayedCard({ player: value.currentPlayer as IPlayer, card: playedCard as ICard }))
                     rl.close();
-                    resolve();
+                    resolve()
                 });
             });
 

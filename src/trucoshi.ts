@@ -98,6 +98,7 @@ function Hand(match: IMatch, idx: number): IHand {
     const roundsGenerator = roundsGeneratorSequence()
 
     const _hand: IHand = {
+        idx,
         turn: match.turn,
         rounds: [],
         winner: false,

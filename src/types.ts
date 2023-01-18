@@ -42,6 +42,7 @@ export type IPoints = { 0: number, 1: number }
 export type IGetNextPlayerResult = { currentPlayer?: IPlayer, currentRound?: IRound, points?: IPoints }
 
 export interface IHand {
+    idx: number
     turn: number
     winner: boolean
     points: IPoints
