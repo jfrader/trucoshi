@@ -53,7 +53,7 @@ function Hand(match: IMatch, idx: number): IHand {
     match.teams.forEach((team) => {
         team.players.forEach(player => {
             player.setHand([deck.shift() as ICard, deck.shift() as ICard, deck.shift() as ICard])
-            player.setHand(["5c", "4c", "6c"])
+            // player.setHand(["5c", "4c", "6c"])
         })
     })
 
