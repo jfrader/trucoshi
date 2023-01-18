@@ -1,4 +1,9 @@
-import { IPoints, IRound, ITeam } from "./types";
+import { CARDS } from "./constants";
+import { ICard, IPoints, IRound, ITeam } from "./types";
+
+export function getCardValue(card: ICard) {
+    return CARDS[card] || -1
+}
 
 export function shuffleArray<T = never>(array: Array<T>) {
     let currentIndex = array.length, randomIndex;

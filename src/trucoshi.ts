@@ -1,6 +1,6 @@
 import { CARDS } from "./constants";
 import { ICard, IDeck, IHand, IMatch, IPlayedCard, IPlayer, IPoints, IRound, ITable, ITeam } from "./types";
-import { checkHandWinner, checkMatchWinner, shuffleArray } from "./utils";
+import { checkHandWinner, checkMatchWinner, getCardValue, shuffleArray } from "./utils";
 
 function Deck(): IDeck {
     const _deck: IDeck = {
@@ -47,12 +47,13 @@ function Round(): IRound {
         cards: [],
         tie: false,
         play({ card, player }: IPlayedCard) {
-            if (_round.highest > -1 && CARDS[card] === _round.highest) {
+            const value = getCardValue(card)
+            if (_round.highest > -1 && value === _round.highest) {
                 _round.tie = true
             }
             if (CARDS[card] > _round.highest) {
                 _round.tie = false
-                _round.highest = CARDS[card]
+                _round.highest = value
                 _round.winner = player
             }
             _round.cards.push({ card, player })

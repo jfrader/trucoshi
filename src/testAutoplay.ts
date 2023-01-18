@@ -18,17 +18,18 @@ import { ICard, IPlayer, IRound } from './types';
         const { value } = match.getNextTurn()
         if (value && value.currentHand && value.currentHand.currentPlayer) {
 
-            
             const currentHand: any = value.currentHand;
             const name = value.currentHand?.currentPlayer?.id.toUpperCase()
             console.log(`=== Mano ${currentHand.idx + 1} === Ronda ${currentHand.rounds.length} === Turno de ${name} ===\n`)
             match.teams.map((team, id) => console.log(`=== Team ${id} = ${team.points} Puntos ===\n`))
             console.log(currentHand && currentHand.rounds.length ? (currentHand.rounds.map((round: IRound) => round.cards.length ? round.cards.map(c => [c.player.id, c.card]) : '')) : '')
 
-            console.log(`\n${JSON.stringify(value.currentHand?.currentPlayer?.hand)}\n`)
+            const card = value.currentHand.currentPlayer.hand[Math.round(Math.random() * (value.currentHand.currentPlayer.hand.length - 1))]
+            console.log(`\n${JSON.stringify(value.currentHand?.currentPlayer?.hand)}\nUsing ${card}`)
 
-            const card = value.currentHand.currentPlayer.useCard(value.currentHand.currentPlayer.hand[Math.round(Math.random() * (value.currentHand.currentPlayer.hand.length - 1))])
-            value.currentHand.currentRound?.play({ card: card as ICard, player:  value.currentHand.currentPlayer })
+            const playedCard = value.currentHand.currentPlayer.useCard(card)
+            value.currentHand.currentRound?.play({ card: playedCard as ICard, player:  value.currentHand.currentPlayer })
+            console.log(currentHand && currentHand.rounds.length ? (currentHand.rounds.map((round: IRound) => round.cards.length ? round.cards.map(c => [c.player.id, c.card]) : '')) : '')
         }
 
     }
