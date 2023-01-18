@@ -70,10 +70,8 @@ function Hand(match: IMatch, idx: number): IHand {
             _hand.rounds.push(_hand.currentRound);
 
             let previousRound = _hand.rounds[currentRoundIdx - 1]
-            console.log({ previousRound })
             if (previousRound && previousRound.winner && !previousRound.tie) {
                 const newTurn = match.table.findIndex(player => player.id === previousRound?.winner?.id)
-                console.log("found previous winner", newTurn, previousRound?.winner?.id)
                 if (newTurn !== -1) {
                     _hand.turn = newTurn
                 }
@@ -97,7 +95,6 @@ function Hand(match: IMatch, idx: number): IHand {
             const teamIdx = checkHandWinner(_hand.rounds, dealer as 0 | 1)
 
             if (teamIdx !== null) {
-                console.log(match.teams[teamIdx].players[0].id, " gano la mano ", _hand.rounds.map(round => round.cards.map(c => [c.player.id, c.card])))
                 _hand.points[teamIdx] += truco
                 _hand.winner = true
             }
