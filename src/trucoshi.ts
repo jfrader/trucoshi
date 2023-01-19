@@ -25,20 +25,40 @@ function Deck(): IDeck {
 }
 
 function Table(teams: Array<ITeam>, size: number): ITable {
-    const table: ITable = []
+    const _table: ITable = {
+        players: [],
+        cards: [],
+        forehandIdx: 0,
+        nextTurn() {
+            if (_table.forehandIdx >= (size * 2) - 1) {
+                _table.forehandIdx = 0
+            } else {
+                _table.forehandIdx++
+            }
+            return _table.player()
+        },
+        getPlayerPosition(id: string) {
+            return _table.players.findIndex(p => p.id === id)
+        },
+        player(idx?: number) {
+            if (idx !== undefined) {
+                return _table.players[idx]
+            }
+            return _table.players[_table.forehandIdx]
+        }
+    }
 
     if (teams[0].players.length != size || teams[1].players.length != size) {
         throw new Error("Unexpected team size")
     }
 
     for (let i = 0; i < size; i++) {
-        table.push(teams[0].players[i])
-        table.push(teams[1].players[i])
+        _table.players.push(teams[0].players[i])
+        _table.players.push(teams[1].players[i])
     }
 
-    return table;
+    return _table;
 }
-
 
 function Round(): IRound {
     const _round: IRound = {
@@ -98,7 +118,7 @@ export function Match(teams: Array<ITeam> = [], matchPoint: number = 9): IMatch 
                 _match.setCurrentHand(null)
             }
             handIdx++;
-            _match.incrementTableTurn()
+            _match.table.nextTurn()
         }
         yield _match
     }
@@ -110,11 +130,10 @@ export function Match(teams: Array<ITeam> = [], matchPoint: number = 9): IMatch 
         teams: teams as [ITeam, ITeam],
         hands: [],
         table: Table(teams, size),
-        turn: 0,
         currentHand: null,
         play() {
             _match.getNextTurn()
-            return _match.currentHand?.play()
+            return (_match.currentHand as IHand).play()
         },
         addPoints(points: IPoints) {
             _match.teams[0].addPoints(points[0])
@@ -129,14 +148,6 @@ export function Match(teams: Array<ITeam> = [], matchPoint: number = 9): IMatch 
         },
         setWinner(winner: ITeam) {
             _match.winner = winner
-        },
-        incrementTableTurn() {
-            if (_match.turn >= (size * 2) - 1) {
-                _match.turn = 0
-            } else {
-                _match.turn++;
-            }
-            return _match
         },
         getNextTurn() {
             return handsGenerator.next()
@@ -173,7 +184,7 @@ function HandInstance(hand: IHand) {
             return hand
         }
     }
-
+  
     return _instance
 }
 
@@ -191,7 +202,7 @@ function Hand(match: IMatch, deck: IDeck, idx: number) {
 
     function* roundsGeneratorSequence() {
         let currentRoundIdx = 0;
-        let forehandTeamIdx = match.table[_hand.turn].teamIdx as 0 | 1
+        let forehandTeamIdx = match.table.player(_hand.turn).teamIdx as 0 | 1
 
         while (currentRoundIdx < 3 && !_hand.finished) {
 
@@ -205,16 +216,16 @@ function Hand(match: IMatch, deck: IDeck, idx: number) {
 
             // Put previous round winner as forehand
             if (previousRound && previousRound.winner && !previousRound.tie) {
-                const newTurn = match.table.findIndex(player => player.id === previousRound?.winner?.id)
+                const newTurn = match.table.getPlayerPosition(previousRound.winner.id)
                 if (newTurn !== -1) {
                     _hand.setTurn(newTurn)
                 }
             }
 
-            while (i < match.table.length) {
-                _hand.setCurrentPlayer(match.table[_hand.turn])
+            while (i < match.table.players.length) {
+                _hand.setCurrentPlayer(match.table.player(_hand.turn))
                 
-                if (_hand.turn >= match.table.length - 1) {
+                if (_hand.turn >= match.table.players.length - 1) {
                     _hand.setTurn(0)
                 } else {
                     _hand.setTurn(_hand.turn + 1)
@@ -240,7 +251,7 @@ function Hand(match: IMatch, deck: IDeck, idx: number) {
 
     const _hand: IHand = {
         idx,
-        turn: match.turn,
+        turn: Number(match.table.forehandIdx),
         rounds: [],
         finished: false,
         points: {
@@ -258,7 +269,7 @@ function Hand(match: IMatch, deck: IDeck, idx: number) {
         },
         setTurn(turn: number) {
             _hand.turn = turn
-            return match.table[_hand.turn]
+            return match.table.player(_hand.turn)
         },
         addPoints(team: 0 | 1, points: number) {
             _hand.points[team] = _hand.points[team] + points
@@ -283,7 +294,7 @@ function Hand(match: IMatch, deck: IDeck, idx: number) {
     return _hand
 }
 
-export function Player(id: string, teamIdx: number): IPlayer {
+export function Player(id: string, teamIdx: number) {
     const _player: IPlayer = {
         id,
         teamIdx,
@@ -307,7 +318,7 @@ export function Player(id: string, teamIdx: number): IPlayer {
     return _player;
 }
 
-export function Team(color: string, players: Array<IPlayer>): ITeam {
+export function Team(color: string, players: Array<IPlayer>) {
     const _team = {
         _players: new Map<string, IPlayer>(),
         get players() {

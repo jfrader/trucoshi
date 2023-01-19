@@ -7,9 +7,11 @@ import { ICard, IRound } from './types';
     const player2 = Player('guada', 0)
     const player3 = Player('denoph', 1)
     const player4 = Player('juli', 1)
+    const player5 = Player('fran', 1)
+    const player6 = Player('day', 0)
 
-    const team1 = Team(COLORS[0], [player1, player2])
-    const team2 = Team(COLORS[1], [player3, player4])
+    const team1 = Team(COLORS[0], [player1, player2, player6])
+    const team2 = Team(COLORS[1], [player3, player4, player5])
 
     const match = Match([team1, team2], 9);
 

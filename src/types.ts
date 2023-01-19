@@ -31,21 +31,17 @@ export interface ITeam {
     addPoints(points: number): number
 }
 
-export type IGetNextTurnResult = { currentPlayer?: IPlayer, currentRound?: IRound, winner?: ITeam }
-
 export interface IMatch {
     teams: [ITeam, ITeam]
     hands: Array<IHand>
     winner: ITeam | null
     currentHand: IHand | null
     table: ITable
-    turn: number
     play(): IHandInstance | undefined
     addPoints(points: IPoints): void
     pushHand(hand: IHand): void
     setCurrentHand(hand: IHand | null): IHand | null
     setWinner(winner: ITeam): void
-    incrementTableTurn(): IMatch
     getNextTurn(): IteratorResult<IMatch | null, IMatch | null | void>
 }
 
@@ -94,7 +90,14 @@ export interface IHand {
     getNextPlayer(): IteratorResult<IHand, IHand | void>
 }
 
-export type ITable = Array<IPlayer>
+export interface ITable {
+    forehandIdx: number,
+    cards: Array<Array<IPlayedCard>>,
+    players: Array<IPlayer>,
+    nextTurn(): IPlayer,
+    player(idx?: number): IPlayer,
+    getPlayerPosition(id: string): number
+}
 
 export interface IRound {
     tie: boolean,
