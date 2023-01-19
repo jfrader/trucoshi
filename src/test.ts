@@ -42,7 +42,7 @@ import { ICard, IPlayer, IRound } from './types';
                     const index = Number(idx) - 1
                     let playedCard: ICard | null | undefined = null
                     if (index >= 0 && index < 3) {
-                        playedCard = value.currentHand?.currentPlayer?.useCard(value.currentHand?.currentPlayer?.hand[index])
+                        playedCard = value.currentHand?.currentPlayer?.useCard(index)
                     }
                     if (!playedCard) {
                         rl.close();

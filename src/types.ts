@@ -20,7 +20,7 @@ export interface IPlayer {
     hand: Array<ICard>,
     usedHand: Array<ICard>
     setHand(hand: Array<ICard>): Array<ICard>
-    useCard(card: string): ICard | null
+    useCard(idx: number): ICard | null
 }
 
 export interface ITeam {

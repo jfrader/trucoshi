@@ -23,10 +23,9 @@ import { ICard, IRound } from './types';
             match.teams.map((team, id) => console.log(`=== Team ${id} = ${team.points} Puntos ===\n`))
             console.log(currentHand && currentHand.rounds.length ? (currentHand.rounds.map((round: IRound) => round.cards.length ? round.cards.map(c => [c.player.id, c.card]) : '')) : '')
 
-            const card = value.currentHand.currentPlayer.hand[Math.round(Math.random() * (value.currentHand.currentPlayer.hand.length - 1))]
-            console.log(`\n${JSON.stringify(value.currentHand?.currentPlayer?.hand)}\nUsing ${card}`)
-
-            const playedCard = value.currentHand.currentPlayer.useCard(card)
+            
+            const playedCard = value.currentHand.currentPlayer.useCard(Math.round(Math.random() * (value.currentHand.currentPlayer.hand.length - 1)))
+            console.log(`\n${JSON.stringify(value.currentHand?.currentPlayer?.hand)}\nUsing ${playedCard}`)
             value.currentHand.currentRound?.play({ card: playedCard as ICard, player:  value.currentHand.currentPlayer })
             console.log(currentHand && currentHand.rounds.length ? (currentHand.rounds.map((round: IRound) => round.cards.length ? round.cards.map(c => [c.player.id, c.card]) : '')) : '')
         }

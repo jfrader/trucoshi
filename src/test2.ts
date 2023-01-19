@@ -17,23 +17,18 @@ import { Match, Player, Team } from "./trucoshi";
 
         match.getNextTurn()
 
-        if (!match.currentHand) {
-            break;
-        }
-
         const play = match.play()
 
-        if (!play) {
+        if (!play || !play.player) {
             break;
         }
-
-        console.log(play.rounds?.map(round => round.cards.map(c => [c.player.id, c.card])))
 
         console.log('Va a jugar', play.player?.id, play.player?.hand)
 
         const prom = () => new Promise<void>((resolve) => {
             const rl = readline.createInterface(process.stdin, process.stdout);
-            // process.stdout.write('\u001B[2J\u001B[0;0f');
+            process.stdout.write('\u001B[2J\u001B[0;0f');
+            console.log(play.rounds?.map(round => round.cards.map(c => [c.player.id, c.card])))
             rl.setPrompt(`\n${play.player?.id} elije una carta [1, 2, 3]: ${JSON.stringify(play.player?.hand)}\n`);
             rl.prompt();
             rl.on('line', (idx: string) => {
@@ -46,6 +41,7 @@ import { Match, Player, Team } from "./trucoshi";
                     })();
                 }
                 // console.log(playedCard.cards.map(c => [c.player.id, c.card]))
+                console.log(play.rounds?.map(round => round.cards.map(c => [c.player.id, c.card])))
                 rl.close();
                 resolve()
             });

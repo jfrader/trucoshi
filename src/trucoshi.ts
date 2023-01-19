@@ -51,7 +51,7 @@ function Round(): IRound {
             if (_round.highest > -1 && value === _round.highest) {
                 _round.tie = true
             }
-            if (CARDS[card] > _round.highest) {
+            if (value > _round.highest) {
                 _round.tie = false
                 _round.highest = value
                 _round.winner = player
@@ -157,10 +157,12 @@ function HandInstance(hand: IHand) {
             if (!player || !round) {
                 return null
             }
-            const card = player.hand[idx]
+
+            const card = player.useCard(idx)
             if (card) {
                 return round.play({ player, card })
             }
+
             return null
         },
         say(command: EHandPlayCommand) {
@@ -291,10 +293,9 @@ export function Player(id: string, teamIdx: number): IPlayer {
             _player.usedHand = []
             return hand
         },
-        useCard(card: string) {
-            const search = _player.hand.findIndex(c => c === card)
-            if (search !== -1) {
-                const card = _player.hand.splice(search, 1)[0]
+        useCard(idx: number) {
+            if (_player.hand[idx]) {
+                const card = _player.hand.splice(idx, 1)[0]
                 _player.usedHand.push(card)
                 return card;
             }
