@@ -113,6 +113,7 @@ export function Match(teams: Array<ITeam> = [], matchPoint: number = 9): IMatch 
         turn: 0,
         currentHand: null,
         play() {
+            _match.getNextTurn()
             return _match.currentHand?.play()
         },
         addPoints(points: IPoints) {

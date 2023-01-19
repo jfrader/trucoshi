@@ -15,8 +15,6 @@ import { Match, Player, Team } from "./trucoshi";
 
     while(!match.winner) {
 
-        match.getNextTurn()
-
         const play = match.play()
 
         if (!play || !play.player) {
