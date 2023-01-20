@@ -1,5 +1,5 @@
 import { CARDS } from "./constants";
-import { EHandPlayCommand, ICard, IDeck, IHand, IHandInstance, IMatch, IPlayedCard, IPlayer, IPoints, IRound, ITable, ITeam } from "./types";
+import { EHandPlayCommand, ICard, IDeck, IHand, IPlayInstance, IMatch, IPlayedCard, IPlayer, IPoints, IRound, ITable, ITeam } from "./types";
 import { checkHandWinner, checkMatchWinner, getCardValue, shuffleArray } from "./utils";
 
 function Deck(): IDeck {
@@ -18,7 +18,7 @@ function Deck(): IDeck {
             if (_deck.cards.length !== 40) {
                 throw new Error("This is not good")
             }
-            return _deck.cards
+            return _deck
         }
     }
     return _deck
@@ -30,10 +30,10 @@ function Table(teams: Array<ITeam>, size: number): ITable {
         cards: [],
         forehandIdx: 0,
         nextTurn() {
-            if (_table.forehandIdx >= (size * 2) - 1) {
-                _table.forehandIdx = 0
-            } else {
+            if (_table.forehandIdx < (size * 2) - 1) {
                 _table.forehandIdx++
+            } else {
+                _table.forehandIdx = 0
             }
             return _table.player()
         },
@@ -77,7 +77,7 @@ function Round(): IRound {
                 _round.winner = player
             }
             _round.cards.push({ card, player })
-            return _round;
+            return card;
         }
     }
 
@@ -86,7 +86,7 @@ function Round(): IRound {
 
 export function Match(teams: Array<ITeam> = [], matchPoint: number = 9): IMatch {
 
-    const deck = Deck()
+    const deck = Deck().shuffle()
 
     const size = teams[0].players.length
 
@@ -95,10 +95,10 @@ export function Match(teams: Array<ITeam> = [], matchPoint: number = 9): IMatch 
     }
 
     function* handsGeneratorSequence() {
-        let handIdx = 0;
         while (!_match.winner) {
             deck.shuffle()
-            const hand = _match.setCurrentHand(Hand(_match, deck, handIdx)) as IHand
+            const hand = _match.setCurrentHand(Hand(_match, deck, _match.hands.length + 1)) as IHand
+            _match.pushHand(hand)
             while(!hand.finished) {
                 const { value } = hand.getNextPlayer()
                 if (value && value.finished) {
@@ -117,7 +117,6 @@ export function Match(teams: Array<ITeam> = [], matchPoint: number = 9): IMatch 
                 _match.setWinner(hasWinner)
                 _match.setCurrentHand(null)
             }
-            handIdx++;
             _match.table.nextTurn()
         }
         yield _match
@@ -133,7 +132,10 @@ export function Match(teams: Array<ITeam> = [], matchPoint: number = 9): IMatch 
         currentHand: null,
         play() {
             _match.getNextTurn()
-            return (_match.currentHand as IHand).play()
+            if (!_match.currentHand) {
+                return;
+            }
+            return _match.currentHand.play()
         },
         addPoints(points: IPoints) {
             _match.teams[0].addPoints(points[0])
@@ -157,9 +159,11 @@ export function Match(teams: Array<ITeam> = [], matchPoint: number = 9): IMatch 
     return _match;
 }
 
-function HandInstance(hand: IHand) {
+function PlayInstance(hand: IHand) {
 
-    const _instance: IHandInstance = {
+    const _instance: IPlayInstance = {
+        handIdx: hand.idx,
+        roundIdx: hand.rounds.length,
         player: hand.currentPlayer,
         commands: [],
         rounds: hand.rounds,
@@ -184,7 +188,7 @@ function HandInstance(hand: IHand) {
             return hand
         }
     }
-  
+
     return _instance
 }
 
@@ -261,7 +265,7 @@ function Hand(match: IMatch, deck: IDeck, idx: number) {
         currentRound: null,
         currentPlayer: null,
         play() {
-            return HandInstance(_hand)
+            return PlayInstance(_hand)
         },
         pushRound(round: IRound) {
             _hand.rounds.push(round)

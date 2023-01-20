@@ -1,7 +1,7 @@
 import * as readline from 'readline'
-import { COLORS } from './constants';
-import { Match, Player, Team } from "./trucoshi";
-import { ICard, IPlayer, IRound } from './types';
+import { COLORS } from '../lib/constants';
+import { Match, Player, Team } from "../lib/trucoshi";
+import { ICard, IPlayer, IRound } from '../lib/types';
 
 (async () => {
     const player1 = Player('lukini', 0)

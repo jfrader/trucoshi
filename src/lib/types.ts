@@ -6,7 +6,7 @@ export interface IDeck {
     cards: Array<ICard>
     usedCards: Array<ICard>
     takeCard(): ICard
-    shuffle(): Array<ICard>
+    shuffle(): IDeck
 }
 
 export interface IPlayedCard {
@@ -37,7 +37,7 @@ export interface IMatch {
     winner: ITeam | null
     currentHand: IHand | null
     table: ITable
-    play(): IHandInstance | undefined
+    play(): IPlayInstance | undefined
     addPoints(points: IPoints): void
     pushHand(hand: IHand): void
     setCurrentHand(hand: IHand | null): IHand | null
@@ -64,11 +64,13 @@ export enum EHandPlayCommand {
     CONTRAFLOR,
 }
 
-export interface IHandInstance {
+export interface IPlayInstance {
+    handIdx: number
+    roundIdx: number
     player: IPlayer | null
     commands: Array<EHandPlayCommand> | null
     rounds: Array<IRound> | null
-    use(idx: number): IRound | undefined | null
+    use(idx: number): ICard | null
     say(command: EHandPlayCommand): IHand | null
 }
 
@@ -80,7 +82,7 @@ export interface IHand {
     rounds: Array<IRound>
     currentPlayer: IPlayer | null
     currentRound: IRound | null
-    play(): IHandInstance
+    play(): IPlayInstance
     pushRound(round: IRound): IRound
     setTurn(turn: number): IPlayer
     addPoints(team: 0 | 1, points: number): void
@@ -104,5 +106,5 @@ export interface IRound {
     winner: IPlayer | null
     highest: number
     cards: Array<IPlayedCard>
-    play(playedCard: IPlayedCard): IRound
+    play(playedCard: IPlayedCard): ICard
 }
