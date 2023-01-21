@@ -5,7 +5,7 @@ Pretends to be an Argentinian TRUCO game socket server and also include a defaul
 
 
 ### Spanish
-Pretende ser un juego de Truco Argentino, que incluye un server basado en sockets del juego y un cliente default hecho en React
+Pretende ser un juego de Truco Argentino, que incluye un server basado en sockets y un cliente default hecho en React
 
 
 # License 
