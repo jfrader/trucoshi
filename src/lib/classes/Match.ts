@@ -1,4 +1,4 @@
-import { HandPoints, IHand, IMatch, ITeam } from "../types"
+import { IHand, IMatch, ITeam } from "../types"
 import { Deck } from "./Deck"
 import { Hand } from "./Hand"
 import { Table } from "./Table"
@@ -17,9 +17,9 @@ export function Match(teams: Array<ITeam> = [], matchPoint: number = 9): IMatch 
       deck.shuffle()
       const hand = match.setCurrentHand(Hand(match, deck, match.hands.length + 1)) as IHand
       match.pushHand(hand)
-      while (!hand.finished) {
+      while (!hand.finished()) {
         const { value } = hand.getNextPlayer()
-        if (value && value.finished) {
+        if (value && value.finished()) {
           continue
         }
         match.setCurrentHand(value as IHand)
@@ -52,23 +52,23 @@ export function Match(teams: Array<ITeam> = [], matchPoint: number = 9): IMatch 
     play() {
       match.getNextTurn()
       if (!match.currentHand) {
-        return
+        return null
       }
       return match.currentHand.play()
     },
-    addPoints(points: HandPoints) {
+    addPoints(points) {
       match.teams[0].addPoints(matchPoint, points[0])
       match.teams[1].addPoints(matchPoint, points[1])
       return match.teams
     },
-    pushHand(hand: IHand) {
+    pushHand(hand) {
       match.hands.push(hand)
     },
-    setCurrentHand(hand: IHand) {
+    setCurrentHand(hand) {
       match.currentHand = hand
       return match.currentHand
     },
-    setWinner(winner: ITeam) {
+    setWinner(winner) {
       match.winner = winner
     },
     getNextTurn() {

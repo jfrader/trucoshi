@@ -1,11 +1,11 @@
 import * as readline from "readline"
 import { Trucoshi } from "../lib"
-import { ICard, IPlayer, IRound } from "../lib/types"
+import { EHandState, ICard, IPlayer, IRound } from "../lib/types"
 ;(async () => {
   const match = Trucoshi(["lukini", "guada"], ["denoph", "juli"], 9)
 
   while (!match.winner) {
-    if (match.currentHand?.finished) {
+    if (match.currentHand?.state === EHandState.FINISHED) {
       console.log(
         match.currentHand && match.currentHand.rounds.length
           ? match.currentHand.rounds.map((round: IRound) =>
@@ -65,7 +65,7 @@ import { ICard, IPlayer, IRound } from "../lib/types"
                 resolve()
               })()
             }
-            value.currentHand?.currentRound?.play({
+            value.currentHand?.currentRound?.use({
               player: value.currentHand?.currentPlayer as IPlayer,
               card: playedCard as ICard,
             })

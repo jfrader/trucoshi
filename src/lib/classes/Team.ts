@@ -11,7 +11,7 @@ export function Team(players: Array<IPlayer>) {
       malas: 0,
       winner: false,
     },
-    addPoints(matchPoint: number, points: number) {
+    addPoints(matchPoint, points) {
       const malas = team.points.malas + points
       const diff = malas - matchPoint
       if (diff > 0) {

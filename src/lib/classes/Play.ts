@@ -1,7 +1,9 @@
-import { ECommand, EEnvidoCommand, IHand, IPlayInstance } from "../types"
+import { EEnvidoCommand, ESayCommand, IHand, IPlayInstance } from "../types"
 
 export function PlayInstance(hand: IHand) {
+
   const instance: IPlayInstance = {
+    state: hand.state,
     truco: hand.truco,
     envido: hand.envido,
     handIdx: hand.idx,
@@ -9,7 +11,7 @@ export function PlayInstance(hand: IHand) {
     player: hand.currentPlayer,
     commands: [],
     rounds: hand.rounds,
-    use(idx: number) {
+    use(idx) {
       const player = hand.currentPlayer
       const round = hand.currentRound
       if (!player || !round) {
@@ -18,24 +20,27 @@ export function PlayInstance(hand: IHand) {
 
       const card = player.useCard(idx)
       if (card) {
-        return round.play({ player, card })
+        return round.use({ player, card })
       }
 
       return null
     },
-    say(command: ECommand) {
-      if (!hand.currentPlayer) {
+    say(command) {
+      if (!hand.currentPlayer || !instance.commands?.includes(command)) {
         return null
       }
-      return hand
+
+      hand.commands[command](hand.currentPlayer)
+
+      return command
     },
   }
+  
+  instance.commands?.push(ESayCommand.MAZO)
+  instance.commands?.push(ESayCommand.TRUCO)
 
   if (hand.rounds.length === 1) {
     instance.commands?.push(EEnvidoCommand.ENVIDO)
-    instance.commands?.push(EEnvidoCommand.ENVIDO_ENVIDO)
-    instance.commands?.push(EEnvidoCommand.REAL_ENVIDO)
-    instance.commands?.push(EEnvidoCommand.FALTA_ENVIDO)
   }
 
   return instance

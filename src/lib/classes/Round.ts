@@ -7,7 +7,7 @@ export function Round(): IRound {
     winner: null,
     cards: [],
     tie: false,
-    play({ card, player }: IPlayedCard) {
+    use({ card, player }) {
       const value = getCardValue(card)
       if (round.highest > -1 && value === round.highest) {
         round.tie = true

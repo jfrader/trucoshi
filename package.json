@@ -6,8 +6,9 @@
   "scripts": {
     "install": "yarn build",
     "dev": "nodemon",
-    "test:autoplay": "yarn build && yarn run ts-node build/test/autoplay",
-    "test:play": "yarn build && yarn run ts-node build/test/play",
+    "test:autoplay": "yarn run ts-node src/test/autoplay",
+    "test:play": "yarn run ts-node src/test/play",
+    "test:legacy": "yarn run ts-node src/test/legacy",
     "build": "yarn run rimraf ./build && yarn run tsc --project ."
   },
   "devDependencies": {

@@ -36,7 +36,7 @@ export interface IMatch {
   winner: ITeam | null
   currentHand: IHand | null
   table: ITable
-  play(): IPlayInstance | undefined
+  play(): IPlayInstance | null
   addPoints(points: HandPoints): [ITeam, ITeam]
   pushHand(hand: IHand): void
   setCurrentHand(hand: IHand | null): IHand | null
@@ -62,17 +62,17 @@ export interface RoundPoints {
 }
 
 export enum ESayCommand {
-  TRUCO,
-  MAZO,
-  FLOR,
-  CONTRAFLOR,
+  TRUCO = "TRUCO",
+  MAZO = "MAZO",
+  FLOR = "FLOR",
+  CONTRAFLOR = "CONTRAFLOR",
 }
 
 export enum EEnvidoCommand {
-  ENVIDO,
-  ENVIDO_ENVIDO,
-  REAL_ENVIDO,
-  FALTA_ENVIDO,
+  ENVIDO = "ENVIDO",
+  ENVIDO_ENVIDO = "ENVIDO_ENVIDO",
+  REAL_ENVIDO = "REAL_ENVIDO",
+  FALTA_ENVIDO = "FALTA_ENVIDO",
 }
 
 export type ECommand = ESayCommand | EEnvidoCommand
@@ -91,32 +91,48 @@ export interface EnvidoState {
 export interface IPlayInstance {
   handIdx: number
   roundIdx: number
+  state: EHandState
   truco: TrucoState
   envido: EnvidoState
   player: IPlayer | null
   commands: Array<ECommand> | null
   rounds: Array<IRound> | null
   use(idx: number): ICard | null
-  say(command: ECommand): IHand | null
+  say(command: ECommand): ECommand | null
+}
+
+export enum EHandState {
+  WAITING_PLAY = "WAITING_PLAY",
+  WAITING_FOR_TRUCO_ANSWER = "WAITING_FOR_TRUCO_ANSWER",
+  WAITING_ENVIDO_ANSWER = "WAITING_ENVIDO_ANSWER",
+  FINISHED = "FINISHED",
+}
+
+export type IHandCommands = {
+  [key in ECommand]: (player: IPlayer) => void
 }
 
 export interface IHand {
   idx: number
+  state: EHandState
   turn: number
-  finished: boolean
   points: HandPoints
   truco: TrucoState
   envido: EnvidoState
   rounds: Array<IRound>
   currentPlayer: IPlayer | null
   currentRound: IRound | null
-  play(): IPlayInstance
+  disabledPlayerIds: Array<string>
+  commands: IHandCommands
+  finished: () => boolean
+  play(): IPlayInstance | null
   pushRound(round: IRound): IRound
   setTurn(turn: number): IPlayer
   addPoints(team: 0 | 1, points: number): void
+  disablePlayer(player: IPlayer): void
   setCurrentRound(round: IRound | null): IRound | null
   setCurrentPlayer(player: IPlayer | null): IPlayer | null
-  setFinished(finshed: boolean): boolean
+  setState(state: EHandState): EHandState
   getNextPlayer(): IteratorResult<IHand, IHand | void>
 }
 
@@ -134,13 +150,13 @@ export interface IRound {
   winner: IPlayer | null
   highest: number
   cards: Array<IPlayedCard>
-  play(playedCard: IPlayedCard): ICard
+  use(playedCard: IPlayedCard): ICard
 }
 
 export type IEnvidoCalculatorResult = {
   accept: number
   decline: number
-  next: Array<EEnvidoCommand>
+  next: Array<ECommand>
 }
 
 export type IEnvidoCalculatorArgs = {

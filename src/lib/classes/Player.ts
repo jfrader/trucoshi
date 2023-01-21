@@ -6,12 +6,12 @@ export function Player(id: string, teamIdx: number) {
     teamIdx,
     hand: [],
     usedHand: [],
-    setHand(hand: Array<ICard>) {
+    setHand(hand) {
       player.hand = hand
       player.usedHand = []
       return hand
     },
-    useCard(idx: number) {
+    useCard(idx) {
       if (player.hand[idx]) {
         const card = player.hand.splice(idx, 1)[0]
         player.usedHand.push(card)

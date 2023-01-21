@@ -13,10 +13,10 @@ export function Table(teams: Array<ITeam>, size: number): ITable {
       }
       return table.player()
     },
-    getPlayerPosition(id: string) {
+    getPlayerPosition(id) {
       return table.players.findIndex((p) => p.id === id)
     },
-    player(idx?: number) {
+    player(idx) {
       if (idx !== undefined) {
         return table.players[idx]
       }
