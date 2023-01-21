@@ -24,7 +24,6 @@ export interface IPlayer {
 }
 
 export interface ITeam {
-  color: string
   _players: Map<string, IPlayer>
   players: Array<IPlayer>
   points: TeamPoints
@@ -51,11 +50,6 @@ export interface TeamPoints {
   winner: boolean
 }
 
-export interface MatchPoints {
-  0: TeamPoints
-  1: TeamPoints
-}
-
 export interface HandPoints {
   0: number
   1: number
@@ -69,23 +63,28 @@ export interface RoundPoints {
 
 export enum ESayCommand {
   TRUCO,
-  ENVIDO,
-  ENVIDO_ENVIDO,
-  REAL_ENVIDO,
-  FALTA_ENVIDO,
   MAZO,
   FLOR,
   CONTRAFLOR,
 }
 
+export enum EEnvidoCommand {
+  ENVIDO,
+  ENVIDO_ENVIDO,
+  REAL_ENVIDO,
+  FALTA_ENVIDO,
+}
+
+export type ECommand = ESayCommand | EEnvidoCommand
+
 export interface TrucoState {
-  value: number
+  state: 1 | 2 | 3 | 4
   teamIdx: 0 | 1 | null
 }
 
 export interface EnvidoState {
-  winValue: number
-  declineValue: number
+  accept: number
+  decline: number
   teamIdx: 0 | 1 | null
 }
 
@@ -95,10 +94,10 @@ export interface IPlayInstance {
   truco: TrucoState
   envido: EnvidoState
   player: IPlayer | null
-  commands: Array<ESayCommand> | null
+  commands: Array<ECommand> | null
   rounds: Array<IRound> | null
   use(idx: number): ICard | null
-  say(command: ESayCommand): IHand | null
+  say(command: ECommand): IHand | null
 }
 
 export interface IHand {
@@ -136,4 +135,19 @@ export interface IRound {
   highest: number
   cards: Array<IPlayedCard>
   play(playedCard: IPlayedCard): ICard
+}
+
+export type IEnvidoCalculatorResult = {
+  accept: number
+  decline: number
+  next: Array<EEnvidoCommand>
+}
+
+export type IEnvidoCalculatorArgs = {
+  teams: [ITeam, ITeam]
+  matchPoint: number
+}
+
+export type IEnvidoCalculator = {
+  [key in EEnvidoCommand]: (args?: IEnvidoCalculatorArgs) => IEnvidoCalculatorResult
 }

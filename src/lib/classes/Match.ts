@@ -1,0 +1,80 @@
+import { HandPoints, IHand, IMatch, ITeam } from "../types"
+import { Deck } from "./Deck"
+import { Hand } from "./Hand"
+import { Table } from "./Table"
+
+export function Match(teams: Array<ITeam> = [], matchPoint: number = 9): IMatch {
+  const deck = Deck().shuffle()
+
+  const size = teams[0].players.length
+
+  if (size !== teams[1].players.length) {
+    throw new Error("Team size mismatch")
+  }
+
+  function* handsGeneratorSequence() {
+    while (!match.winner) {
+      deck.shuffle()
+      const hand = match.setCurrentHand(Hand(match, deck, match.hands.length + 1)) as IHand
+      match.pushHand(hand)
+      while (!hand.finished) {
+        const { value } = hand.getNextPlayer()
+        if (value && value.finished) {
+          continue
+        }
+        match.setCurrentHand(value as IHand)
+        yield match
+      }
+
+      match.setCurrentHand(null)
+
+      const teams = match.addPoints(hand.points)
+      const winner = teams.find((team) => team.points.winner)
+
+      if (winner) {
+        match.setWinner(winner)
+        match.setCurrentHand(null)
+        break
+      }
+      match.table.nextTurn()
+    }
+    yield match
+  }
+
+  const handsGenerator = handsGeneratorSequence()
+
+  const match: IMatch = {
+    winner: null,
+    teams: teams as [ITeam, ITeam],
+    hands: [],
+    table: Table(teams, size),
+    currentHand: null,
+    play() {
+      match.getNextTurn()
+      if (!match.currentHand) {
+        return
+      }
+      return match.currentHand.play()
+    },
+    addPoints(points: HandPoints) {
+      match.teams[0].addPoints(matchPoint, points[0])
+      match.teams[1].addPoints(matchPoint, points[1])
+      return match.teams
+    },
+    pushHand(hand: IHand) {
+      match.hands.push(hand)
+    },
+    setCurrentHand(hand: IHand) {
+      match.currentHand = hand
+      return match.currentHand
+    },
+    setWinner(winner: ITeam) {
+      match.winner = winner
+    },
+    getNextTurn() {
+      return handsGenerator.next()
+    },
+  }
+
+  return match
+}

@@ -1,17 +1,8 @@
 import * as readline from "readline"
-import { COLORS } from "../lib/constants"
-import { Match, Player, Team } from "../lib/trucoshi"
+import { Trucoshi } from "../lib"
 import { ICard, IPlayer, IRound } from "../lib/types"
 ;(async () => {
-  const player1 = Player("lukini", 0)
-  const player2 = Player("guada", 0)
-  const player3 = Player("denoph", 1)
-  const player4 = Player("juli", 1)
-
-  const team1 = Team(COLORS[0], [player1, player2])
-  const team2 = Team(COLORS[1], [player3, player4])
-
-  const match = Match([team1, team2], 9)
+  const match = Trucoshi(["lukini", "guada"], ["denoph", "juli"], 9)
 
   while (!match.winner) {
     if (match.currentHand?.finished) {

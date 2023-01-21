@@ -1,8 +1,8 @@
 {
   "name": "trucoshi",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "main": "build/lib/trucoshi.js",
-  "license": "GPL3",
+  "license": "GPL-3.0",
   "scripts": {
     "install": "yarn build",
     "dev": "nodemon",
