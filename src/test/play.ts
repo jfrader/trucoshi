@@ -1,104 +1,90 @@
 import * as readline from "readline"
-import { Trucoshi } from "../lib"
-import { EHandState, IRound } from "../lib/types"
+import { Trucoshi2 } from "../lib"
+import { EHandState, IPlayInstance, IRound, ITeam } from "../lib/types"
+
+const command = (
+  title: string,
+  onLine: (line: string, close: () => void) => Promise<void>
+): (() => Promise<void>) => {
+  const promise = () =>
+    new Promise<void>((resolve) => {
+      const rl = readline.createInterface(process.stdin, process.stdout)
+      rl.setPrompt(title)
+      rl.prompt()
+      rl.on("line", async (line) => {
+        try {
+          await onLine(line, rl.close)
+          rl.close()
+          resolve()
+        } catch (e) {
+          rl.close()
+          return (async () => {
+            await promise()
+            resolve()
+          })()
+        }
+      })
+    })
+
+  return promise
+}
+
 ;(async () => {
-  const match = Trucoshi(["lukini", "guada"], ["denoph", "juli"], 9)
+  Trucoshi2(["lukini", "guada"], ["denoph", "juli"], 9)
+    .onTurn(async (play: IPlayInstance) => {
+      const name = play.player?.id.toUpperCase()
+      console.log(`=== Mano ${play.handIdx} === Ronda ${play.roundIdx} === Turno de ${name} ===`)
 
-  while (!match.winner) {
-    const play = match.play()
+      play.teams.map((team, id) =>
+        console.log(`=== Team ${id} = ${team.points.malas} malas ${team.points.buenas} buenas`)
+      )
 
-    if (!play || !play.player) {
-      continue
-    }
+      const canPlay = play.state === EHandState.WAITING_PLAY
 
-    const name = play.player.id.toUpperCase()
+      console.log(
+        play.rounds && play.rounds.length
+          ? play.rounds.map((round: IRound) =>
+              round.cards.length ? round.cards.map((c) => [c.player.id, c.card]) : ""
+            )
+          : ""
+      )
 
-    // process.stdout.write("\u001B[2J\u001B[0;0f")
-    // process.stdout.write("\u001B[0;0f")
-
-    console.log(`=== Mano ${play.handIdx} === Ronda ${play.roundIdx} === Turno de ${name} ===`)
-
-    // process.stdout.write("\u001B[2;0f")
-
-    match.teams.map((team, id) =>
-      console.log(`=== Team ${id} = ${team.points.malas} malas ${team.points.buenas} buenas`)
-    )
-
-    // process.stdout.write("\u001B[5;0f")
-
-    const canPlay = play.state === EHandState.WAITING_PLAY
-
-    console.log(
-      play.rounds && play.rounds.length
-        ? play.rounds.map((round: IRound) =>
-            round.cards.length ? round.cards.map((c) => [c.player.id, c.card]) : ""
-          )
-        : ""
-    )
-
-    const sayCommand = () => {
-      return new Promise<void>((resolve) => {
-        const rl = readline.createInterface(process.stdin, process.stdout)
-        rl.setPrompt(
-          `\n${play.player?.id} elije una accion [${canPlay ? "0," : ""}${play.commands?.map(
-            (_c, i) => i + 1
-          )}]: ${
-            canPlay
-              ? JSON.stringify(["CARTA", ...(play.commands || [])])
-              : JSON.stringify(play.commands)
-          }\n`
-        )
-        rl.prompt()
-        rl.on("line", (idx: string) => {
+      const sayCommand = command(
+        `${play.player?.id} elije una accion [${canPlay ? "0," : ""}${play.commands?.map(
+          (_c, i) => i + 1
+        )}]: ${
+          canPlay
+            ? JSON.stringify(["CARTA", ...(play.commands || [])])
+            : JSON.stringify(play.commands)
+        }\n`,
+        async (idx: string, close: () => void) => {
           const selectedCommand = play.commands?.[Number(idx) - 1]
 
           if (selectedCommand) {
             play.say(selectedCommand)
-            rl.close()
-            return (async () => {
-              resolve()
-            })()
+            return Promise.resolve()
           }
 
           if (idx === "0" && canPlay) {
-            rl.close()
-            return (async () => {
-              await playCard()
-              resolve()
-            })()
+            close()
+            return playCommand()
           }
 
-          rl.close()
-          return (async () => {
-            await sayCommand()
-            resolve()
-          })()
-        })
-      })
-    }
+          return Promise.reject()
+        }
+      )
 
-    const playCard = () => {
-      return new Promise<void>((resolve) => {
-        const rl = readline.createInterface(process.stdin, process.stdout)
-        rl.setPrompt(
-          `\n${play.player?.id} elije una carta [${play.player?.hand.map(
-            (_c, i) => i + 1
-          )}]: ${JSON.stringify(play.player?.hand)}\n`
-        )
-        rl.prompt()
-        rl.on("line", (idx: string) => {
+      const playCommand = command(
+        `${play.player?.id} elije una carta [${play.player?.hand.map(
+          (_c, i) => i + 1
+        )}]: ${JSON.stringify(play.player?.hand)}\n`,
+        async (idx: string) => {
           const playedCard = play.use(Number(idx) - 1)
           if (!playedCard) {
-            rl.close()
-            return (async () => {
-              await playCard()
-              resolve()
-            })()
+            return Promise.reject()
           }
           const handString = JSON.stringify(play.player?.hand)
-          // process.stdout.write("\u001B[7;0f")
           console.log(`\n${handString}\nUsing ${playedCard}`)
-          // process.stdout.write("\u001B[10;0f")
           console.log(
             play.rounds && play.rounds.length
               ? play.rounds.map((round: IRound) =>
@@ -106,22 +92,21 @@ import { EHandState, IRound } from "../lib/types"
                 )
               : ""
           )
-          rl.close()
-          resolve()
-        })
-      })
-    }
+          return Promise.resolve()
+        }
+      )
 
-    await sayCommand()
-  }
-
-  // process.stdout.write("\u001B[2J\u001B[2;0f")
-  match.teams.map((t, i) =>
-    console.log(
-      `Equipo ${i}: ${t.players.map((p) => ` ${p.id}`)} === ${t.points.malas} malas ${
-        t.points.buenas
-      } buenas`
-    )
-  )
-  console.log(`\nEquipo Ganador:${match.winner?.players.map((p) => ` ${p.id}`)}`)
+      await sayCommand()
+    })
+    .onWinner(async (winner: ITeam, teams: [ITeam, ITeam]) => {
+      teams.map((t, i) =>
+        console.log(
+          `Equipo ${i}: ${t.players.map((p) => ` ${p.id}`)} === ${t.points.malas} malas ${
+            t.points.buenas
+          } buenas`
+        )
+      )
+      console.log(`\nEquipo Ganador:${winner?.players.map((p) => ` ${p.id}`)}`)
+    })
+    .start()
 })()

@@ -1,9 +1,10 @@
-import { EEnvidoCommand, ESayCommand, IHand, IPlayInstance } from "../types"
+import { EEnvidoCommand, ESayCommand, IHand, IPlayInstance, ITeam } from "../types"
 
-export function PlayInstance(hand: IHand) {
+export function PlayInstance(hand: IHand, teams: [ITeam, ITeam]) {
 
   const instance: IPlayInstance = {
     state: hand.state,
+    teams,
     truco: hand.truco,
     envido: hand.envido,
     handIdx: hand.idx,

@@ -74,12 +74,17 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
   const roundsGenerator = roundsGeneratorSequence()
 
   const commands: IHandCommands = {
-    [ESayCommand.MAZO]: (player: IPlayer) => {
+    [ESayCommand.MAZO]: (player) => {
       hand.disablePlayer(player)
       // hand.addPoints(Number(!player.teamIdx) as 0 | 1, hand.rounds.length === 1 ? 2 : 1)
       // hand.setState(EHandState.FINISHED)
     },
-    [ESayCommand.TRUCO]: () => {},
+    [ESayCommand.TRUCO]: (player) => {
+      const { teamIdx, state } = hand.truco
+      if (teamIdx === null || teamIdx !== player.teamIdx) {
+        hand.setState(EHandState.WAITING_FOR_TRUCO_ANSWER)
+      }
+    },
     [ESayCommand.FLOR]: () => {},
     [ESayCommand.CONTRAFLOR]: () => {},
     [EEnvidoCommand.ENVIDO]: () => {},
@@ -108,7 +113,7 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
     currentPlayer: null,
     commands,
     play() {
-      return PlayInstance(hand)
+      return PlayInstance(hand, match.teams)
     },
     getNextPlayer() {
       return roundsGenerator.next()

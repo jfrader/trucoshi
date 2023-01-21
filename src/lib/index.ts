@@ -3,18 +3,45 @@ import { Player } from "./classes/Player"
 import { Team } from "./classes/Team"
 import { IMatch, IPlayInstance, ITeam } from "./types"
 
-const GameLoop = (match: IMatch) => async (onTurn: (match: IPlayInstance) => Promise<void>, onWinner: (winner: ITeam) => Promise<void>) => {
-  while(!match.winner) {
-    const play = match.play()
+export type IWinnerCallback = (winner: ITeam, teams: [ITeam, ITeam]) => Promise<void>
+export type ITurnCallback = (match: IPlayInstance) => Promise<void>
 
-    if (!play || !play.player) {
-      continue
-    }
+export interface IGameLoop {
+  _onTurn: (match: IPlayInstance) => Promise<void>
+  _onWinner: (winner: ITeam, teams: [ITeam, ITeam]) => Promise<void>
+  onTurn: (callback: ITurnCallback) => IGameLoop
+  onWinner: (callback: IWinnerCallback) => IGameLoop
+  start: () => void
+}
 
-    await onTurn(play)
+const GameLoop = (match: IMatch) => {
+  let gameloop: IGameLoop = {
+    _onTurn: () => Promise.resolve(),
+    _onWinner: () => Promise.resolve(),
+    onTurn: (callback: ITurnCallback) => {
+      gameloop._onTurn = callback
+      return gameloop
+    },
+    onWinner: (callback: IWinnerCallback) => {
+      gameloop._onWinner = callback
+      return gameloop
+    },
+    async start() {
+      while (!match.winner) {
+        const play = match.play()
+
+        if (!play || !play.player) {
+          continue
+        }
+
+        await gameloop._onTurn(play)
+      }
+
+      await gameloop._onWinner(match.winner, match.teams)
+    },
   }
-  
-  await onWinner(match.winner)
+
+  return gameloop
 }
 
 export function Trucoshi(

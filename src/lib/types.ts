@@ -89,6 +89,7 @@ export interface EnvidoState {
 }
 
 export interface IPlayInstance {
+  teams: [ITeam, ITeam]
   handIdx: number
   roundIdx: number
   state: EHandState
