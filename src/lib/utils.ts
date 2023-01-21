@@ -42,7 +42,7 @@ export function checkHandWinner(rounds: Array<IRound>, forehandTeamIdx: 0 | 1): 
     }
 
     const ties = roundsWon[2] || 0
-    
+
     if ((roundsWon[0] > 2 && roundsWon[1] > 2) || (rounds.length > 2 && ties > 0)) {
         return forehandTeamIdx
     }

@@ -99,7 +99,7 @@ export function Match(teams: Array<ITeam> = [], matchPoint: number = 9): IMatch 
             deck.shuffle()
             const hand = _match.setCurrentHand(Hand(_match, deck, _match.hands.length + 1)) as IHand
             _match.pushHand(hand)
-            while(!hand.finished) {
+            while (!hand.finished) {
                 const { value } = hand.getNextPlayer()
                 if (value && value.finished) {
                     continue;
@@ -107,7 +107,7 @@ export function Match(teams: Array<ITeam> = [], matchPoint: number = 9): IMatch 
                 _match.setCurrentHand(value as IHand)
                 yield _match
             }
-            
+
             _match.addPoints(hand.points)
             _match.setCurrentHand(null)
 
@@ -228,18 +228,18 @@ function Hand(match: IMatch, deck: IDeck, idx: number) {
 
             while (i < match.table.players.length) {
                 _hand.setCurrentPlayer(match.table.player(_hand.turn))
-                
+
                 if (_hand.turn >= match.table.players.length - 1) {
                     _hand.setTurn(0)
                 } else {
                     _hand.setTurn(_hand.turn + 1)
                 }
-                
+
                 i++
-    
+
                 yield _hand;
             }
-    
+
             const teamIdx = checkHandWinner(_hand.rounds, forehandTeamIdx)
 
             if (teamIdx !== null) {
