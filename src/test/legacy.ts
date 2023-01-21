@@ -2,7 +2,6 @@ import * as readline from "readline"
 import { COLORS } from "../lib/constants"
 import { Match, Player, Team } from "../lib/trucoshi"
 import { ICard, IPlayer, IRound } from "../lib/types"
-
 ;(async () => {
   const player1 = Player("lukini", 0)
   const player2 = Player("guada", 0)
@@ -19,9 +18,7 @@ import { ICard, IPlayer, IRound } from "../lib/types"
       console.log(
         match.currentHand && match.currentHand.rounds.length
           ? match.currentHand.rounds.map((round: IRound) =>
-              round.cards.length
-                ? round.cards.map((c) => [c.player.id, c.card])
-                : ""
+              round.cards.length ? round.cards.map((c) => [c.player.id, c.card]) : ""
             )
           : ""
       )
@@ -44,16 +41,12 @@ import { ICard, IPlayer, IRound } from "../lib/types"
             } === Turno de ${name} ===\n`
           )
 
-          match.teams.map((team, id) =>
-            console.log(`=== Team ${id} = ${team.points} Puntos ===\n`)
-          )
+          match.teams.map((team, id) => console.log(`=== Team ${id} = ${team.points} Puntos ===\n`))
 
           console.log(
             currentHand && currentHand.rounds.length
               ? currentHand.rounds.map((round: IRound) =>
-                  round.cards.length
-                    ? round.cards.map((c) => [c.player.id, c.card])
-                    : ""
+                  round.cards.length ? round.cards.map((c) => [c.player.id, c.card]) : ""
                 )
               : ""
           )
@@ -84,9 +77,7 @@ import { ICard, IPlayer, IRound } from "../lib/types"
             console.log(
               currentHand && currentHand.rounds.length
                 ? currentHand.rounds.map((round: IRound) =>
-                    round.cards.length
-                      ? round.cards.map((c) => [c.player.id, c.card])
-                      : ""
+                    round.cards.length ? round.cards.map((c) => [c.player.id, c.card]) : ""
                   )
                 : ""
             )

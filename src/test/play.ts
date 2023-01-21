@@ -2,7 +2,6 @@ import * as readline from "readline"
 import { COLORS } from "../lib/constants"
 import { Match, Player, Team } from "../lib/trucoshi"
 import { IRound } from "../lib/types"
-
 ;(async () => {
   const player1 = Player("lukini", 0)
   const player2 = Player("guada", 0)
@@ -26,24 +25,18 @@ import { IRound } from "../lib/types"
     process.stdout.write("\u001B[2J\u001B[0;0f")
     process.stdout.write("\u001B[0;0f")
 
-    console.log(
-      `=== Mano ${play.handIdx} === Ronda ${play.roundIdx} === Turno de ${name} ===`
-    )
+    console.log(`=== Mano ${play.handIdx} === Ronda ${play.roundIdx} === Turno de ${name} ===`)
 
     process.stdout.write("\u001B[2;0f")
 
-    match.teams.map((team, id) =>
-      console.log(`=== Team ${id} = ${team.points} Puntos ===`)
-    )
+    match.teams.map((team, id) => console.log(`=== Team ${id} = ${team.points} Puntos ===`))
 
     process.stdout.write("\u001B[5;0f")
 
     console.log(
       play.rounds && play.rounds.length
         ? play.rounds.map((round: IRound) =>
-            round.cards.length
-              ? round.cards.map((c) => [c.player.id, c.card])
-              : ""
+            round.cards.length ? round.cards.map((c) => [c.player.id, c.card]) : ""
           )
         : ""
     )
@@ -52,9 +45,7 @@ import { IRound } from "../lib/types"
       new Promise<void>((resolve) => {
         const rl = readline.createInterface(process.stdin, process.stdout)
         rl.setPrompt(
-          `\n${play.player?.id} elije una carta [1, 2, 3]: ${JSON.stringify(
-            play.player?.hand
-          )}\n`
+          `\n${play.player?.id} elije una carta [1, 2, 3]: ${JSON.stringify(play.player?.hand)}\n`
         )
         rl.prompt()
         rl.on("line", (idx: string) => {
@@ -66,17 +57,14 @@ import { IRound } from "../lib/types"
               resolve()
             })()
           }
+          const handString = JSON.stringify(play.player?.hand)
           process.stdout.write("\u001B[7;0f")
-          console.log(
-            `\n${JSON.stringify(play.player?.hand)}\nUsing ${playedCard}`
-          )
+          console.log(`\n${handString}\nUsing ${playedCard}`)
           process.stdout.write("\u001B[10;0f")
           console.log(
             play.rounds && play.rounds.length
               ? play.rounds.map((round: IRound) =>
-                  round.cards.length
-                    ? round.cards.map((c) => [c.player.id, c.card])
-                    : ""
+                  round.cards.length ? round.cards.map((c) => [c.player.id, c.card]) : ""
                 )
               : ""
           )
@@ -90,11 +78,7 @@ import { IRound } from "../lib/types"
 
   process.stdout.write("\u001B[2J\u001B[2;0f")
   match.teams.map((t, i) =>
-    console.log(
-      `Equipo ${i}: ${t.players.map((p) => ` ${p.id}`)} === ${t.points} puntos`
-    )
+    console.log(`Equipo ${i}: ${t.players.map((p) => ` ${p.id}`)} === ${t.points} puntos`)
   )
-  console.log(
-    `\nEquipo Ganador:${match.winner?.players.map((p) => ` ${p.id}`)}`
-  )
+  console.log(`\nEquipo Ganador:${match.winner?.players.map((p) => ` ${p.id}`)}`)
 })()
