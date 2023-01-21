@@ -1,5 +1,5 @@
 import * as readline from "readline"
-import { Trucoshi2 } from "../lib"
+import { Trucoshi } from "../lib"
 import { EHandState, IPlayInstance, IRound, ITeam } from "../lib/types"
 
 const command = (
@@ -30,7 +30,7 @@ const command = (
 }
 
 ;(async () => {
-  Trucoshi2(["lukini", "guada"], ["denoph", "juli"], 9)
+  Trucoshi(["lukini", "guada"], ["denoph", "juli"], 9)
     .onTurn(async (play: IPlayInstance) => {
       const name = play.player?.id.toUpperCase()
       console.log(`=== Mano ${play.handIdx} === Ronda ${play.roundIdx} === Turno de ${name} ===`)

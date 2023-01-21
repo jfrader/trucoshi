@@ -53,17 +53,5 @@ export function Trucoshi(
     Team(idsTeam0.map((id) => Player(id, 0))),
     Team(idsTeam1.map((id) => Player(id, 1))),
   ]
-  return Match(teams, matchPoint)
-}
-
-export function Trucoshi2(
-  idsTeam0: Array<string>,
-  idsTeam1: Array<string>,
-  matchPoint: 9 | 12 | 15
-) {
-  const teams = [
-    Team(idsTeam0.map((id) => Player(id, 0))),
-    Team(idsTeam1.map((id) => Player(id, 1))),
-  ]
   return GameLoop(Match(teams, matchPoint))
 }
