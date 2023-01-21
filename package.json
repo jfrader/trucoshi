@@ -1,14 +1,14 @@
 {
   "name": "trucoshi",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "main": "build/lib/trucoshi.js",
   "license": "GPL3",
   "scripts": {
     "install": "yarn build",
     "dev": "nodemon",
-    "test:autoplay": "yarn build && ts-node build/test/autoplay",
-    "test:play": "yarn build && ts-node build/test/play",
-    "build": "rimraf ./build && tsc --project ."
+    "test:autoplay": "yarn build && yarn run ts-node build/test/autoplay",
+    "test:play": "yarn build && yarn run ts-node build/test/play",
+    "build": "yarn run rimraf ./build && yarn run tsc --project ."
   },
   "devDependencies": {
     "@types/node": "^18.11.18",
