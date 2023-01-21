@@ -1,21 +1,21 @@
 # Trucoshi
 
-## English 
+### English 
 Pretends to be an Argentinian Truco game socket server
 
-## Spanish
+### Spanish
 Pretende ser un server basado en sockets del juego de Truco Argentino
 
 # Test
 Right now there's only a local CLI way of playing as there is no socket server implementation and its just the game logic.
 
-## Installation
+### Installation
 `yarn`
 
-## Play
+### Play
 `yarn test:play`
 
-## Autoplay
+### Autoplay
 `yarn test:autoplay`
 
 # Todo    
