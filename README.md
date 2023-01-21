@@ -1,12 +1,18 @@
 # Trucoshi
 
 ### English 
-Pretends to be an Argentinian TRUCO game socket server and also include a default React client to play
-
+Pretends to be an Argentinian Truco game socket server
 
 ### Spanish
-Pretende ser un juego de Truco Argentino, que incluye un server basado en sockets y un cliente default hecho en React
+Pretende ser un server basado en sockets del juego de Truco Argentino
 
+# Todo    
+    [x] Logica de turnos, rondas y battalla de cartas
+    [x] Irse al mazo
+    [] Cantar truco
+    [] Cantar envido
+    [] Cantar flor
+    [] Unit tests
 
 # License 
 
