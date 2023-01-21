@@ -27,8 +27,8 @@ export interface ITeam {
   color: string
   _players: Map<string, IPlayer>
   players: Array<IPlayer>
-  points: number
-  addPoints(points: number): number
+  points: TeamPoints
+  addPoints(matchPoint: number, points: number): TeamPoints
 }
 
 export interface IMatch {
@@ -38,26 +38,36 @@ export interface IMatch {
   currentHand: IHand | null
   table: ITable
   play(): IPlayInstance | undefined
-  addPoints(points: IPoints): void
+  addPoints(points: HandPoints): [ITeam, ITeam]
   pushHand(hand: IHand): void
   setCurrentHand(hand: IHand | null): IHand | null
   setWinner(winner: ITeam): void
   getNextTurn(): IteratorResult<IMatch | null, IMatch | null | void>
 }
 
-export type IPoints = {
-  0: number // team 0
-  1: number // team 1
-  2?: number // number of tied rounds
+export interface TeamPoints {
+  buenas: number
+  malas: number
+  winner: boolean
 }
 
-export type IGetNextPlayerResult = {
-  currentPlayer?: IPlayer
-  currentRound?: IRound
-  points?: IPoints
+export interface MatchPoints {
+  0: TeamPoints
+  1: TeamPoints
 }
 
-export enum EHandPlayCommand {
+export interface HandPoints {
+  0: number
+  1: number
+}
+
+export interface RoundPoints {
+  0: number
+  1: number
+  ties: number
+}
+
+export enum ESayCommand {
   TRUCO,
   ENVIDO,
   ENVIDO_ENVIDO,
@@ -68,21 +78,36 @@ export enum EHandPlayCommand {
   CONTRAFLOR,
 }
 
+export interface TrucoState {
+  value: number
+  teamIdx: 0 | 1 | null
+}
+
+export interface EnvidoState {
+  winValue: number
+  declineValue: number
+  teamIdx: 0 | 1 | null
+}
+
 export interface IPlayInstance {
   handIdx: number
   roundIdx: number
+  truco: TrucoState
+  envido: EnvidoState
   player: IPlayer | null
-  commands: Array<EHandPlayCommand> | null
+  commands: Array<ESayCommand> | null
   rounds: Array<IRound> | null
   use(idx: number): ICard | null
-  say(command: EHandPlayCommand): IHand | null
+  say(command: ESayCommand): IHand | null
 }
 
 export interface IHand {
   idx: number
   turn: number
   finished: boolean
-  points: IPoints
+  points: HandPoints
+  truco: TrucoState
+  envido: EnvidoState
   rounds: Array<IRound>
   currentPlayer: IPlayer | null
   currentRound: IRound | null

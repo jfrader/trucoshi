@@ -1,11 +1,17 @@
 import { CARDS } from "./constants"
-import { ICard, IPoints, IRound, ITeam } from "./types"
+import { ICard, IRound, ITeam, RoundPoints } from "./types"
+
+export function getMaxNumberIndex<T = number>(array: Array<T>) {
+  return array.reduce((accumulator, current, index) => {
+    return current > array[accumulator] ? index : accumulator
+  }, 0)
+}
 
 export function getCardValue(card: ICard) {
   return CARDS[card] || -1
 }
 
-export function shuffleArray<T = never>(array: Array<T>) {
+export function shuffleArray<T = unknown>(array: Array<T>) {
   let currentIndex = array.length,
     randomIndex
 
@@ -19,10 +25,10 @@ export function shuffleArray<T = never>(array: Array<T>) {
 }
 
 export function checkHandWinner(rounds: Array<IRound>, forehandTeamIdx: 0 | 1): null | 0 | 1 {
-  const roundsWon: IPoints = {
+  const roundsWon: RoundPoints = {
     0: 0,
     1: 0,
-    2: 0, // tied rounds
+    ties: 0,
   }
 
   for (let i = 0; i < rounds.length; i++) {
@@ -30,7 +36,7 @@ export function checkHandWinner(rounds: Array<IRound>, forehandTeamIdx: 0 | 1): 
     if (round.tie) {
       roundsWon[0] += 1
       roundsWon[1] += 1
-      roundsWon[2] = (roundsWon[2] || 0) + 1
+      roundsWon.ties = roundsWon.ties + 1
       continue
     }
     if (round.winner?.teamIdx === 0) {
@@ -41,9 +47,7 @@ export function checkHandWinner(rounds: Array<IRound>, forehandTeamIdx: 0 | 1): 
     }
   }
 
-  const ties = roundsWon[2] || 0
-
-  if ((roundsWon[0] > 2 && roundsWon[1] > 2) || (rounds.length > 2 && ties > 0)) {
+  if ((roundsWon[0] > 2 && roundsWon[1] > 2) || (rounds.length > 2 && roundsWon.ties > 0)) {
     return forehandTeamIdx
   }
 
@@ -55,15 +59,5 @@ export function checkHandWinner(rounds: Array<IRound>, forehandTeamIdx: 0 | 1): 
     return 1
   }
 
-  return null
-}
-
-export function checkMatchWinner(teams: Array<ITeam>, matchPoint: number): ITeam | null {
-  if (teams[0].points >= matchPoint) {
-    return teams[0]
-  }
-  if (teams[1].points >= matchPoint) {
-    return teams[1]
-  }
   return null
 }

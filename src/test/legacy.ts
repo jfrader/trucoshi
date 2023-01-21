@@ -41,7 +41,11 @@ import { ICard, IPlayer, IRound } from "../lib/types"
             } === Turno de ${name} ===\n`
           )
 
-          match.teams.map((team, id) => console.log(`=== Team ${id} = ${team.points} Puntos ===\n`))
+          match.teams.map((team, id) =>
+            console.log(
+              `=== Team ${id} = ${team.points.malas} malas ${team.points.buenas} buenas ===\n`
+            )
+          )
 
           console.log(
             currentHand && currentHand.rounds.length
@@ -90,5 +94,7 @@ import { ICard, IPlayer, IRound } from "../lib/types"
     }
   }
 
-  console.log(match.teams.map((t) => [t.points, t.players[0].id]))
+  console.log(
+    match.teams.map((t) => [`${t.points.malas} malas ${t.points.buenas} buenas`, t.players[0].id])
+  )
 })()

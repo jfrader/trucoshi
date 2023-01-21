@@ -1,6 +1,6 @@
 import { CARDS } from "./constants"
 import {
-  EHandPlayCommand,
+  ESayCommand,
   ICard,
   IDeck,
   IHand,
@@ -8,12 +8,12 @@ import {
   IMatch,
   IPlayedCard,
   IPlayer,
-  IPoints,
   IRound,
   ITable,
   ITeam,
+  HandPoints,
 } from "./types"
-import { checkHandWinner, checkMatchWinner, getCardValue, shuffleArray } from "./utils"
+import { checkHandWinner, getCardValue, shuffleArray } from "./utils"
 
 function Deck(): IDeck {
   const deck: IDeck = {
@@ -120,14 +120,15 @@ export function Match(teams: Array<ITeam> = [], matchPoint: number = 9): IMatch 
         yield match
       }
 
-      match.addPoints(hand.points)
       match.setCurrentHand(null)
+      
+      const teams = match.addPoints(hand.points)
+      const winner = teams.find((team) => team.points.winner)
 
-      const hasWinner = checkMatchWinner(teams, matchPoint)
-
-      if (hasWinner !== null) {
-        match.setWinner(hasWinner)
+      if (winner) {
+        match.setWinner(winner)
         match.setCurrentHand(null)
+        break;
       }
       match.table.nextTurn()
     }
@@ -149,9 +150,10 @@ export function Match(teams: Array<ITeam> = [], matchPoint: number = 9): IMatch 
       }
       return match.currentHand.play()
     },
-    addPoints(points: IPoints) {
-      match.teams[0].addPoints(points[0])
-      match.teams[1].addPoints(points[1])
+    addPoints(points: HandPoints) {
+      match.teams[0].addPoints(matchPoint, points[0])
+      match.teams[1].addPoints(matchPoint, points[1])
+      return match.teams
     },
     pushHand(hand: IHand) {
       match.hands.push(hand)
@@ -173,6 +175,8 @@ export function Match(teams: Array<ITeam> = [], matchPoint: number = 9): IMatch 
 
 function PlayInstance(hand: IHand) {
   const instance: IPlayInstance = {
+    truco: hand.truco,
+    envido: hand.envido,
     handIdx: hand.idx,
     roundIdx: hand.rounds.length,
     player: hand.currentPlayer,
@@ -192,7 +196,7 @@ function PlayInstance(hand: IHand) {
 
       return null
     },
-    say(command: EHandPlayCommand) {
+    say(command: ESayCommand) {
       if (!hand.currentPlayer) {
         return null
       }
@@ -200,12 +204,17 @@ function PlayInstance(hand: IHand) {
     },
   }
 
+  if (hand.rounds.length === 1) {
+    instance.commands?.push(ESayCommand.ENVIDO)
+    instance.commands?.push(ESayCommand.ENVIDO_ENVIDO)
+    instance.commands?.push(ESayCommand.REAL_ENVIDO)
+    instance.commands?.push(ESayCommand.FALTA_ENVIDO)
+  }
+
   return instance
 }
 
 function Hand(match: IMatch, deck: IDeck, idx: number) {
-  const truco = 1
-
   match.teams.forEach((team) => {
     team.players.forEach((player) => {
       const playerHand = [deck.takeCard(), deck.takeCard(), deck.takeCard()]
@@ -252,7 +261,7 @@ function Hand(match: IMatch, deck: IDeck, idx: number) {
       const teamIdx = checkHandWinner(hand.rounds, forehandTeamIdx)
 
       if (teamIdx !== null) {
-        hand.addPoints(teamIdx, truco)
+        hand.addPoints(teamIdx, hand.truco.value)
         hand.setFinished(true)
       }
       currentRoundIdx++
@@ -267,10 +276,16 @@ function Hand(match: IMatch, deck: IDeck, idx: number) {
     turn: Number(match.table.forehandIdx),
     rounds: [],
     finished: false,
-    points: {
-      0: 0,
-      1: 0,
+    truco: {
+      value: 1,
+      teamIdx: null,
     },
+    envido: {
+      declineValue: 1,
+      winValue: 2,
+      teamIdx: null,
+    },
+    points: [0, 0],
     currentRound: null,
     currentPlayer: null,
     play() {
@@ -332,15 +347,30 @@ export function Player(id: string, teamIdx: number) {
 }
 
 export function Team(color: string, players: Array<IPlayer>) {
-  const team = {
+  const team: ITeam = {
     _players: new Map<string, IPlayer>(),
     get players() {
       return Array.from(team._players.values())
     },
     color,
-    points: 0,
-    addPoints(points: number) {
-      team.points += points
+    points: {
+      buenas: 0,
+      malas: 0,
+      winner: false,
+    },
+    addPoints(matchPoint: number, points: number) {
+      const malas = team.points.malas + points
+      const diff = malas - matchPoint
+      if (diff > 0) {
+        team.points.malas = matchPoint
+        team.points.buenas += diff
+        if (team.points.buenas >= matchPoint) {
+          team.points.winner = true
+        }
+      } else {
+        team.points.malas = malas
+      }
+      
       return team.points
     },
   }
