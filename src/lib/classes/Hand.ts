@@ -46,7 +46,7 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
         const player = match.table.player(hand.turn)
         hand.setCurrentPlayer(player)
         if (hand.disabledPlayerIds.includes(player.id)) {
-           hand.setCurrentPlayer(null)
+          hand.setCurrentPlayer(null)
         }
 
         if (hand.turn >= match.table.players.length - 1) {
@@ -60,7 +60,7 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
         yield hand
       }
 
-      const teamIdx = checkHandWinner(hand.rounds, forehandTeamIdx)
+      const teamIdx = checkHandWinner(hand.rounds, forehandTeamIdx, hand.disabledPlayerIds, match.teams)
 
       if (teamIdx !== null) {
         hand.addPoints(teamIdx, hand.truco.state)
@@ -76,11 +76,9 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
   const commands: IHandCommands = {
     [ESayCommand.MAZO]: (player) => {
       hand.disablePlayer(player)
-      // hand.addPoints(Number(!player.teamIdx) as 0 | 1, hand.rounds.length === 1 ? 2 : 1)
-      // hand.setState(EHandState.FINISHED)
     },
     [ESayCommand.TRUCO]: (player) => {
-      const { teamIdx, state } = hand.truco
+      const { teamIdx } = hand.truco
       if (teamIdx === null || teamIdx !== player.teamIdx) {
         hand.setState(EHandState.WAITING_FOR_TRUCO_ANSWER)
       }

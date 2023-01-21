@@ -24,7 +24,31 @@ export function shuffleArray<T = unknown>(array: Array<T>) {
   return array as Array<T>
 }
 
-export function checkHandWinner(rounds: Array<IRound>, forehandTeamIdx: 0 | 1): null | 0 | 1 {
+export function checkHandWinner(
+  rounds: Array<IRound>,
+  forehandTeamIdx: 0 | 1,
+  disabledPlayerIds: Array<string>,
+  teams: [ITeam, ITeam]
+): null | 0 | 1 {
+  let winningTeamIdx = null
+
+  // End hand if all players in one team go MAZO
+  if (disabledPlayerIds.length) {
+    const disabledTeams = teams.map((team) => {
+      const forfeited = team.players.filter((player) => disabledPlayerIds.includes(player.id))
+      return forfeited.length === team.players.length
+    })
+    if (disabledTeams[0] && disabledTeams[1]) {
+      return forehandTeamIdx
+    }
+    if (disabledTeams[0]) {
+      return 1
+    }
+    if (disabledTeams[1]) {
+      return 0
+    }
+  }
+
   const roundsWon: RoundPoints = {
     0: 0,
     1: 0,
