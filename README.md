@@ -1,10 +1,22 @@
 # Trucoshi
 
-### English 
+## English 
 Pretends to be an Argentinian Truco game socket server
 
-### Spanish
+## Spanish
 Pretende ser un server basado en sockets del juego de Truco Argentino
+
+# Test
+Right now there's only a local CLI way of playing as there is no socket server implementation and its just the game logic.
+
+## Installation
+`yarn`
+
+## Play
+`yarn test:play`
+
+## Autoplay
+`yarn test:autoplay`
 
 # Todo    
     [x] Logica de turnos, rondas y battalla de cartas
@@ -12,6 +24,7 @@ Pretende ser un server basado en sockets del juego de Truco Argentino
     [] Cantar truco
     [] Cantar envido
     [] Cantar flor
+    [] Socket server
     [] Unit tests
 
 # License 
