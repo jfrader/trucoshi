@@ -1,10 +1,10 @@
 {
   "name": "trucoshi",
   "version": "1.0.0",
-  "main": "index.js",
-  "license": "MIT",
+  "main": "build/lib/trucoshi.js",
+  "license": "GPL3",
   "scripts": {
-    "dev": "yarn run nodemon",
+    "dev": "nodemon",
     "test:autoplay": "yarn build && ts-node build/test/autoplay",
     "test:play": "yarn build && ts-node build/test/play",
     "build": "rimraf ./build && tsc --project ."
