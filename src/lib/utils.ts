@@ -26,8 +26,7 @@ export function shuffleArray<T = unknown>(array: Array<T>) {
 
 export function checkHandWinner(
   rounds: Array<IRound>,
-  forehandTeamIdx: 0 | 1,
-  teams: [ITeam, ITeam]
+  forehandTeamIdx: 0 | 1
 ): null | 0 | 1 {
   const roundsWon: RoundPoints = {
     0: 0,

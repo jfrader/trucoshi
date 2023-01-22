@@ -60,19 +60,24 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
         yield hand
       }
 
-      const teamIdx = checkHandWinner(hand.rounds, forehandTeamIdx, match.teams)
+      let winnerTeamIdx = checkHandWinner(hand.rounds, forehandTeamIdx)
 
-      if (teamIdx !== null) {
-        hand.addPoints(teamIdx, hand.truco.state)
-        hand.setState(EHandState.FINISHED)
+      if (match.teams[0].isTeamDisabled()) {
+        winnerTeamIdx = 1
       }
-
-      // End hand if all players in one team go MAZO
-      const someTeamForfeited = match.teams[0].isTeamDisabled() || match.teams[1].isTeamDisabled()
-      if (someTeamForfeited) {
+      if (match.teams[1].isTeamDisabled()) {
+        winnerTeamIdx = 0
+      }
+      if (match.teams[0].isTeamDisabled() && match.teams[1].isTeamDisabled()) {
         hand.setState(EHandState.FINISHED)
         break
       }
+      
+      if (winnerTeamIdx !== null) {
+        hand.addPoints(winnerTeamIdx, hand.truco.state)
+        hand.setState(EHandState.FINISHED)
+      }
+
       currentRoundIdx++
     }
     yield hand
