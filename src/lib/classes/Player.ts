@@ -1,4 +1,4 @@
-import { ICard, IPlayer } from "../types"
+import { IPlayer } from "../types"
 
 export function Player(id: string, teamIdx: number) {
   const player: IPlayer = {
@@ -6,6 +6,13 @@ export function Player(id: string, teamIdx: number) {
     teamIdx,
     hand: [],
     usedHand: [],
+    disabled: false,
+    enable() {
+      player.disabled = false
+    },
+    disable() {
+      player.disabled = true
+    },
     setHand(hand) {
       player.hand = hand
       player.usedHand = []

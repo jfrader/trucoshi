@@ -6,7 +6,6 @@ import {
   IHand,
   IHandCommands,
   IMatch,
-  IPlayer,
 } from "../types"
 import { checkHandWinner } from "../utils"
 import { PlayInstance } from "./Play"
@@ -17,6 +16,7 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
     team.players.forEach((player) => {
       const playerHand = [deck.takeCard(), deck.takeCard(), deck.takeCard()]
       player.setHand(playerHand)
+      player.enable()
       // player.setHand(["5c", "4c", "6c"])
     })
   })
@@ -45,7 +45,7 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
       while (i < match.table.players.length) {
         const player = match.table.player(hand.turn)
         hand.setCurrentPlayer(player)
-        if (hand.disabledPlayerIds.includes(player.id)) {
+        if (player.disabled) {
           hand.setCurrentPlayer(null)
         }
 
@@ -60,8 +60,16 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
         yield hand
       }
 
-      const teamIdx = checkHandWinner(hand.rounds, forehandTeamIdx, hand.disabledPlayerIds, match.teams)
+      const teamIdx = checkHandWinner(hand.rounds, forehandTeamIdx, match.teams)
 
+      
+      // End hand if all players in one team go MAZO
+      const someTeamForfeited = match.teams[0].isTeamDisabled() || match.teams[1].isTeamDisabled()
+
+      if (someTeamForfeited) {
+        hand.setState(EHandState.FINISHED)
+        break
+      }
       if (teamIdx !== null) {
         hand.addPoints(teamIdx, hand.truco.state)
         hand.setState(EHandState.FINISHED)
@@ -106,7 +114,6 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
       teamIdx: null,
     },
     points: [0, 0],
-    disabledPlayerIds: [],
     currentRound: null,
     currentPlayer: null,
     commands,
@@ -117,7 +124,7 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
       return roundsGenerator.next()
     },
     disablePlayer(player) {
-      hand.disabledPlayerIds.push(player.id)
+      match.teams[player.teamIdx].disable(player)
     },
     addPoints(team, points) {
       hand.points[team] = hand.points[team] + points

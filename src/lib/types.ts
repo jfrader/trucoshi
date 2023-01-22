@@ -19,6 +19,9 @@ export interface IPlayer {
   id: string
   hand: Array<ICard>
   usedHand: Array<ICard>
+  disabled: boolean
+  enable(): void
+  disable(): void
   setHand(hand: Array<ICard>): Array<ICard>
   useCard(idx: number): ICard | null
 }
@@ -27,6 +30,8 @@ export interface ITeam {
   _players: Map<string, IPlayer>
   players: Array<IPlayer>
   points: TeamPoints
+  isTeamDisabled(): boolean
+  disable(player: IPlayer): boolean
   addPoints(matchPoint: number, points: number): TeamPoints
 }
 
@@ -123,7 +128,6 @@ export interface IHand {
   rounds: Array<IRound>
   currentPlayer: IPlayer | null
   currentRound: IRound | null
-  disabledPlayerIds: Array<string>
   commands: IHandCommands
   finished: () => boolean
   play(): IPlayInstance | null

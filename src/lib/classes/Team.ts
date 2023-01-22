@@ -11,6 +11,13 @@ export function Team(players: Array<IPlayer>) {
       malas: 0,
       winner: false,
     },
+    isTeamDisabled() {
+      return team.players.reduce((prev, curr) => prev && curr.disabled, true)
+    },
+    disable(player) {
+      team._players.get(player.id)?.disable()
+      return team.isTeamDisabled()
+    },
     addPoints(matchPoint, points) {
       const malas = team.points.malas + points
       const diff = malas - matchPoint
