@@ -1,4 +1,4 @@
-import { IPlayedCard, IRound } from "../types"
+import { IRound } from "../types"
 import { getCardValue } from "../utils"
 
 export function Round(): IRound {
@@ -9,7 +9,7 @@ export function Round(): IRound {
     tie: false,
     use({ card, player }) {
       const value = getCardValue(card)
-      if (round.highest > -1 && value === round.highest) {
+      if (value === round.highest && player.teamIdx !== round.winner?.teamIdx) {
         round.tie = true
       }
       if (value > round.highest) {

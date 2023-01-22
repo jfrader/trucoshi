@@ -13,7 +13,7 @@ const command = (
       rl.prompt()
       rl.on("line", async (line) => {
         try {
-          await onLine(line, rl.close)
+          await onLine(line, () => rl.close())
           rl.close()
           resolve()
         } catch (e) {
@@ -67,7 +67,8 @@ const command = (
 
           if (idx === "0" && canPlay) {
             close()
-            return playCommand()
+            await playCommand()
+            return Promise.resolve()
           }
 
           return Promise.reject()
