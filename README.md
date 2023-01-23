@@ -25,6 +25,7 @@ Right now there's only a local CLI way of playing as there is no socket server i
     [] Cantar envido
     [] Cantar flor
     [] Socket server
+    [] Bitcoin Lightning integration
     [] Unit tests
 
 # License 
