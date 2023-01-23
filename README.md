@@ -1,10 +1,10 @@
 # Trucoshi
 
 ### English 
-Pretends to be an Argentinian Truco game socket server
+Pretends to be an Argentinian Truco game socket server that allows you to put Satoshis on the table ;)
 
 ### Spanish
-Pretende ser un server basado en sockets del juego de Truco Argentino
+Pretende ser un server basado en sockets del juego de Truco Argentino que te permita poner unos Satoshis en la mesa ;)
 
 # Test
 Right now there's only a local CLI way of playing as there is no socket server implementation and its just the game logic.
