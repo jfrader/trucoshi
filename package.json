@@ -1,6 +1,6 @@
 {
   "name": "trucoshi",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "main": "build/lib/trucoshi.js",
   "license": "GPL-3.0",
   "scripts": {
@@ -15,7 +15,9 @@
     "@types/node": "^18.11.18",
     "nodemon": "^2.0.20"
   },
-
+  "files": [
+    "build"
+  ],
   "dependencies": {
     "rimraf": "^4.1.1",
     "socket.io": "^4.5.4",
