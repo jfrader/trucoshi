@@ -1,10 +1,10 @@
 {
   "name": "trucoshi",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "main": "build/lib/trucoshi.js",
   "license": "GPL-3.0",
   "scripts": {
-    "install": "yarn build",
+    "prepare": "yarn build",
     "dev": "nodemon",
     "test:autoplay": "yarn run ts-node src/test/autoplay",
     "test:play": "yarn run ts-node src/test/play",
@@ -15,6 +15,7 @@
     "@types/node": "^18.11.18",
     "nodemon": "^2.0.20"
   },
+
   "dependencies": {
     "rimraf": "^4.1.1",
     "socket.io": "^4.5.4",
