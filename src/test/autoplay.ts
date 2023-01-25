@@ -1,7 +1,17 @@
 import { Trucoshi } from "../lib"
 import { IRound } from "../lib/types"
 ;(async () => {
-  Trucoshi(["lukini", "guada", "day"], ["denoph", "juli", "fran"], 9)
+  const trucoshi = Trucoshi()
+
+  trucoshi.addPlayer("lukini").setReady(true)
+  trucoshi.addPlayer("denoph").setReady(true)
+  trucoshi.addPlayer("guada").setReady(true)
+  trucoshi.addPlayer("juli").setReady(true)
+  trucoshi.addPlayer("day").setReady(true)
+  trucoshi.addPlayer("fran").setReady(true) 
+
+  trucoshi
+    .startMatch()
     .onTurn(async (play) => {
       if (!play.player) {
         return
@@ -43,5 +53,5 @@ import { IRound } from "../lib/types"
       )
       console.log(`\nEquipo Ganador:${winner.players.map((p) => ` ${p.id}`)}`)
     })
-    .start()
+    .begin()
 })()

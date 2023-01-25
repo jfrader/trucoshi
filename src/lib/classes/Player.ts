@@ -5,13 +5,18 @@ export function Player(id: string, teamIdx: number) {
     id,
     teamIdx,
     hand: [],
+    commands: [],
     usedHand: [],
     disabled: false,
+    ready: false,
     enable() {
       player.disabled = false
     },
     disable() {
       player.disabled = true
+    },
+    setReady(ready) {
+      player.ready = ready
     },
     setHand(hand) {
       player.hand = hand

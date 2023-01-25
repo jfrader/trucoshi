@@ -10,6 +10,7 @@ import {
 import { checkHandWinner } from "../utils"
 import { PlayInstance } from "./Play"
 import { Round } from "./Round"
+import { Truco } from "./Truco"
 
 export function Hand(match: IMatch, deck: IDeck, idx: number) {
   match.teams.forEach((team) => {
@@ -26,9 +27,7 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
     let forehandTeamIdx = match.table.player(hand.turn).teamIdx as 0 | 1
 
     while (currentRoundIdx < 3 && !hand.finished()) {
-      let i = 0
-
-      const round = Round()
+      const round = Round(0)
       hand.setCurrentRound(round)
       hand.pushRound(round)
 
@@ -42,22 +41,29 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
         }
       }
 
-      while (i < match.table.players.length) {
+      while (round.turn < match.table.players.length) {
+
+        while (hand.state === EHandState.WAITING_FOR_TRUCO_ANSWER) {
+          const { value } = hand.truco.getNextPlayer()
+          if (value && value.currentPlayer) {
+            console.log({ value: value.currentPlayer })
+            hand.setCurrentPlayer(value.currentPlayer)
+            yield hand
+          }
+        }
+
         const player = match.table.player(hand.turn)
         hand.setCurrentPlayer(player)
         if (player.disabled) {
           hand.setCurrentPlayer(null)
         }
 
-        if (hand.turn >= match.table.players.length - 1) {
-          hand.setTurn(0)
-        } else {
-          hand.setTurn(hand.turn + 1)
-        }
-
-        i++
-
         yield hand
+      }
+
+      if (match.teams[0].isTeamDisabled() && match.teams[1].isTeamDisabled()) {
+        hand.setState(EHandState.FINISHED)
+        break
       }
 
       let winnerTeamIdx = checkHandWinner(hand.rounds, forehandTeamIdx)
@@ -68,11 +74,7 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
       if (match.teams[1].isTeamDisabled()) {
         winnerTeamIdx = 0
       }
-      if (match.teams[0].isTeamDisabled() && match.teams[1].isTeamDisabled()) {
-        hand.setState(EHandState.FINISHED)
-        break
-      }
-      
+
       if (winnerTeamIdx !== null) {
         hand.addPoints(winnerTeamIdx, hand.truco.state)
         hand.setState(EHandState.FINISHED)
@@ -93,6 +95,19 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
       const { teamIdx } = hand.truco
       if (teamIdx === null || teamIdx !== player.teamIdx) {
         hand.setState(EHandState.WAITING_FOR_TRUCO_ANSWER)
+        hand.truco.sayTruco(player.teamIdx as 0 | 1, match.teams[Number(!player.teamIdx)].players)
+      }
+    },
+    [ESayCommand.QUIERO]: () => {
+      if (hand.state === EHandState.WAITING_FOR_TRUCO_ANSWER) {
+        hand.truco.setAnswer(true)
+        hand.setState(EHandState.WAITING_PLAY)
+      }
+    },
+    [ESayCommand.NO_QUIERO]: (player) => {
+      if (hand.state === EHandState.WAITING_FOR_TRUCO_ANSWER) {
+        hand.truco.setAnswer(false)
+        hand.setState(EHandState.WAITING_PLAY)
       }
     },
     [ESayCommand.FLOR]: () => {},
@@ -108,10 +123,7 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
     turn: Number(match.table.forehandIdx),
     state: EHandState.WAITING_PLAY,
     rounds: [],
-    truco: {
-      state: 1,
-      teamIdx: null,
-    },
+    truco: Truco(),
     envido: {
       accept: 1,
       decline: 2,
@@ -119,10 +131,43 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
     },
     points: [0, 0],
     currentRound: null,
-    currentPlayer: null,
+    _currentPlayer: null,
+    set currentPlayer(player) {
+      hand._currentPlayer = player
+    },
+    get currentPlayer() {
+      if (hand.state === EHandState.WAITING_FOR_TRUCO_ANSWER) {
+        return hand.truco.currentPlayer
+      }
+      return hand._currentPlayer
+    },
     commands,
     play() {
       return PlayInstance(hand, match.teams)
+    },
+    use(idx: number) {
+      const player = hand.currentPlayer
+      const round = hand.currentRound
+      if (!player || !round) {
+        return null
+      }
+
+      const card = player.useCard(idx)
+      if (card) {
+        hand.nextTurn()
+        return round.use({ player, card })
+      }
+
+      return null
+    },
+    nextTurn() {
+      if (hand.turn >= match.table.players.length - 1) {
+        hand.setTurn(0)
+      } else {
+        hand.setTurn(hand.turn + 1)
+      }
+
+      hand.currentRound?.nextTurn()
     },
     getNextPlayer() {
       return roundsGenerator.next()
@@ -146,8 +191,8 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
       return hand.currentRound
     },
     setCurrentPlayer(player) {
-      hand.currentPlayer = player
-      return hand.currentPlayer
+      hand._currentPlayer = player
+      return hand._currentPlayer
     },
     setState(state) {
       hand.state = state

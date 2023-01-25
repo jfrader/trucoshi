@@ -62,6 +62,14 @@ export const COLORS = [
   "#c2185b",
 ]
 
+export const TEAM_SIZE_VALUES = [1, 2, 3]
+
+export enum GAME_ERROR {
+  UNEXPECTED_TEAM_SIZE = 'UNEXPECTED_TEAM_SIZE',
+  TEAM_NOT_READY = 'TEAM_NOT_READY',
+  TEAM_IS_FULL = 'TEAM_IS_FULL',
+}
+
 export const EnvidoCalculator: IEnvidoCalculator = {
   [EEnvidoCommand.ENVIDO]: () => ({
     accept: 2,

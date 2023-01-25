@@ -1,3 +1,4 @@
+import { IGameLoop } from "."
 import { CARDS } from "./constants"
 
 export type ICard = keyof typeof CARDS
@@ -18,10 +19,13 @@ export interface IPlayer {
   teamIdx: number
   id: string
   hand: Array<ICard>
+  commands: Array<ECommand>
   usedHand: Array<ICard>
   disabled: boolean
+  ready: boolean
   enable(): void
   disable(): void
+  setReady(ready: boolean): void
   setHand(hand: Array<ICard>): Array<ICard>
   useCard(idx: number): ICard | null
 }
@@ -67,6 +71,8 @@ export interface RoundPoints {
 }
 
 export enum ESayCommand {
+  QUIERO = "QUIERO",
+  NO_QUIERO = "NO_QUIERO",
   TRUCO = "TRUCO",
   MAZO = "MAZO",
   FLOR = "FLOR",
@@ -82,9 +88,21 @@ export enum EEnvidoCommand {
 
 export type ECommand = ESayCommand | EEnvidoCommand
 
-export interface TrucoState {
+export interface ITruco {
   state: 1 | 2 | 3 | 4
   teamIdx: 0 | 1 | null
+  answer: boolean | null
+  turn: number
+  players: Array<IPlayer>
+  currentPlayer: IPlayer | null
+  generator: Generator<ITruco, void, unknown>
+  sayTruco(teamIdx: 0 | 1, players: Array<IPlayer>): ITruco
+  setPlayers(players: Array<IPlayer>): void
+  setAnswer(answer: boolean | null): ITruco
+  setTurn(turn: number): number
+  setTeam(idx: 0 | 1): 0 | 1
+  setCurrentPlayer(player: IPlayer | null): IPlayer | null
+  getNextPlayer(): IteratorResult<ITruco, ITruco | void>
 }
 
 export interface EnvidoState {
@@ -98,7 +116,7 @@ export interface IPlayInstance {
   handIdx: number
   roundIdx: number
   state: EHandState
-  truco: TrucoState
+  truco: ITruco
   envido: EnvidoState
   player: IPlayer | null
   commands: Array<ECommand> | null
@@ -123,14 +141,18 @@ export interface IHand {
   state: EHandState
   turn: number
   points: HandPoints
-  truco: TrucoState
+  truco: ITruco
   envido: EnvidoState
   rounds: Array<IRound>
-  currentPlayer: IPlayer | null
+  _currentPlayer: IPlayer | null
+  get currentPlayer(): IPlayer | null
+  set currentPlayer(player: IPlayer | null)
   currentRound: IRound | null
   commands: IHandCommands
   finished: () => boolean
   play(): IPlayInstance | null
+  nextTurn(): void
+  use(idx: number): ICard | null
   pushRound(round: IRound): IRound
   setTurn(turn: number): IPlayer
   addPoints(team: 0 | 1, points: number): void
@@ -140,6 +162,24 @@ export interface IHand {
   setState(state: EHandState): EHandState
   getNextPlayer(): IteratorResult<IHand, IHand | void>
 }
+
+export interface IPrivateTrucoshi {
+  lastTeamIdx: 0 | 1
+  _players: Map<string, IPlayer>
+  get players(): Array<IPlayer>
+  teams: Array<ITeam>
+  maxPlayers: number
+  table: ITable | null
+  ready: boolean
+  full: boolean
+  addPlayer(id: string, teamIdx?: 0 | 1): IPlayer
+  removePlayer(id: string): ITrucoshi
+  calculateReady(): boolean
+  calculateFull(): boolean
+  startMatch(matchPoint?: 9 | 12 | 15): IGameLoop
+}
+
+export interface ITrucoshi extends Pick<IPrivateTrucoshi, 'addPlayer' | 'removePlayer' | 'startMatch'> {}
 
 export interface ITable {
   forehandIdx: number
@@ -155,6 +195,8 @@ export interface IRound {
   winner: IPlayer | null
   highest: number
   cards: Array<IPlayedCard>
+  turn: number,
+  nextTurn(): void
   use(playedCard: IPlayedCard): ICard
 }
 

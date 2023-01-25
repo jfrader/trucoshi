@@ -1,9 +1,8 @@
-import { IHand, IMatch, ITeam } from "../types"
+import { IHand, IMatch, ITable, ITeam } from "../types"
 import { Deck } from "./Deck"
 import { Hand } from "./Hand"
-import { Table } from "./Table"
 
-export function Match(teams: Array<ITeam> = [], matchPoint: number = 9): IMatch {
+export function Match(table: ITable, teams: Array<ITeam> = [], matchPoint: number = 9): IMatch {
   const deck = Deck().shuffle()
 
   const size = teams[0].players.length
@@ -47,7 +46,7 @@ export function Match(teams: Array<ITeam> = [], matchPoint: number = 9): IMatch 
     winner: null,
     teams: teams as [ITeam, ITeam],
     hands: [],
-    table: Table(teams, size),
+    table,
     currentHand: null,
     play() {
       match.getNextTurn()

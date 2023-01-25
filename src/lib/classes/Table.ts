@@ -1,12 +1,16 @@
-import { ITable, ITeam } from "../types"
+import { GAME_ERROR, TEAM_SIZE_VALUES } from "../constants"
+import { IPlayer, ITable, ITeam } from "../types"
+import { Match } from "./Match"
+import { Player } from "./Player"
+import { Team } from "./Team"
 
-export function Table(teams: Array<ITeam>, size: number): ITable {
+export function Table(players: Array<IPlayer>, teams: Array<ITeam>): ITable {
   const table: ITable = {
-    players: [],
+    players,
     cards: [],
     forehandIdx: 0,
     nextTurn() {
-      if (table.forehandIdx < size * 2 - 1) {
+      if (table.forehandIdx < table.players.length - 1) {
         table.forehandIdx++
       } else {
         table.forehandIdx = 0
@@ -22,15 +26,6 @@ export function Table(teams: Array<ITeam>, size: number): ITable {
       }
       return table.players[table.forehandIdx]
     },
-  }
-
-  if (teams[0].players.length != size || teams[1].players.length != size) {
-    throw new Error("Unexpected team size")
-  }
-
-  for (let i = 0; i < size; i++) {
-    table.players.push(teams[0].players[i])
-    table.players.push(teams[1].players[i])
   }
 
   return table

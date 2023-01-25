@@ -1,7 +1,6 @@
-import { EEnvidoCommand, ESayCommand, IHand, IPlayInstance, ITeam } from "../types"
+import { EEnvidoCommand, EHandState, ESayCommand, IHand, IPlayInstance, ITeam } from "../types"
 
 export function PlayInstance(hand: IHand, teams: [ITeam, ITeam]) {
-
   const instance: IPlayInstance = {
     state: hand.state,
     teams,
@@ -13,35 +12,28 @@ export function PlayInstance(hand: IHand, teams: [ITeam, ITeam]) {
     commands: [],
     rounds: hand.rounds,
     use(idx) {
-      const player = hand.currentPlayer
-      const round = hand.currentRound
-      if (!player || !round) {
-        return null
-      }
-
-      const card = player.useCard(idx)
-      if (card) {
-        return round.use({ player, card })
-      }
-
-      return null
+      return hand.use(idx)
     },
     say(command) {
-      if (!hand.currentPlayer || !instance.commands?.includes(command)) {
+      if (!hand._currentPlayer || !instance.commands?.includes(command)) {
         return null
       }
 
-      hand.commands[command](hand.currentPlayer)
+      hand.commands[command](hand._currentPlayer)
 
       return command
     },
   }
-  
+
   instance.commands?.push(ESayCommand.MAZO)
   instance.commands?.push(ESayCommand.TRUCO)
 
   if (hand.rounds.length === 1) {
     instance.commands?.push(EEnvidoCommand.ENVIDO)
+  }
+
+  if (hand.state === EHandState.WAITING_FOR_TRUCO_ANSWER) {
+    instance.commands = [ESayCommand.TRUCO, ESayCommand.QUIERO, ESayCommand.NO_QUIERO]
   }
 
   return instance
