@@ -1,10 +1,10 @@
 {
   "name": "trucoshi",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "main": "build/lib/trucoshi.js",
   "license": "GPL-3.0",
   "scripts": {
-    "prepare": "yarn build",
+    "prepublishOnly": "yarn build",
     "dev": "nodemon",
     "test:autoplay": "yarn run ts-node src/test/autoplay",
     "test:play": "yarn run ts-node src/test/play",
