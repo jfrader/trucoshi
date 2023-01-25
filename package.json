@@ -1,6 +1,6 @@
 {
   "name": "trucoshi",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "main": "build/lib/trucoshi.js",
   "license": "GPL-3.0",
   "scripts": {
@@ -9,14 +9,14 @@
     "test:autoplay": "yarn run ts-node src/test/autoplay",
     "test:play": "yarn run ts-node src/test/play",
     "test:legacy": "yarn run ts-node src/test/legacy",
-    "build": "yarn run rimraf ./build && yarn run tsc --project ."
+    "build": "yarn run rimraf ./dist && yarn run tsc --project ."
   },
   "devDependencies": {
     "@types/node": "^18.11.18",
     "nodemon": "^2.0.20"
   },
   "files": [
-    "build"
+    "dist"
   ],
   "dependencies": {
     "rimraf": "^4.1.1",
