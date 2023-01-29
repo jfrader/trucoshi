@@ -1,12 +1,12 @@
 export interface IUser {
   id: string
-  session: string
+  socketId: string
 }
 
-export function User(id: string, session: string) {
+export function User(id: string, socketId: string) {
   const user: IUser = {
     id,
-    session,
+    socketId,
   }
 
   return user

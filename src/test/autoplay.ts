@@ -1,14 +1,14 @@
-import { Trucoshi } from "../lib"
+import { Lobby } from "../lib"
 import { IRound } from "../lib/types"
 ;(async () => {
-  const trucoshi = Trucoshi()
+  const trucoshi = Lobby()
 
-  trucoshi.addPlayer("lukini").setReady(true)
-  trucoshi.addPlayer("denoph").setReady(true)
-  trucoshi.addPlayer("guada").setReady(true)
-  trucoshi.addPlayer("juli").setReady(true)
-  trucoshi.addPlayer("day").setReady(true)
-  trucoshi.addPlayer("fran").setReady(true) 
+  trucoshi.addPlayer("lukini", "lukini").setReady(true)
+  trucoshi.addPlayer("denoph", "denoph").setReady(true)
+  trucoshi.addPlayer("guada", "guada").setReady(true)
+  trucoshi.addPlayer("juli", "juli").setReady(true)
+  trucoshi.addPlayer("day", "day").setReady(true)
+  trucoshi.addPlayer("fran", "fran").setReady(true) 
 
   trucoshi
     .startMatch()

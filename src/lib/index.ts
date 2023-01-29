@@ -3,7 +3,7 @@ import { Player } from "./classes/Player"
 import { Table } from "./classes/Table"
 import { Team } from "./classes/Team"
 import { GAME_ERROR, TEAM_SIZE_VALUES } from "./constants"
-import { EHandState, IMatch, IPlayInstance, IPrivateTrucoshi, ITeam, ITrucoshi } from "./types"
+import { EHandState, IHand, IMatch, IPlayInstance, IPrivateLobby, ITeam, ILobby } from "./types"
 
 export type IWinnerCallback = (winner: ITeam, teams: [ITeam, ITeam]) => Promise<void>
 export type ITurnCallback = (play: IPlayInstance) => Promise<void>
@@ -13,6 +13,8 @@ export interface IGameLoop {
   _onTruco: ITrucoCallback
   _onTurn: ITurnCallback
   _onWinner: IWinnerCallback
+  teams: Array<ITeam>
+  hands: Array<IHand>
   onTurn: (callback: ITurnCallback) => IGameLoop
   onWinner: (callback: IWinnerCallback) => IGameLoop
   onTruco: (callback: ITrucoCallback) => IGameLoop
@@ -24,6 +26,8 @@ const GameLoop = (match: IMatch) => {
     _onTruco: () => Promise.resolve(),
     _onTurn: () => Promise.resolve(),
     _onWinner: () => Promise.resolve(),
+    teams: [],
+    hands: [],
     onTruco: (callback: ITrucoCallback) => {
       gameloop._onTruco = callback
       return gameloop
@@ -37,8 +41,12 @@ const GameLoop = (match: IMatch) => {
       return gameloop
     },
     async begin() {
+      gameloop.teams = match.teams
+
       while (!match.winner) {
         const play = match.play()
+
+        gameloop.hands = match.hands
 
         if (!play || !play.player) {
           continue
@@ -62,8 +70,8 @@ const GameLoop = (match: IMatch) => {
   return gameloop
 }
 
-export function Trucoshi(teamSize?: 1 | 2 | 3) {
-  const trucoshi: IPrivateTrucoshi = {
+export function Lobby(teamSize?: 1 | 2 | 3): ILobby {
+  const trucoshi: IPrivateLobby = {
     lastTeamIdx: 1,
     _players: new Map(),
     get players() {
@@ -74,6 +82,7 @@ export function Trucoshi(teamSize?: 1 | 2 | 3) {
     maxPlayers: teamSize ? teamSize * 2 : 6,
     full: false,
     ready: false,
+    gameLoop: undefined,
     calculateReady() {
       trucoshi.ready = trucoshi.players.reduce((prev, curr) => prev && curr.ready, true)
       return trucoshi.ready
@@ -82,12 +91,13 @@ export function Trucoshi(teamSize?: 1 | 2 | 3) {
       trucoshi.full = trucoshi._players.size >= trucoshi.maxPlayers
       return trucoshi.full
     },
-    addPlayer(id, teamIdx) {
+    addPlayer(id, session, teamIdx) {
       const maxSize = teamSize ? teamSize : 3
       if (trucoshi.full || trucoshi.players.filter((p) => p.teamIdx === teamIdx).length > maxSize) {
         throw new Error(GAME_ERROR.TEAM_IS_FULL)
       }
       const player = Player(id, teamIdx !== undefined ? teamIdx : Number(!trucoshi.lastTeamIdx))
+      player.setSession(session)
       trucoshi.lastTeamIdx = Number(!trucoshi.lastTeamIdx) as 0 | 1
       trucoshi._players.set(id, player)
       trucoshi.calculateFull()
@@ -112,8 +122,10 @@ export function Trucoshi(teamSize?: 1 | 2 | 3) {
         throw new Error(GAME_ERROR.TEAM_NOT_READY)
       }
 
-      trucoshi.teams.push(Team(trucoshi.players.filter((p) => p.teamIdx === 0)))
-      trucoshi.teams.push(Team(trucoshi.players.filter((p) => p.teamIdx === 1)))
+      trucoshi.teams = [
+        Team(trucoshi.players.filter((p) => p.teamIdx === 0)),
+        Team(trucoshi.players.filter((p) => p.teamIdx === 1)),
+      ]
 
       if (
         trucoshi.teams[0].players.length !== teamSize ||
@@ -123,7 +135,8 @@ export function Trucoshi(teamSize?: 1 | 2 | 3) {
       }
 
       trucoshi.table = Table(trucoshi.players, trucoshi.teams)
-      return GameLoop(Match(trucoshi.table, trucoshi.teams, matchPoint))
+      trucoshi.gameLoop = GameLoop(Match(trucoshi.table, trucoshi.teams, matchPoint))
+      return trucoshi.gameLoop
     },
   }
 
@@ -131,5 +144,11 @@ export function Trucoshi(teamSize?: 1 | 2 | 3) {
     addPlayer: trucoshi.addPlayer,
     removePlayer: trucoshi.removePlayer,
     startMatch: trucoshi.startMatch,
+    teams: trucoshi.teams,
+    get players() {
+      return Array.from(trucoshi._players.values())
+    },
+    full: trucoshi.full,
+    ready: trucoshi.ready,
   }
 }

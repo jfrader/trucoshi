@@ -1,5 +1,7 @@
 import { IPlayer, ITeam } from "../types"
 
+export type IPublicTeam = Pick<ITeam, "players" | "points">
+
 export function Team(players: Array<IPlayer>) {
   const team: ITeam = {
     _players: new Map<string, IPlayer>(),

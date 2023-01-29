@@ -1,5 +1,5 @@
 import * as readline from "readline"
-import { Trucoshi } from "../lib"
+import { Lobby } from "../lib"
 import { IPlayInstance, IRound, ITeam } from "../lib/types"
 
 const command = (
@@ -78,12 +78,12 @@ const sayCommand = (play: IPlayInstance, canPlay: boolean) =>
   )
 
 ;(async () => {
-  const trucoshi = Trucoshi()
+  const trucoshi = Lobby()
 
-  trucoshi.addPlayer("lukini", 0).setReady(true)
-  trucoshi.addPlayer("guada", 0).setReady(true)
-  trucoshi.addPlayer("denoph", 1).setReady(true)
-  trucoshi.addPlayer("juli", 1).setReady(true)
+  trucoshi.addPlayer("lukini", "lukini").setReady(true)
+  trucoshi.addPlayer("denoph", "denoph").setReady(true)
+  trucoshi.addPlayer("guada", "guada").setReady(true)
+  trucoshi.addPlayer("juli", "juli").setReady(true)
 
   trucoshi
     .startMatch()

@@ -1,14 +1,23 @@
 import { IPlayer } from "../types"
 
+export type IPublicPlayer = Pick<
+  IPlayer,
+  "id" | "disabled" | "ready" | "hand" | "usedHand" | "teamIdx" | "session"
+>
+
 export function Player(id: string, teamIdx: number) {
   const player: IPlayer = {
     id,
+    session: undefined,
     teamIdx,
     hand: [],
     commands: [],
     usedHand: [],
     disabled: false,
     ready: false,
+    setSession(session: string) {
+      player.session = session
+    },
     enable() {
       player.disabled = false
     },

@@ -1,4 +1,5 @@
 import { IGameLoop } from "."
+import { IPublicPlayer } from "./classes/Player"
 import { CARDS } from "./constants"
 
 export type ICard = keyof typeof CARDS
@@ -11,18 +12,20 @@ export interface IDeck {
 }
 
 export interface IPlayedCard {
-  player: IPlayer
+  player: IPlayer & IPublicPlayer
   card: ICard
 }
 
 export interface IPlayer {
   teamIdx: number
   id: string
+  session?: string
   hand: Array<ICard>
   commands: Array<ECommand>
   usedHand: Array<ICard>
   disabled: boolean
   ready: boolean
+  setSession(session: string): void
   enable(): void
   disable(): void
   setReady(ready: boolean): void
@@ -163,7 +166,8 @@ export interface IHand {
   getNextPlayer(): IteratorResult<IHand, IHand | void>
 }
 
-export interface IPrivateTrucoshi {
+export interface IPrivateLobby {
+  gameLoop?: IGameLoop
   lastTeamIdx: 0 | 1
   _players: Map<string, IPlayer>
   get players(): Array<IPlayer>
@@ -172,14 +176,25 @@ export interface IPrivateTrucoshi {
   table: ITable | null
   ready: boolean
   full: boolean
-  addPlayer(id: string, teamIdx?: 0 | 1): IPlayer
-  removePlayer(id: string): ITrucoshi
+  addPlayer(id: string, session: string, teamIdx?: 0 | 1): IPlayer
+  removePlayer(id: string): ILobby
   calculateReady(): boolean
   calculateFull(): boolean
   startMatch(matchPoint?: 9 | 12 | 15): IGameLoop
 }
 
-export interface ITrucoshi extends Pick<IPrivateTrucoshi, 'addPlayer' | 'removePlayer' | 'startMatch'> {}
+export interface ILobby
+  extends Pick<
+    IPrivateLobby,
+    | "addPlayer"
+    | "removePlayer"
+    | "startMatch"
+    | "ready"
+    | "full"
+    | "teams"
+    | "players"
+    | "gameLoop"
+  > {}
 
 export interface ITable {
   forehandIdx: number
@@ -195,7 +210,7 @@ export interface IRound {
   winner: IPlayer | null
   highest: number
   cards: Array<IPlayedCard>
-  turn: number,
+  turn: number
   nextTurn(): void
   use(playedCard: IPlayedCard): ICard
 }
