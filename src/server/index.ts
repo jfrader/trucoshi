@@ -4,7 +4,7 @@ import { Server } from "socket.io"
 import { IPublicPlayer } from "../lib/classes/Player"
 import { IPlayInstance } from "../lib/types"
 import { EMatchTableState, IMatchTable, MatchTable } from "./classes/MatchTable"
-import { IUser, User } from "./classes/user"
+import { IUser, User } from "./classes/User"
 import {
   EClientEvent,
   EServerEvent,
