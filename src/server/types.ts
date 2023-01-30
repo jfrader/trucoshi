@@ -1,4 +1,5 @@
 import { Socket } from "socket.io"
+import { ECommand } from "../lib/types"
 
 export enum EClientEvent {
   PING = "PING",
@@ -14,6 +15,7 @@ export enum EClientEvent {
 export enum EServerEvent {
   PONG = "PONG",
   UPDATE_MATCH = "UPDATE_MATCH",
+  WAITING_PLAY = "WAITING_PLAY",
 }
 
 export interface TrucoshiSocket extends Socket {
@@ -25,3 +27,6 @@ export enum ETrucoshiMatchState {
   STARTED,
   FINISHED,
 }
+
+export type IWaitingPlayData = { cardIdx: number, command?: undefined } | { cardIdx?: undefined, command: ECommand }
+export type IWaitingPlayCallback = (data: IWaitingPlayData) => void | null

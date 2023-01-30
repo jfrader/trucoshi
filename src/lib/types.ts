@@ -194,6 +194,7 @@ export interface ILobby
     | "teams"
     | "players"
     | "gameLoop"
+    | "table"
   > {}
 
 export interface ITable {

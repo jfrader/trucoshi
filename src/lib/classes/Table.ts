@@ -1,8 +1,4 @@
-import { GAME_ERROR, TEAM_SIZE_VALUES } from "../constants"
 import { IPlayer, ITable, ITeam } from "../types"
-import { Match } from "./Match"
-import { Player } from "./Player"
-import { Team } from "./Team"
 
 export function Table(players: Array<IPlayer>, teams: Array<ITeam>): ITable {
   const table: ITable = {

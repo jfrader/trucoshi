@@ -1,10 +1,17 @@
 import { randomUUID } from "crypto"
 import { createServer } from "http"
-import { Server, Socket } from "socket.io"
-import { GAME_ERROR } from "../lib/constants"
+import { Server } from "socket.io"
+import { IPublicPlayer } from "../lib/classes/Player"
+import { IPlayInstance } from "../lib/types"
 import { EMatchTableState, IMatchTable, MatchTable } from "./classes/MatchTable"
 import { IUser, User } from "./classes/user"
-import { EClientEvent, EServerEvent, TrucoshiSocket } from "./types"
+import {
+  EClientEvent,
+  EServerEvent,
+  IWaitingPlayCallback,
+  IWaitingPlayData,
+  TrucoshiSocket,
+} from "./types"
 
 const PORT = 4001
 
@@ -18,6 +25,7 @@ const io = new Server(httpServer, {
 
 const users = new Map<string, IUser>() // sessionId, user
 const tables = new Map<string, IMatchTable>() // sessionId, table
+const turns = new Map<string, { play: IPlayInstance; resolve(): void }>() // sessionId, play instance
 
 const getUser = (session?: string) => {
   const user = users.get(session as string)
@@ -37,8 +45,6 @@ const getTable = (matchSessionId?: string) => {
 
 io.on("connection", (_socket) => {
   const socket = _socket as TrucoshiSocket
-
-  console.error("New connection")
 
   const getTableSockets = (
     table: IMatchTable,
@@ -78,19 +84,18 @@ io.on("connection", (_socket) => {
    */
   socket.on(EClientEvent.CREATE_MATCH, (callback) => {
     if (socket.session) {
-      const user = getUser(socket.session)
-      const existingTable = tables.get(socket.session)
-      if (existingTable) {
-        return callback({
-          success: false,
-          match: existingTable.getPublicMatch(socket.session),
-        })
-      }
       try {
+        const user = getUser(socket.session)
+        const existingTable = tables.get(socket.session)
+        if (existingTable) {
+          return callback({
+            success: false,
+            match: existingTable.getPublicMatch(socket.session),
+          })
+        }
         const table = MatchTable(socket.session)
         table.lobby.addPlayer(user.id, socket.session)
         tables.set(socket.session, table)
-        console.log("creating match", socket.session, table.state)
         return callback({ success: true, match: table.getPublicMatch(user.id) })
       } catch (e) {
         console.error("ERROR", e)
@@ -100,56 +105,89 @@ io.on("connection", (_socket) => {
     callback({ success: false, error: new Error("Can't create match without an ID") })
   })
 
+  const sendWaitingForPlay = async (table: IMatchTable, session: string, play: IPlayInstance) => {
+    await getTableSockets(table, async (playerSocket) => {
+      playerSocket.emit(EServerEvent.UPDATE_MATCH, table.getPublicMatch(playerSocket.session))
+    })
+
+    await getTableSockets(
+      table,
+      (playerSocket) =>
+        new Promise((resolve) => {
+          if (playerSocket.session === session) {
+            playerSocket.emit(EServerEvent.WAITING_PLAY, table.getPublicMatch(session))
+            playerSocket.once(EClientEvent.PLAY, ({ cardIdx, command }: IWaitingPlayData) => {
+              if (cardIdx !== undefined) {
+                const playedCard = play.use(cardIdx)
+                if (playedCard) {
+                  return resolve()
+                }
+                return console.error("ERROR", new Error("Couldnt play card"))
+              }
+              if (command) {
+                const saidCommand = play.say(command)
+                if (saidCommand) {
+                  return resolve()
+                }
+                return console.error("ERROR", new Error("Couldnt say command"))
+              }
+              return console.error("ERROR", new Error("Play callback didn't have data"))
+            })
+          } else {
+            resolve()
+          }
+        })
+    )
+  }
+
+  const startMatch = async () => {
+    try {
+      const tableId = socket.session
+      const table = getTable(tableId)
+      if (table && !table.lobby.gameLoop) {
+        table.setState(EMatchTableState.STARTED)
+
+        table.lobby
+          .startMatch()
+          .onTurn((play) => {
+            return new Promise(async (resolve) => {
+              table.setCurrentPlayer(play.player as IPublicPlayer)
+              turns.set(tableId as string, { play, resolve })
+
+              try {
+                const session = play.player?.session as string
+                if (!session) {
+                  throw new Error("Unexpected Error")
+                }
+                const user = users.get(session)
+                if (!user) {
+                  throw new Error("Unexpected Error")
+                }
+                await sendWaitingForPlay(table, session, play)
+                resolve()
+              } catch (e) {
+                console.error("ERROR", e)
+              }
+            })
+          })
+          .onTruco(async (play) => {})
+          .onWinner(async () => {})
+          .begin()
+
+        return tables.set(socket.session as string, table)
+      }
+      console.error("ASL:KDJALSk")
+    } catch (e) {
+      console.error("ERROR", e)
+    }
+  }
+
   /**
    * Start Match
    */
-  socket.on(EClientEvent.START_MATCH, (callback) => {
+  socket.on(EClientEvent.START_MATCH, () => {
     if (socket.session && users.has(socket.session)) {
-      try {
-        const table = getTable(socket.session)
-        if (table && !table.lobby.gameLoop) {
-          table.setState(EMatchTableState.STARTED)
-          const game = table.lobby
-            .startMatch()
-            .onTurn(async (play) => {
-              await getTableSockets(table, async (socket) => {
-                socket.emit(EServerEvent.UPDATE_MATCH, table.getPublicMatch(socket.session))
-              })
-
-              const session = play.player?.session as string
-              if (!session) {
-                throw new Error("Unexpected Error")
-              }
-              const user = users.get(session)
-              if (!user) {
-                throw new Error("Unexpected Error")
-              }
-              await getTableSockets(
-                table,
-                (socket) =>
-                  new Promise((resolve) => {
-                    if (socket.session === session) {
-                      socket.emit(EServerEvent.UPDATE_MATCH, table.getPublicMatch(session))
-                      socket.on(EClientEvent.PLAY, () => {
-                        resolve()
-                      })
-                    }
-                  })
-              )
-            })
-            .onTruco(async (play) => {})
-            .onWinner(async () => {})
-            .begin()
-
-          emitMatchUpdate(table)
-          return callback({ success: true, match: table.getPublicMatch(socket.session) })
-        }
-        console.error("ASL:KDJALSk")
-        callback({ success: false, match: table.getPublicMatch(socket.session) })
-      } catch (e) {
-        console.error("ERROR", e)
-        callback({ success: false, error: e })
-      }
+      startMatch()
     }
   })
 
@@ -198,6 +236,33 @@ io.on("connection", (_socket) => {
       }
       users.set(session, updatedUser)
       socket.session = session
+
+      tables.forEach(async (table, id) => {
+        if (table.isSessionPlaying(session)) {
+          socket.join(id)
+
+          if (session === table.currentPlayer?.session) {
+            try {
+              const { play, resolve } = turns.get(id) || {}
+              const session = play?.player?.session as string
+              if (!play || !session) {
+                throw new Error("Unexpected Error")
+              }
+              const user = users.get(session)
+              if (!user) {
+                throw new Error("Unexpected Error")
+              }
+              await sendWaitingForPlay(table, session, play)
+              resolve?.()
+            } catch (e) {
+              console.error("ERROR", e)
+            }
+          }
+
+          socket.emit(EServerEvent.UPDATE_MATCH, table.getPublicMatch(session))
+        }
+      })
+
       return callback({ success: true, session })
     }
 
