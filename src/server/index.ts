@@ -7,12 +7,13 @@ import { EMatchTableState, IMatchTable, MatchTable } from "./classes/MatchTable"
 import { IUser, User } from "./classes/User"
 import { EClientEvent, EServerEvent, IWaitingPlayData, TrucoshiSocket } from "./types"
 
-const PORT = 4001
+const PORT = process.env.NODE_PORT || 4001
+const ORIGIN = process.env.NODE_ORIGIN || "http://localhost:3000"
 
 const httpServer = createServer()
 const io = new Server(httpServer, {
   cors: {
-    origin: "http://localhost:3000",
+    origin: ORIGIN,
     methods: ["GET", "POST"],
   },
 })
