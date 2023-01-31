@@ -12,6 +12,7 @@ export interface IDeck {
 }
 
 export interface IPlayedCard {
+  get key(): string
   player: IPlayer & IPublicPlayer
   card: ICard
 }

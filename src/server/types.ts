@@ -28,5 +28,8 @@ export enum ETrucoshiMatchState {
   FINISHED,
 }
 
-export type IWaitingPlayData = { cardIdx: number, command?: undefined } | { cardIdx?: undefined, command: ECommand }
+export type IWaitingPlayData =
+  | { cardIdx: number; command?: undefined }
+  | { cardIdx?: undefined; command: ECommand }
+
 export type IWaitingPlayCallback = (data: IWaitingPlayData) => void | null

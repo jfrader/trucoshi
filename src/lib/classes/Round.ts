@@ -1,5 +1,6 @@
 import { IRound } from "../types"
 import { getCardValue } from "../utils"
+import { PlayedCard } from "./Deck"
 
 export function Round(turn: number): IRound {
   const round: IRound = {
@@ -21,7 +22,7 @@ export function Round(turn: number): IRound {
         round.highest = value
         round.winner = player
       }
-      round.cards.push({ card, player })
+      round.cards.push(PlayedCard(player, card))
       return card
     },
   }

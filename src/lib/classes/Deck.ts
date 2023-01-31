@@ -1,5 +1,5 @@
 import { CARDS } from "../constants"
-import { ICard, IDeck } from "../types"
+import { ICard, IDeck, IPlayedCard, IPlayer } from "../types"
 import { shuffleArray } from "../utils"
 
 export function Deck(): IDeck {
@@ -22,4 +22,15 @@ export function Deck(): IDeck {
     },
   }
   return deck
+}
+
+export function PlayedCard(player: IPlayer, card: ICard): IPlayedCard {
+  const pc: IPlayedCard = {
+    player,
+    card,
+    get key() {
+      return card + player.session
+    },
+  }
+  return pc
 }

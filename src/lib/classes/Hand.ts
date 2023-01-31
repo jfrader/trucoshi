@@ -8,6 +8,7 @@ import {
   IMatch,
 } from "../types"
 import { checkHandWinner } from "../utils"
+import { PlayedCard } from "./Deck"
 import { PlayInstance } from "./Play"
 import { Round } from "./Round"
 import { Truco } from "./Truco"
@@ -42,11 +43,9 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
       }
 
       while (round.turn < match.table.players.length) {
-
         while (hand.state === EHandState.WAITING_FOR_TRUCO_ANSWER) {
           const { value } = hand.truco.getNextPlayer()
           if (value && value.currentPlayer) {
-            console.log({ value: value.currentPlayer })
             hand.setCurrentPlayer(value.currentPlayer)
             yield hand
           }
@@ -155,7 +154,7 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
       const card = player.useCard(idx)
       if (card) {
         hand.nextTurn()
-        return round.use({ player, card })
+        return round.use(PlayedCard(player, card))
       }
 
       return null

@@ -1,12 +1,12 @@
 export interface IUser {
   id: string
-  socketId: string
+  matchSocketIds: Map<string, Set<string>> // matchId, socketIds[]
 }
 
-export function User(id: string, socketId: string) {
+export function User(id: string) {
   const user: IUser = {
     id,
-    socketId,
+    matchSocketIds: new Map()
   }
 
   return user

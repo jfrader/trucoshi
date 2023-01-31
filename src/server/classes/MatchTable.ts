@@ -4,6 +4,7 @@ import { IPublicTeam } from "../../lib/classes/Team"
 import { ICard, ILobby, IPlayedCard } from "../../lib/types"
 
 export interface IPublicMatch {
+  matchSessionId: string
   teams: Array<IPublicTeam>
   players: Array<IPublicPlayer>
   rounds: IPlayedCard[][]
@@ -51,7 +52,7 @@ export function MatchTable(matchSessionId: string, teamSize?: 1 | 2 | 3) {
       const rounds = lobby.gameLoop?.hands[lastHand]?.rounds.map((round) => round.cards)
 
       return {
-        matchSessionId,
+        matchSessionId: matchTable.matchSessionId,
         state: matchTable.state,
         teams: [],
         players: lobby.players.map((player) =>

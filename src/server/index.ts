@@ -5,13 +5,7 @@ import { IPublicPlayer } from "../lib/classes/Player"
 import { IPlayInstance } from "../lib/types"
 import { EMatchTableState, IMatchTable, MatchTable } from "./classes/MatchTable"
 import { IUser, User } from "./classes/User"
-import {
-  EClientEvent,
-  EServerEvent,
-  IWaitingPlayCallback,
-  IWaitingPlayData,
-  TrucoshiSocket,
-} from "./types"
+import { EClientEvent, EServerEvent, IWaitingPlayData, TrucoshiSocket } from "./types"
 
 const PORT = 4001
 
@@ -46,32 +40,31 @@ const getTable = (matchSessionId?: string) => {
 io.on("connection", (_socket) => {
   const socket = _socket as TrucoshiSocket
 
+  console.log("New socket", socket.id)
+
   const getTableSockets = (
     table: IMatchTable,
-    callback: (socket: TrucoshiSocket) => Promise<void>
+    callback: (playerSocket: TrucoshiSocket) => Promise<void>
   ) => {
     return new Promise<void>(async (resolve) => {
       const sockets = await io.sockets.adapter.fetchSockets({
         rooms: new Set([table.matchSessionId]),
       })
 
-      for (const socket of sockets) {
-        await callback(socket)
+      for (const playerSocket of sockets) {
+        await callback(playerSocket)
       }
 
       resolve()
     })
   }
 
-  const emitMatchUpdate = (table: IMatchTable) => {
-    table.lobby.players.map((player) => {
-      const user = users.get(player.session as string)
-      if (user && user.socketId) {
-        io.to(user.socketId).emit(
-          EServerEvent.UPDATE_MATCH,
-          table.getPublicMatch(player.session as string)
-        )
-      }
+  const emitMatchUpdate = async (table: IMatchTable) => {
+    await getTableSockets(table, async (playerSocket: TrucoshiSocket) => {
+      playerSocket.emit(
+        EServerEvent.UPDATE_MATCH,
+        table.getPublicMatch(playerSocket.session as string)
+      )
     })
   }
 
@@ -95,6 +88,10 @@ io.on("connection", (_socket) => {
         }
         const table = MatchTable(socket.session)
         table.lobby.addPlayer(user.id, socket.session)
+        socket.join(socket.session)
+
+        addSocketToUser(socket.session, socket.id, table)
+
         tables.set(socket.session, table)
         return callback({ success: true, match: table.getPublicMatch(user.id) })
       } catch (e) {
@@ -105,34 +102,37 @@ io.on("connection", (_socket) => {
     callback({ success: false, error: new Error("Can't create match without an ID") })
   })
 
-  const sendWaitingForPlay = async (table: IMatchTable, session: string, play: IPlayInstance) => {
-    await getTableSockets(table, async (playerSocket) => {
-      playerSocket.emit(EServerEvent.UPDATE_MATCH, table.getPublicMatch(playerSocket.session))
-    })
-
+  const sendWaitingForPlay = async (table: IMatchTable, play: IPlayInstance) => {
     await getTableSockets(
       table,
       (playerSocket) =>
         new Promise((resolve) => {
-          if (playerSocket.session === session) {
-            playerSocket.emit(EServerEvent.WAITING_PLAY, table.getPublicMatch(session))
-            playerSocket.once(EClientEvent.PLAY, ({ cardIdx, command }: IWaitingPlayData) => {
-              if (cardIdx !== undefined) {
-                const playedCard = play.use(cardIdx)
-                if (playedCard) {
-                  return resolve()
+          if (playerSocket.session && playerSocket.session === play.player?.session) {
+            playerSocket.emit(
+              EServerEvent.WAITING_PLAY,
+              table.getPublicMatch(playerSocket.session),
+              (data: IWaitingPlayData) => {
+                if (!data) {
+                  return;
                 }
-                return console.error("ERROR", new Error("Couldnt play card"))
-              }
-              if (command) {
-                const saidCommand = play.say(command)
-                if (saidCommand) {
-                  return resolve()
+                const { cardIdx, command } = data
+                if (cardIdx !== undefined) {
+                  const playedCard = play.use(cardIdx)
+                  if (playedCard) {
+                    return resolve()
+                  }
+                  return console.error("ERROR", new Error("Couldnt play card"))
                 }
-                return console.error("ERROR", new Error("Couldnt say command"))
+                if (command) {
+                  const saidCommand = play.say(command)
+                  if (saidCommand) {
+                    return resolve()
+                  }
+                  return console.error("ERROR", new Error("Couldnt say command"))
+                }
+                return console.error("ERROR", new Error("Play callback didn't have data"))
               }
-              return console.error("ERROR", new Error("Play callback didn't have data"))
-            })
+            )
           } else {
             resolve()
           }
@@ -140,9 +140,8 @@ io.on("connection", (_socket) => {
     )
   }
 
-  const startMatch = async () => {
+  const startMatch = async (tableId: string) => {
     try {
-      const tableId = socket.session
       const table = getTable(tableId)
       if (table && !table.lobby.gameLoop) {
         table.setState(EMatchTableState.STARTED)
@@ -152,19 +151,22 @@ io.on("connection", (_socket) => {
           .onTurn((play) => {
             return new Promise(async (resolve) => {
               table.setCurrentPlayer(play.player as IPublicPlayer)
-              turns.set(tableId as string, { play, resolve })
+              turns.set(table.matchSessionId, { play, resolve })
 
               try {
                 const session = play.player?.session as string
-                if (!session) {
+                if (!session || !play) {
                   throw new Error("Unexpected Error")
                 }
                 const user = users.get(session)
                 if (!user) {
                   throw new Error("Unexpected Error")
                 }
-                await sendWaitingForPlay(table, session, play)
-                resolve()
+
+                await emitMatchUpdate(table)
+                await sendWaitingForPlay(table, play)
+
+                return resolve()
               } catch (e) {
                 console.error("ERROR", e)
               }
@@ -187,9 +189,27 @@ io.on("connection", (_socket) => {
    */
   socket.on(EClientEvent.START_MATCH, () => {
     if (socket.session && users.has(socket.session)) {
-      startMatch()
+      startMatch(socket.session)
     }
   })
+
+  const addSocketToUser = (session: string, socketId: string, table: IMatchTable) => {
+    const user = getUser(session)
+
+    console.log("User got new match socket", { socketId, session, matchId: table.matchSessionId })
+
+    const currentMatchSockets = user.matchSocketIds.has(table.matchSessionId)
+      ? (user.matchSocketIds.get(table.matchSessionId) as Set<string>)
+      : new Set<string>()
+
+    users.set(session, {
+      ...user,
+      matchSocketIds: user.matchSocketIds.set(
+        table.matchSessionId,
+        currentMatchSockets.add(socketId)
+      ),
+    })
+  }
 
   /**
    * Join Match
@@ -203,7 +223,11 @@ io.on("connection", (_socket) => {
     const table = tables.get(matchSessionId)
 
     if (table && table.state === EMatchTableState.UNREADY) {
+      socket.join(matchSessionId)
+
       table.lobby.addPlayer(user.id || "satoshi", socket.session)
+
+      addSocketToUser(socket.session, socket.id, table)
 
       emitMatchUpdate(table)
 
@@ -227,50 +251,49 @@ io.on("connection", (_socket) => {
   /**
    * Set Session
    */
-  socket.on(EClientEvent.SET_SESSION, (session, id = "satoshi", callback) => {
-    const user = users.get(session)
-    if (user) {
-      const updatedUser: IUser = {
-        id,
-        socketId: socket.id,
-      }
-      users.set(session, updatedUser)
-      socket.session = session
+  socket.on(
+    EClientEvent.SET_SESSION,
+    (session, id = "satoshi", currentMatchId = null, callback = () => {}) => {
+      const user = users.get(session)
+      if (user) {
+        const updatedUser: IUser = {
+          ...user,
+          id,
+        }
+        users.set(session, updatedUser)
+        socket.session = session
 
-      tables.forEach(async (table, id) => {
-        if (table.isSessionPlaying(session)) {
-          socket.join(id)
+        const currentTable = currentMatchId ? tables.get(currentMatchId) : null
 
-          if (session === table.currentPlayer?.session) {
+        if (currentTable && currentTable.isSessionPlaying(session)) {
+          addSocketToUser(session, socket.id, currentTable)
+
+          socket.join(currentTable.matchSessionId)
+
+          if (session === currentTable.currentPlayer?.session) {
             try {
-              const { play, resolve } = turns.get(id) || {}
-              const session = play?.player?.session as string
-              if (!play || !session) {
+              const { play, resolve } = turns.get(currentTable.matchSessionId) || {}
+              if (!play) {
                 throw new Error("Unexpected Error")
               }
-              const user = users.get(session)
-              if (!user) {
-                throw new Error("Unexpected Error")
-              }
-              await sendWaitingForPlay(table, session, play)
-              resolve?.()
+              sendWaitingForPlay(currentTable, play).then(resolve)
             } catch (e) {
               console.error("ERROR", e)
             }
+          } else {
+            socket.emit(EServerEvent.UPDATE_MATCH, currentTable.getPublicMatch(session))
           }
-
-          socket.emit(EServerEvent.UPDATE_MATCH, table.getPublicMatch(session))
         }
-      })
 
-      return callback({ success: true, session })
+        return callback({ success: true, session })
+      }
+
+      const newSession = randomUUID()
+      socket.session = newSession
+      users.set(newSession, User(id))
+      callback({ success: true, session: newSession })
     }
-
-    const newSession = randomUUID()
-    socket.session = newSession
-    users.set(newSession, User(id, socket.id))
-    callback({ success: true, session: newSession })
-  })
+  )
 
   /**
    * Set Player Ready
@@ -281,9 +304,6 @@ io.on("connection", (_socket) => {
       const player = table.lobby.players.find((player) => player.session === socket.session)
       if (player) {
         player.setReady(ready)
-        if (ready) {
-          socket.join(matchSessionId)
-        }
         emitMatchUpdate(table)
       }
     } catch (e) {
