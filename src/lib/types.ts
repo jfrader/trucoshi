@@ -170,13 +170,14 @@ export interface IHand {
 export interface IPrivateLobby {
   gameLoop?: IGameLoop
   lastTeamIdx: 0 | 1
-  _players: Map<string, IPlayer>
+  _players: Array<IPlayer | { id?: undefined, session?: undefined }>
   get players(): Array<IPlayer>
   teams: Array<ITeam>
   maxPlayers: number
   table: ITable | null
-  ready: boolean
   full: boolean
+  ready: boolean
+  started: boolean
   addPlayer(id: string, session: string, teamIdx?: 0 | 1): IPlayer
   removePlayer(id: string): ILobby
   calculateReady(): boolean
@@ -192,10 +193,12 @@ export interface ILobby
     | "startMatch"
     | "ready"
     | "full"
+    | "started"
     | "teams"
     | "players"
     | "gameLoop"
     | "table"
+    | "calculateReady"
   > {}
 
 export interface ITable {

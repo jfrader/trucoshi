@@ -1,13 +1,16 @@
 import { Lobby } from "../../lib"
 import { IPublicPlayer } from "../../lib/classes/Player"
 import { IPublicTeam } from "../../lib/classes/Team"
-import { ICard, ILobby, IPlayedCard } from "../../lib/types"
+import { ICard, ILobby, IPlayedCard, IPlayer, ITeam } from "../../lib/types"
 
 export interface IPublicMatch {
+  winner: ITeam | null
   matchSessionId: string
   teams: Array<IPublicTeam>
   players: Array<IPublicPlayer>
+  me: IPublicPlayer
   rounds: IPlayedCard[][]
+  prevRounds: IPlayedCard[][] | null
   state: EMatchTableState
 }
 
@@ -15,8 +18,7 @@ export interface IMatchTable {
   matchSessionId: string
   currentPlayer: IPublicPlayer | null
   lobby: ILobby
-  state: EMatchTableState
-  setState(state: EMatchTableState): void
+  state(): EMatchTableState
   setCurrentPlayer(player: IPublicPlayer): void
   isSessionPlaying(session: string): IPublicPlayer | null
   getPublicMatch(session?: string): IPublicMatch
@@ -24,6 +26,7 @@ export interface IMatchTable {
 
 export enum EMatchTableState {
   UNREADY,
+  READY,
   STARTED,
   FINISHED,
 }
@@ -33,34 +36,71 @@ export function MatchTable(matchSessionId: string, teamSize?: 1 | 2 | 3) {
     matchSessionId,
     currentPlayer: null,
     lobby: Lobby(teamSize),
-    state: EMatchTableState.UNREADY,
-    setState(state) {
-      matchTable.state = state
+    state() {
+      matchTable.lobby.calculateReady()
+      if (matchTable.lobby.gameLoop?.winner) {
+        return EMatchTableState.FINISHED
+      }
+      if (matchTable.lobby.started) {
+        return EMatchTableState.STARTED
+      }
+      if (matchTable.lobby.ready) {
+        return EMatchTableState.READY
+      }
+      return EMatchTableState.UNREADY
     },
     setCurrentPlayer(player) {
       matchTable.currentPlayer = player
     },
     isSessionPlaying(session) {
       const { lobby } = matchTable
-      const search = lobby.players.find((player) => player.session === session)
+      const search = lobby.players.find((player) => player && player.session === session)
       return search || null
     },
     getPublicMatch(userSession) {
       const { lobby } = matchTable
 
-      const lastHand = (lobby.gameLoop?.hands.length || 1) - 1
-      const rounds = lobby.gameLoop?.hands[lastHand]?.rounds.map((round) => round.cards)
+      const winner = lobby.gameLoop?.winner || null
+
+      const lastHandIdx = (lobby.gameLoop?.hands.length || 1) - 1
+      const rounds = lobby.gameLoop?.hands[lastHandIdx]?.rounds.map((round) => round.cards)
+
+      const prevHandIdx = lastHandIdx - 1
+      const prevRounds =
+        prevHandIdx !== -1
+          ? lobby.gameLoop?.hands[prevHandIdx]?.rounds.map((round) => round.cards)
+          : null
+
+      const players = lobby.players.filter((player) => Boolean(player)) as IPlayer[]
+
+      const currentPlayerIdx = players.findIndex(
+        (player) => player && player.session === userSession
+      )
+
+      const me = players[currentPlayerIdx]
+
+      const cut = players.slice(currentPlayerIdx, players.length)
+      const end = players.slice(0, currentPlayerIdx)
+
+      const publicPlayers = cut.concat(end).map((player) =>
+        player?.session === userSession
+          ? player
+          : {
+              ...player,
+              session: undefined,
+              hand: player?.hand.map(() => "xx" as ICard),
+            }
+      )
 
       return {
+        me,
+        winner,
         matchSessionId: matchTable.matchSessionId,
-        state: matchTable.state,
+        state: matchTable.state(),
         teams: [],
-        players: lobby.players.map((player) =>
-          player.session === userSession
-            ? player
-            : { ...player, hand: player.hand.map(() => "xx" as ICard) }
-        ),
+        players: publicPlayers,
         rounds: rounds || [[]],
+        prevRounds: prevRounds || null,
       }
     },
   }

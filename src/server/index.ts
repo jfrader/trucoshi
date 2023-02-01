@@ -61,10 +61,19 @@ io.on("connection", (_socket) => {
 
   const emitMatchUpdate = async (table: IMatchTable) => {
     await getTableSockets(table, async (playerSocket: TrucoshiSocket) => {
-      playerSocket.emit(
-        EServerEvent.UPDATE_MATCH,
-        table.getPublicMatch(playerSocket.session as string)
-      )
+      const tmp = table.getPublicMatch(playerSocket.session as string)
+
+      const save = () => playerSocket.emit(EServerEvent.UPDATE_MATCH, tmp)
+
+      // if (tmp.prevRounds && tmp.rounds[0].length === 0) {
+      //   playerSocket.emit(EServerEvent.UPDATE_MATCH, {
+      //     ...tmp,
+      //     rounds: tmp.prevRounds,
+      //   })
+      //   setTimeout(save, 4500)
+      //   return
+      // }
+      save()
     })
   }
 
@@ -87,7 +96,7 @@ io.on("connection", (_socket) => {
           })
         }
         const table = MatchTable(socket.session)
-        table.lobby.addPlayer(user.id, socket.session)
+        table.lobby.addPlayer(user.id, socket.session, 0)
         socket.join(socket.session)
 
         addSocketToUser(socket.session, socket.id, table)
@@ -113,7 +122,7 @@ io.on("connection", (_socket) => {
               table.getPublicMatch(playerSocket.session),
               (data: IWaitingPlayData) => {
                 if (!data) {
-                  return;
+                  return
                 }
                 const { cardIdx, command } = data
                 if (cardIdx !== undefined) {
@@ -144,8 +153,6 @@ io.on("connection", (_socket) => {
     try {
       const table = getTable(tableId)
       if (table && !table.lobby.gameLoop) {
-        table.setState(EMatchTableState.STARTED)
-
         table.lobby
           .startMatch()
           .onTurn((play) => {
@@ -214,7 +221,7 @@ io.on("connection", (_socket) => {
   /**
    * Join Match
    */
-  socket.on(EClientEvent.JOIN_MATCH, (matchSessionId, callback) => {
+  socket.on(EClientEvent.JOIN_MATCH, (matchSessionId, teamIdx, callback) => {
     if (!socket.session) {
       return callback({ success: false })
     }
@@ -222,10 +229,15 @@ io.on("connection", (_socket) => {
     const user = getUser(socket.session)
     const table = tables.get(matchSessionId)
 
-    if (table && table.state === EMatchTableState.UNREADY) {
-      socket.join(matchSessionId)
+    if (table) {
+      try {
+        table.lobby.addPlayer(user.id || "satoshi", socket.session, teamIdx)
+      } catch (e) {
+        console.error(e)
+        return callback({ success: false })
+      }
 
-      table.lobby.addPlayer(user.id || "satoshi", socket.session)
+      socket.join(matchSessionId)
 
       addSocketToUser(socket.session, socket.id, table)
 
@@ -301,7 +313,9 @@ io.on("connection", (_socket) => {
   socket.on(EClientEvent.SET_PLAYER_READY, (matchSessionId, ready) => {
     try {
       const table = getTable(matchSessionId)
-      const player = table.lobby.players.find((player) => player.session === socket.session)
+      const player = table.lobby.players.find(
+        (player) => player && player.session === socket.session
+      )
       if (player) {
         player.setReady(ready)
         emitMatchUpdate(table)

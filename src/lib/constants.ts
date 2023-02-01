@@ -51,23 +51,14 @@ export const CARDS = {
   "4c": 0,
 }
 
-export const COLORS = [
-  "#9b111",
-  "#17c6c6",
-  "#8c1d1d",
-  "#9f9b9b",
-  "#a5a5a5",
-  "#f5a623",
-  "#f44336",
-  "#c2185b",
-]
-
 export const TEAM_SIZE_VALUES = [1, 2, 3]
 
 export enum GAME_ERROR {
-  UNEXPECTED_TEAM_SIZE = 'UNEXPECTED_TEAM_SIZE',
-  TEAM_NOT_READY = 'TEAM_NOT_READY',
-  TEAM_IS_FULL = 'TEAM_IS_FULL',
+  MATCH_ALREADY_STARTED = "MATCH_ALREADY_STARTED",
+  LOBBY_IS_FULL = "LOBBY_IS_FULL",
+  UNEXPECTED_TEAM_SIZE = "UNEXPECTED_TEAM_SIZE",
+  TEAM_NOT_READY = "TEAM_NOT_READY",
+  TEAM_IS_FULL = "TEAM_IS_FULL",
 }
 
 export const EnvidoCalculator: IEnvidoCalculator = {

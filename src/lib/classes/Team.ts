@@ -17,7 +17,7 @@ export function Team(players: Array<IPlayer>) {
       return team.players.reduce((prev, curr) => prev && curr.disabled, true)
     },
     disable(player) {
-      team._players.get(player.id)?.disable()
+      team._players.get(player.session as string)?.disable()
       return team.isTeamDisabled()
     },
     addPoints(matchPoint, points) {
@@ -37,7 +37,7 @@ export function Team(players: Array<IPlayer>) {
     },
   }
 
-  players.forEach((player) => team._players.set(player.id, player))
+  players.forEach((player) => team._players.set(player.session as string, player))
 
   return team
 }
