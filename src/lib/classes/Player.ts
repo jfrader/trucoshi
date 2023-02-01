@@ -2,7 +2,7 @@ import { IPlayer } from "../types"
 
 export type IPublicPlayer = Pick<
   IPlayer,
-  "id" | "disabled" | "ready" | "hand" | "usedHand" | "teamIdx" | "session"
+  "id" | "disabled" | "ready" | "hand" | "usedHand" | "prevHand" | "teamIdx" | "session"
 >
 
 export function Player(id: string, teamIdx: number) {
@@ -13,6 +13,7 @@ export function Player(id: string, teamIdx: number) {
     hand: [],
     commands: [],
     usedHand: [],
+    prevHand: [],
     disabled: false,
     ready: false,
     setSession(session: string) {
@@ -28,6 +29,7 @@ export function Player(id: string, teamIdx: number) {
       player.ready = ready
     },
     setHand(hand) {
+      player.prevHand = [...player.usedHand]
       player.hand = hand
       player.usedHand = []
       return hand

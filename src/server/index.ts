@@ -62,19 +62,10 @@ io.on("connection", (_socket) => {
 
   const emitMatchUpdate = async (table: IMatchTable) => {
     await getTableSockets(table, async (playerSocket: TrucoshiSocket) => {
-      const tmp = table.getPublicMatch(playerSocket.session as string)
-
-      const save = () => playerSocket.emit(EServerEvent.UPDATE_MATCH, tmp)
-
-      // if (tmp.prevRounds && tmp.rounds[0].length === 0) {
-      //   playerSocket.emit(EServerEvent.UPDATE_MATCH, {
-      //     ...tmp,
-      //     rounds: tmp.prevRounds,
-      //   })
-      //   setTimeout(save, 4500)
-      //   return
-      // }
-      save()
+      playerSocket.emit(
+        EServerEvent.UPDATE_MATCH,
+        table.getPublicMatch(playerSocket.session as string)
+      )
     })
   }
 

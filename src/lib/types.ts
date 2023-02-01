@@ -24,6 +24,7 @@ export interface IPlayer {
   hand: Array<ICard>
   commands: Array<ECommand>
   usedHand: Array<ICard>
+  prevHand: Array<ICard>
   disabled: boolean
   ready: boolean
   setSession(session: string): void

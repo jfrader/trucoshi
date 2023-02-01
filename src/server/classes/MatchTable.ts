@@ -63,11 +63,11 @@ export function MatchTable(matchSessionId: string, teamSize?: 1 | 2 | 3) {
       const winner = lobby.gameLoop?.winner || null
 
       const lastHandIdx = (lobby.gameLoop?.hands.length || 1) - 1
-      const rounds = lobby.gameLoop?.hands[lastHandIdx]?.rounds.map((round) => round.cards)
+      const rounds = lobby.gameLoop?.hands[lastHandIdx]?.rounds.map((round) => round.cards) || []
 
       const prevHandIdx = lastHandIdx - 1
       const prevRounds =
-        prevHandIdx !== -1
+        prevHandIdx !== -1 && rounds[0].length === 0
           ? lobby.gameLoop?.hands[prevHandIdx]?.rounds.map((round) => round.cards)
           : null
 
