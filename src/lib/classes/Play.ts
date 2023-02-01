@@ -11,8 +11,8 @@ export function PlayInstance(hand: IHand, teams: [ITeam, ITeam]) {
     player: hand.currentPlayer,
     commands: [],
     rounds: hand.rounds,
-    use(idx) {
-      return hand.use(idx)
+    use(idx, card) {
+      return hand.use(idx, card)
     },
     say(command) {
       if (!hand._currentPlayer || !instance.commands?.includes(command)) {

@@ -2,7 +2,7 @@ import { randomUUID } from "crypto"
 import { createServer } from "http"
 import { Server } from "socket.io"
 import { IPublicPlayer } from "../lib/classes/Player"
-import { IPlayInstance } from "../lib/types"
+import { ICard, IPlayer, IPlayInstance } from "../lib/types"
 import { EMatchTableState, IMatchTable, MatchTable } from "./classes/MatchTable"
 import { IUser, User } from "./classes/User"
 import { EClientEvent, EServerEvent, IWaitingPlayData, TrucoshiSocket } from "./types"
@@ -42,6 +42,15 @@ io.on("connection", (_socket) => {
   const socket = _socket as TrucoshiSocket
 
   console.log("New socket", socket.id)
+
+  socket.on("disconnect", (_reason) => {
+    try {
+      const user = getUser(socket.session)
+      user.matchSocketIds.forEach((sockets) => sockets.delete(socket.id))
+    } catch (e) {
+      console.error(e)
+    }
+  })
 
   const getTableSockets = (
     table: IMatchTable,
@@ -104,41 +113,41 @@ io.on("connection", (_socket) => {
   })
 
   const sendWaitingForPlay = async (table: IMatchTable, play: IPlayInstance) => {
-    await getTableSockets(
-      table,
-      (playerSocket) =>
-        new Promise((resolve) => {
-          if (playerSocket.session && playerSocket.session === play.player?.session) {
-            playerSocket.emit(
-              EServerEvent.WAITING_PLAY,
-              table.getPublicMatch(playerSocket.session),
-              (data: IWaitingPlayData) => {
-                if (!data) {
-                  return
-                }
-                const { cardIdx, command } = data
-                if (cardIdx !== undefined) {
-                  const playedCard = play.use(cardIdx)
-                  if (playedCard) {
-                    return resolve()
-                  }
-                  return console.error("ERROR", new Error("Couldnt play card"))
-                }
-                if (command) {
-                  const saidCommand = play.say(command)
-                  if (saidCommand) {
-                    return resolve()
-                  }
-                  return console.error("ERROR", new Error("Couldnt say command"))
-                }
-                return console.error("ERROR", new Error("Play callback didn't have data"))
+    let player: IPlayer | null = null
+    let sock: string | null = null
+    return new Promise<void>((resolve, reject) => {
+      return getTableSockets(table, async (playerSocket) => {
+        if (playerSocket.session && playerSocket.session === play.player?.session) {
+          sock = playerSocket.id
+          player = play.player
+          playerSocket.emit(
+            EServerEvent.WAITING_PLAY,
+            table.getPublicMatch(playerSocket.session),
+            (data: IWaitingPlayData) => {
+              if (!data) {
+                return reject(new Error("Callback returned empty"))
               }
-            )
-          } else {
-            resolve()
-          }
-        })
-    )
+              const { cardIdx, card, command } = data
+              if (cardIdx !== undefined && card) {
+                const playedCard = play.use(cardIdx, card)
+                if (playedCard) {
+                  return resolve()
+                }
+                return reject(new Error("Invalid Card"))
+              }
+              if (command) {
+                const saidCommand = play.say(command)
+                if (saidCommand) {
+                  return resolve()
+                }
+                return reject(new Error("Invalid Command"))
+              }
+              return reject(new Error("Invalid Callback response"))
+            }
+          )
+        }
+      })
+    })
   }
 
   const startMatch = async (tableId: string) => {
@@ -163,7 +172,12 @@ io.on("connection", (_socket) => {
                 }
 
                 await emitMatchUpdate(table)
-                await sendWaitingForPlay(table, play)
+                try {
+                  await sendWaitingForPlay(table, play)
+                } catch (e) {
+                  console.error(e)
+                  return
+                }
 
                 return resolve()
               } catch (e) {
@@ -194,6 +208,12 @@ io.on("connection", (_socket) => {
 
   const addSocketToUser = (session: string, socketId: string, table: IMatchTable) => {
     const user = getUser(session)
+
+    const socketIds = user.matchSocketIds?.get(table.matchSessionId)
+
+    if (socketIds && socketIds.has(socketId)) {
+      return
+    }
 
     console.log("User got new match socket", { socketId, session, matchId: table.matchSessionId })
 
@@ -280,7 +300,7 @@ io.on("connection", (_socket) => {
               if (!play) {
                 throw new Error("Unexpected Error")
               }
-              sendWaitingForPlay(currentTable, play).then(resolve)
+              sendWaitingForPlay(currentTable, play).then(resolve).catch(console.error)
             } catch (e) {
               console.error("ERROR", e)
             }

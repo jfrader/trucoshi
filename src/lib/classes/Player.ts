@@ -34,8 +34,8 @@ export function Player(id: string, teamIdx: number) {
       player.usedHand = []
       return hand
     },
-    useCard(idx) {
-      if (player.hand[idx]) {
+    useCard(idx, card) {
+      if (player.hand[idx] && player.hand[idx] === card) {
         const card = player.hand.splice(idx, 1)[0]
         player.usedHand.push(card)
         return card

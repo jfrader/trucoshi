@@ -1,6 +1,6 @@
 {
   "name": "trucoshi",
-  "version": "0.0.19",
+  "version": "0.0.20",
   "main": "build/lib/trucoshi.js",
   "license": "GPL-3.0",
   "scripts": {

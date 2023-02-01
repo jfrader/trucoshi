@@ -32,7 +32,7 @@ export interface IPlayer {
   disable(): void
   setReady(ready: boolean): void
   setHand(hand: Array<ICard>): Array<ICard>
-  useCard(idx: number): ICard | null
+  useCard(idx: number, card: ICard): ICard | null
 }
 
 export interface ITeam {
@@ -126,7 +126,7 @@ export interface IPlayInstance {
   player: IPlayer | null
   commands: Array<ECommand> | null
   rounds: Array<IRound> | null
-  use(idx: number): ICard | null
+  use(idx: number, card: ICard): ICard | null
   say(command: ECommand): ECommand | null
 }
 
@@ -157,7 +157,7 @@ export interface IHand {
   finished: () => boolean
   play(): IPlayInstance | null
   nextTurn(): void
-  use(idx: number): ICard | null
+  use(idx: number, card: ICard): ICard | null
   pushRound(round: IRound): IRound
   setTurn(turn: number): IPlayer
   addPoints(team: 0 | 1, points: number): void
@@ -171,7 +171,7 @@ export interface IHand {
 export interface IPrivateLobby {
   gameLoop?: IGameLoop
   lastTeamIdx: 0 | 1
-  _players: Array<IPlayer | { id?: undefined, session?: undefined }>
+  _players: Array<IPlayer | { id?: undefined; session?: undefined }>
   get players(): Array<IPlayer>
   teams: Array<ITeam>
   maxPlayers: number

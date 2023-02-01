@@ -8,7 +8,7 @@ import { IRound } from "../lib/types"
   trucoshi.addPlayer("guada", "guada").setReady(true)
   trucoshi.addPlayer("juli", "juli").setReady(true)
   trucoshi.addPlayer("day", "day").setReady(true)
-  trucoshi.addPlayer("fran", "fran").setReady(true) 
+  trucoshi.addPlayer("fran", "fran").setReady(true)
 
   trucoshi
     .startMatch()
@@ -31,7 +31,7 @@ import { IRound } from "../lib/types"
 
       const randomIdx = Math.round(Math.random() * (play.player.hand.length - 1))
       const handString = JSON.stringify(play.player.hand)
-      const card = play.use(randomIdx)
+      const card = play.use(randomIdx, play.player.hand[randomIdx])
 
       console.log(`\n${handString}\nUsing ${card}`)
       console.log(

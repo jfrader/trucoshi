@@ -1,5 +1,5 @@
 import { Socket } from "socket.io"
-import { ECommand } from "../lib/types"
+import { ECommand, ICard } from "../lib/types"
 
 export enum EClientEvent {
   PING = "PING",
@@ -29,7 +29,7 @@ export enum ETrucoshiMatchState {
 }
 
 export type IWaitingPlayData =
-  | { cardIdx: number; command?: undefined }
-  | { cardIdx?: undefined; command: ECommand }
+  | { cardIdx: number; card: ICard; command?: undefined }
+  | { cardIdx?: undefined; card?: undefined; command: ECommand }
 
 export type IWaitingPlayCallback = (data: IWaitingPlayData) => void | null

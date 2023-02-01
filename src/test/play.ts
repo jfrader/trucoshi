@@ -1,6 +1,6 @@
 import * as readline from "readline"
 import { Lobby } from "../lib"
-import { IPlayInstance, IRound, ITeam } from "../lib/types"
+import { ICard, IPlayInstance, IRound, ITeam } from "../lib/types"
 
 const command = (
   title: string,
@@ -35,7 +35,8 @@ const playCommand = (play: IPlayInstance) =>
       (_c, i) => i + 1
     )}]: ${JSON.stringify(play.player?.hand)}\n`,
     async (idx) => {
-      const playedCard = play.use(Number(idx) - 1)
+      const card = play.player?.hand[Number(idx) - 1]
+      const playedCard = play.use(Number(idx) - 1, card as ICard)
       if (!playedCard) {
         return Promise.reject()
       }

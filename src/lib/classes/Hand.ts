@@ -2,6 +2,7 @@ import {
   EEnvidoCommand,
   EHandState,
   ESayCommand,
+  ICard,
   IDeck,
   IHand,
   IHandCommands,
@@ -144,17 +145,17 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
     play() {
       return PlayInstance(hand, match.teams)
     },
-    use(idx: number) {
+    use(idx: number, card: ICard) {
       const player = hand.currentPlayer
       const round = hand.currentRound
       if (!player || !round) {
         return null
       }
 
-      const card = player.useCard(idx)
-      if (card) {
+      const playerCard = player.useCard(idx, card)
+      if (playerCard) {
         hand.nextTurn()
-        return round.use(PlayedCard(player, card))
+        return round.use(PlayedCard(player, playerCard))
       }
 
       return null
