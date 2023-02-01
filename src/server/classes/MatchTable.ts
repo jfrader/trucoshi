@@ -1,9 +1,10 @@
 import { Lobby } from "../../lib"
 import { IPublicPlayer } from "../../lib/classes/Player"
 import { IPublicTeam } from "../../lib/classes/Team"
-import { ICard, ILobby, IPlayedCard, IPlayer, ITeam } from "../../lib/types"
+import { IHandPoints, ILobby, IPlayedCard, IPlayer, ITeam } from "../../lib/types"
 
 export interface IPublicMatch {
+  state: EMatchTableState
   winner: ITeam | null
   matchSessionId: string
   teams: Array<IPublicTeam>
@@ -11,7 +12,7 @@ export interface IPublicMatch {
   me: IPublicPlayer
   rounds: IPlayedCard[][]
   prevRounds: IPlayedCard[][] | null
-  state: EMatchTableState
+  prevHandPoints?: IHandPoints | null
 }
 
 export interface IMatchTable {
@@ -66,10 +67,17 @@ export function MatchTable(matchSessionId: string, teamSize?: 1 | 2 | 3) {
       const rounds = lobby.gameLoop?.hands[lastHandIdx]?.rounds.map((round) => round.cards) || []
 
       const prevHandIdx = lastHandIdx - 1
+
+      const hasPrevHand = prevHandIdx !== -1
+
+      const newHandNotStarted = rounds[0]?.length === 0
+
       const prevRounds =
-        prevHandIdx !== -1 && rounds[0].length === 0
+        hasPrevHand && newHandNotStarted
           ? lobby.gameLoop?.hands[prevHandIdx]?.rounds.map((round) => round.cards)
           : null
+
+      const prevHandPoints = prevRounds && lobby.gameLoop?.hands[prevHandIdx]?.points
 
       const players = lobby.players.filter((player) => Boolean(player)) as IPlayer[]
 
@@ -82,25 +90,23 @@ export function MatchTable(matchSessionId: string, teamSize?: 1 | 2 | 3) {
       const cut = players.slice(currentPlayerIdx, players.length)
       const end = players.slice(0, currentPlayerIdx)
 
-      const publicPlayers = cut.concat(end).map((player) =>
-        player?.session === userSession
-          ? player
-          : {
-              ...player,
-              session: undefined,
-              hand: player?.hand.map(() => "xx" as ICard),
-            }
-      )
+      const publicPlayers = cut
+        .concat(end)
+        .map((player) => (player?.session === userSession ? player : player.getPublicPlayer()))
+
+      const teams = lobby.gameLoop?.teams || lobby.teams
+      const publicTeams = teams.map((team) => team.getPublicTeam(userSession))
 
       return {
         me,
         winner,
         matchSessionId: matchTable.matchSessionId,
         state: matchTable.state(),
-        teams: [],
+        teams: publicTeams,
         players: publicPlayers,
         rounds: rounds || [[]],
         prevRounds: prevRounds || null,
+        prevHandPoints,
       }
     },
   }

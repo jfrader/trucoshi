@@ -13,6 +13,14 @@ export function Team(players: Array<IPlayer>) {
       malas: 0,
       winner: false,
     },
+    getPublicTeam(playerSession) {
+      return {
+        ...team,
+        players: team.players.map((player) =>
+          player.session === playerSession ? player : player.getPublicPlayer()
+        ),
+      }
+    },
     isTeamDisabled() {
       return team.players.reduce((prev, curr) => prev && curr.disabled, true)
     },

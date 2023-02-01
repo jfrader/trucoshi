@@ -1,4 +1,4 @@
-import { IPlayer } from "../types"
+import { ICard, IPlayer } from "../types"
 
 export type IPublicPlayer = Pick<
   IPlayer,
@@ -16,6 +16,9 @@ export function Player(id: string, teamIdx: number) {
     prevHand: [],
     disabled: false,
     ready: false,
+    getPublicPlayer() {
+      return { ...player, hand: player.hand.map(() => "xx" as ICard), session: undefined }
+    },
     setSession(session: string) {
       player.session = session
     },

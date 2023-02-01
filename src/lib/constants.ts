@@ -4,7 +4,7 @@ import {
   IEnvidoCalculator,
   IEnvidoCalculatorArgs,
   ITeam,
-  TeamPoints,
+  ITeamPoints,
 } from "./types"
 import { getMaxNumberIndex } from "./utils"
 

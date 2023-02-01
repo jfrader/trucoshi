@@ -27,6 +27,7 @@ export interface IPlayer {
   prevHand: Array<ICard>
   disabled: boolean
   ready: boolean
+  getPublicPlayer(): IPlayer
   setSession(session: string): void
   enable(): void
   disable(): void
@@ -38,10 +39,11 @@ export interface IPlayer {
 export interface ITeam {
   _players: Map<string, IPlayer>
   players: Array<IPlayer>
-  points: TeamPoints
+  points: ITeamPoints
+  getPublicTeam(playerSession?: string): ITeam
   isTeamDisabled(): boolean
   disable(player: IPlayer): boolean
-  addPoints(matchPoint: number, points: number): TeamPoints
+  addPoints(matchPoint: number, points: number): ITeamPoints
 }
 
 export interface IMatch {
@@ -51,25 +53,25 @@ export interface IMatch {
   currentHand: IHand | null
   table: ITable
   play(): IPlayInstance | null
-  addPoints(points: HandPoints): [ITeam, ITeam]
+  addPoints(points: IHandPoints): [ITeam, ITeam]
   pushHand(hand: IHand): void
   setCurrentHand(hand: IHand | null): IHand | null
   setWinner(winner: ITeam): void
   getNextTurn(): IteratorResult<IMatch | null, IMatch | null | void>
 }
 
-export interface TeamPoints {
+export interface ITeamPoints {
   buenas: number
   malas: number
   winner: boolean
 }
 
-export interface HandPoints {
+export interface IHandPoints {
   0: number
   1: number
 }
 
-export interface RoundPoints {
+export interface IRoundPoints {
   0: number
   1: number
   ties: number
@@ -145,7 +147,7 @@ export interface IHand {
   idx: number
   state: EHandState
   turn: number
-  points: HandPoints
+  points: IHandPoints
   truco: ITruco
   envido: EnvidoState
   rounds: Array<IRound>
