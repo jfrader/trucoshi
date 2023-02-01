@@ -4,6 +4,7 @@
   "main": "build/lib/trucoshi.js",
   "license": "GPL-3.0",
   "scripts": {
+    "start": "node ./dist/server/index.js",
     "prepublishOnly": "yarn build",
     "dev": "nodemon",
     "test:autoplay": "yarn run ts-node src/test/autoplay",
