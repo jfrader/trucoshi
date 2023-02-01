@@ -2,7 +2,7 @@ import { ICard, IPlayer } from "../types"
 
 export type IPublicPlayer = Pick<
   IPlayer,
-  "id" | "disabled" | "ready" | "hand" | "usedHand" | "prevHand" | "teamIdx" | "session"
+  "id" | "disabled" | "ready" | "hand" | "usedHand" | "prevHand" | "teamIdx" | "session" | "isTurn"
 >
 
 export function Player(id: string, teamIdx: number) {
@@ -14,8 +14,12 @@ export function Player(id: string, teamIdx: number) {
     commands: [],
     usedHand: [],
     prevHand: [],
+    isTurn: false,
     disabled: false,
     ready: false,
+    setTurn(turn) {
+      player.isTurn = turn
+    },
     getPublicPlayer() {
       return { ...player, hand: player.hand.map(() => "xx" as ICard), session: undefined }
     },

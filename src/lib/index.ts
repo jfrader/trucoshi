@@ -69,7 +69,9 @@ const GameLoop = (match: IMatch) => {
         }
 
         if (play.state === EHandState.WAITING_PLAY) {
+          play.player.setTurn(true)
           await gameloop._onTurn(play)
+          play.player.setTurn(false)
           continue
         }
       }

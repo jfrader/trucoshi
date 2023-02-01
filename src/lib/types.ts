@@ -25,8 +25,10 @@ export interface IPlayer {
   commands: Array<ECommand>
   usedHand: Array<ICard>
   prevHand: Array<ICard>
+  isTurn: boolean
   disabled: boolean
   ready: boolean
+  setTurn(turn: boolean): void
   getPublicPlayer(): IPlayer
   setSession(session: string): void
   enable(): void

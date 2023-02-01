@@ -289,12 +289,12 @@ io.on("connection", (_socket) => {
 
         const currentTable = currentMatchId ? tables.get(currentMatchId) : null
 
-        if (currentTable && currentTable.isSessionPlaying(session)) {
+        if (currentTable) {
           addSocketToUser(session, socket.id, currentTable)
 
           socket.join(currentTable.matchSessionId)
 
-          if (session === currentTable.currentPlayer?.session) {
+          if (currentTable.isSessionPlaying(session) && session === currentTable.currentPlayer?.session) {
             try {
               const { play, resolve } = turns.get(currentTable.matchSessionId) || {}
               if (!play) {
