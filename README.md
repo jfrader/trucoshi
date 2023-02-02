@@ -49,7 +49,7 @@ Right now there's only a local CLI way of playing as there is no socket server i
 
 # Donations
 
-Donate Bitcoin at jfrader.com
+Donate Bitcoin at [jfrader.com](https://jfrader.com)
 
 # License
 
