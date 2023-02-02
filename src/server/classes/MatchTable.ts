@@ -1,5 +1,5 @@
-import { ILobby, IPlayer, IPublicPlayer, Lobby } from "lib"
-import { EMatchTableState, IPublicMatch } from "types"
+import { ILobby, IPlayer, IPublicPlayer, Lobby } from "../../lib"
+import { EMatchTableState, IPublicMatch } from "../../types"
 
 export interface IMatchTable {
   matchSessionId: string

@@ -334,4 +334,4 @@ io.on("connection", (_socket) => {
 
 httpServer.listen(PORT)
 
-console.log("Listening on", ORIGIN, PORT)
+console.log("Listening on", PORT, " from origin at", ORIGIN)
