@@ -269,6 +269,30 @@ io.on("connection", (_socket) => {
   socket.on(
     EClientEvent.SET_SESSION,
     (session, id = "satoshi", currentMatchId = null, callback = () => {}) => {
+      const currentTable = currentMatchId ? tables.get(currentMatchId) : null
+
+      if (currentTable) {
+        addSocketToUser(session, socket.id, currentTable)
+        socket.join(currentTable.matchSessionId)
+
+        if (
+          currentTable.isSessionPlaying(session) &&
+          session === currentTable.currentPlayer?.session
+        ) {
+          try {
+            const { play, resolve } = turns.get(currentTable.matchSessionId) || {}
+            if (!play) {
+              throw new Error("Unexpected Error")
+            }
+            sendWaitingForPlay(currentTable, play).then(resolve).catch(console.error)
+          } catch (e) {
+            console.error("ERROR", e)
+          }
+        } else {
+          socket.emit(EServerEvent.UPDATE_MATCH, currentTable.getPublicMatch(session))
+        }
+      }
+
       const user = users.get(session)
       if (user) {
         const updatedUser: IUser = {
@@ -277,31 +301,6 @@ io.on("connection", (_socket) => {
         }
         users.set(session, updatedUser)
         socket.session = session
-
-        const currentTable = currentMatchId ? tables.get(currentMatchId) : null
-
-        if (currentTable) {
-          addSocketToUser(session, socket.id, currentTable)
-
-          socket.join(currentTable.matchSessionId)
-
-          if (
-            currentTable.isSessionPlaying(session) &&
-            session === currentTable.currentPlayer?.session
-          ) {
-            try {
-              const { play, resolve } = turns.get(currentTable.matchSessionId) || {}
-              if (!play) {
-                throw new Error("Unexpected Error")
-              }
-              sendWaitingForPlay(currentTable, play).then(resolve).catch(console.error)
-            } catch (e) {
-              console.error("ERROR", e)
-            }
-          } else {
-            socket.emit(EServerEvent.UPDATE_MATCH, currentTable.getPublicMatch(session))
-          }
-        }
 
         return callback({ success: true, session })
       }
