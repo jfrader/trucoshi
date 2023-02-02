@@ -48,7 +48,7 @@ io.on("connection", (_socket) => {
       const user = getUser(socket.session)
       user.matchSocketIds.forEach((sockets) => sockets.delete(socket.id))
     } catch (e) {
-      console.error(e)
+      // noop
     }
   })
 
@@ -89,20 +89,23 @@ io.on("connection", (_socket) => {
     if (socket.session) {
       try {
         const user = getUser(socket.session)
-        const existingTable = tables.get(socket.session)
+        const existingTable = user.ownedMatchId && tables.get(user.ownedMatchId)
         if (existingTable) {
           return callback({
             success: false,
             match: existingTable.getPublicMatch(socket.session),
           })
         }
-        const table = MatchTable(socket.session)
-        table.lobby.addPlayer(user.id, socket.session, 0)
-        socket.join(socket.session)
+
+        const matchId = randomUUID()
+        const table = MatchTable(matchId, socket.session)
+        user.ownedMatchId = matchId
+        table.lobby.addPlayer(user.id, socket.session, 0, true)
+        socket.join(matchId)
 
         addSocketToUser(socket.session, socket.id, table)
 
-        tables.set(socket.session, table)
+        tables.set(matchId, table)
         return callback({ success: true, match: table.getPublicMatch(user.id) })
       } catch (e) {
         console.error("ERROR", e)
@@ -112,8 +115,8 @@ io.on("connection", (_socket) => {
     callback({ success: false, error: new Error("Can't create match without an ID") })
   })
 
-  const sendWaitingForPlay = async (table: IMatchTable, play: IPlayInstance) => {
-    return new Promise<void>((resolve, reject) => {
+  const sendWaitingForPlay = async (table: IMatchTable, play: IPlayInstance) =>
+    new Promise<void>((resolve, reject) => {
       return getTableSockets(table, async (playerSocket) => {
         if (playerSocket.session && playerSocket.session === play.player?.session) {
           playerSocket.emit(
@@ -144,56 +147,61 @@ io.on("connection", (_socket) => {
         }
       })
     })
-  }
 
   const startMatch = async (tableId: string) => {
-    try {
-      const table = getTable(tableId)
-      if (table && !table.lobby.gameLoop) {
-        table.lobby
-          .startMatch()
-          .onTurn((play) => {
-            return new Promise<void>(async (resolve) => {
-              table.setCurrentPlayer(play.player as IPublicPlayer)
-              turns.set(table.matchSessionId, { play, resolve })
+    const table = getTable(tableId)
+    if (table && !table.lobby.gameLoop) {
+      table.lobby
+        .startMatch()
+        .onTurn((play) => {
+          return new Promise<void>(async (resolve) => {
+            table.setCurrentPlayer(play.player as IPublicPlayer)
+            turns.set(table.matchSessionId, { play, resolve })
 
-              try {
-                const session = play.player?.session as string
-                if (!session || !play) {
-                  throw new Error("Unexpected Error")
-                }
-                const user = users.get(session)
-                if (!user) {
-                  throw new Error("Unexpected Error")
-                }
-
-                await emitMatchUpdate(table)
-                await sendWaitingForPlay(table, play)
-
-                return resolve()
-              } catch (e) {
-                console.error("ERROR", e)
+            try {
+              const session = play.player?.session as string
+              if (!session || !play) {
+                throw new Error("Unexpected Error")
               }
-            })
-          })
-          .onTruco(async (play) => {})
-          .onWinner(async () => {})
-          .begin()
+              const user = users.get(session)
+              if (!user) {
+                throw new Error("Unexpected Error")
+              }
 
-        return tables.set(socket.session as string, table)
-      }
-      return null
-    } catch (e) {
-      return null
+              await emitMatchUpdate(table)
+              await sendWaitingForPlay(table, play)
+
+              return resolve()
+            } catch (e) {
+              console.error("ERROR", e)
+            }
+          })
+        })
+        .onTruco(async (play) => {})
+        .onWinner(async () => {})
+        .begin()
+
+      return tables.set(tableId as string, table)
     }
+    throw new Error("Table not found or already started")
   }
 
   /**
    * Start Match
    */
-  socket.on(EClientEvent.START_MATCH, () => {
-    if (socket.session && users.has(socket.session)) {
-      startMatch(socket.session)
+  socket.on(EClientEvent.START_MATCH, (callback) => {
+    if (!callback) {
+      return
+    }
+    try {
+      const user = getUser(socket.session)
+      const matchId = user.ownedMatchId
+      if (matchId) {
+        startMatch(matchId)
+        return callback({ success: true, matchSessionId: matchId })
+      }
+    } catch (e) {
+      callback({ success: false })
     }
   })
 
@@ -228,27 +236,24 @@ io.on("connection", (_socket) => {
     if (!socket.session) {
       return callback({ success: false })
     }
+    try {
+      const user = getUser(socket.session)
+      const table = tables.get(matchSessionId)
 
-    const user = getUser(socket.session)
-    const table = tables.get(matchSessionId)
+      if (table) {
+        table.lobby.addPlayer(user.id, socket.session, teamIdx)
 
-    if (table) {
-      try {
-        table.lobby.addPlayer(user.id || "satoshi", socket.session, teamIdx)
-      } catch (e) {
-        console.error(e)
-        return callback({ success: false })
+        socket.join(table.matchSessionId)
+
+        addSocketToUser(socket.session, socket.id, table)
+
+        emitMatchUpdate(table)
+
+        return callback({ success: true, match: table.getPublicMatch(socket.session) })
       }
-
-      socket.join(matchSessionId)
-
-      addSocketToUser(socket.session, socket.id, table)
-
-      emitMatchUpdate(table)
-
-      return callback({ success: true, match: table.getPublicMatch(socket.session) })
+    } catch (e) {
+      console.error("ERROR", e)
     }
-
     callback({ success: false })
   })
 
@@ -264,53 +269,65 @@ io.on("connection", (_socket) => {
   })
 
   /**
+   * Get match ids
+   */
+  socket.on(EClientEvent.LIST_MATCHES, (callback) => {
+    callback({ success: true, matchIds: tables.keys() })
+  })
+
+  const getCurrentMatch = (session: string, currentMatchId: string) => {
+    if (!currentMatchId) {
+      return
+    }
+
+    const currentTable = tables.get(currentMatchId)
+
+    if (currentTable) {
+      addSocketToUser(session, socket.id, currentTable)
+      socket.join(currentTable.matchSessionId)
+
+      if (
+        currentTable.isSessionPlaying(session) &&
+        session === currentTable.currentPlayer?.session
+      ) {
+        try {
+          const { play, resolve } = turns.get(currentTable.matchSessionId) || {}
+          if (!play) {
+            throw new Error("Unexpected Error")
+          }
+          sendWaitingForPlay(currentTable, play).then(resolve).catch(console.error)
+        } catch (e) {
+          console.error("ERROR", e)
+        }
+      } else {
+        socket.emit(EServerEvent.UPDATE_MATCH, currentTable.getPublicMatch(session))
+      }
+    }
+  }
+
+  /**
    * Set Session
    */
-  socket.on(
-    EClientEvent.SET_SESSION,
-    (session, id = "satoshi", currentMatchId = null, callback = () => {}) => {
-      const currentTable = currentMatchId ? tables.get(currentMatchId) : null
-
-      if (currentTable) {
-        addSocketToUser(session, socket.id, currentTable)
-        socket.join(currentTable.matchSessionId)
-
-        if (
-          currentTable.isSessionPlaying(session) &&
-          session === currentTable.currentPlayer?.session
-        ) {
-          try {
-            const { play, resolve } = turns.get(currentTable.matchSessionId) || {}
-            if (!play) {
-              throw new Error("Unexpected Error")
-            }
-            sendWaitingForPlay(currentTable, play).then(resolve).catch(console.error)
-          } catch (e) {
-            console.error("ERROR", e)
-          }
-        } else {
-          socket.emit(EServerEvent.UPDATE_MATCH, currentTable.getPublicMatch(session))
-        }
+  socket.on(EClientEvent.SET_SESSION, (session, id, currentMatchId = null, callback = () => {}) => {
+    id = id || "Satoshi"
+    const user = users.get(session)
+    if (user) {
+      const updatedUser: IUser = {
+        ...user,
+        id,
       }
-
-      const user = users.get(session)
-      if (user) {
-        const updatedUser: IUser = {
-          ...user,
-          id,
-        }
-        users.set(session, updatedUser)
-        socket.session = session
-
-        return callback({ success: true, session })
-      }
-
-      const newSession = randomUUID()
-      socket.session = newSession
-      users.set(newSession, User(id))
-      callback({ success: true, session: newSession })
+      users.set(session, updatedUser)
+      socket.session = session
+      getCurrentMatch(session, currentMatchId)
+      return callback({ success: true, session })
     }
-  )
+
+    const newSession = randomUUID()
+    socket.session = newSession
+    users.set(newSession, User(id))
+    getCurrentMatch(newSession, currentMatchId)
+    callback({ success: true, session: newSession })
+  })
 
   /**
    * Set Player Ready

@@ -10,13 +10,15 @@ export interface IPlayer {
   usedHand: Array<ICard>
   prevHand: Array<ICard>
   isTurn: boolean
+  isOwner: boolean
   disabled: boolean
   ready: boolean
   setTurn(turn: boolean): void
-  getPublicPlayer(): IPlayer
+  getPublicPlayer(): IPublicPlayer
   setSession(session: string): void
   enable(): void
   disable(): void
+  setOwner(owner: boolean): void
   setReady(ready: boolean): void
   setHand(hand: Array<ICard>): Array<ICard>
   useCard(idx: number, card: ICard): ICard | null
@@ -24,10 +26,19 @@ export interface IPlayer {
 
 export type IPublicPlayer = Pick<
   IPlayer,
-  "id" | "disabled" | "ready" | "hand" | "usedHand" | "prevHand" | "teamIdx" | "session" | "isTurn"
+  | "id"
+  | "disabled"
+  | "ready"
+  | "hand"
+  | "usedHand"
+  | "prevHand"
+  | "teamIdx"
+  | "session"
+  | "isTurn"
+  | "isOwner"
 >
 
-export function Player(id: string, teamIdx: number) {
+export function Player(id: string, teamIdx: number, isOwner: boolean = false) {
   const player: IPlayer = {
     id,
     session: undefined,
@@ -36,14 +47,30 @@ export function Player(id: string, teamIdx: number) {
     commands: [],
     usedHand: [],
     prevHand: [],
+    isOwner,
     isTurn: false,
     disabled: false,
     ready: false,
+    setOwner(owner) {
+      player.isOwner = owner
+    },
     setTurn(turn) {
       player.isTurn = turn
     },
     getPublicPlayer() {
-      return { ...player, hand: player.hand.map(() => "xx" as ICard), session: undefined }
+      const { id, disabled, ready, usedHand, prevHand, teamIdx, isTurn, isOwner } = player
+      return {
+        id,
+        disabled,
+        ready,
+        usedHand,
+        prevHand,
+        teamIdx,
+        isTurn,
+        isOwner,
+        hand: player.hand.map(() => "xx" as ICard),
+        session: undefined,
+      }
     },
     setSession(session: string) {
       player.session = session

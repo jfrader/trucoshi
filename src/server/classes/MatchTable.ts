@@ -2,6 +2,7 @@ import { ILobby, IPlayer, IPublicPlayer, Lobby } from "../../lib"
 import { EMatchTableState, IPublicMatch } from "../../types"
 
 export interface IMatchTable {
+  ownerSession: string
   matchSessionId: string
   currentPlayer: IPublicPlayer | null
   lobby: ILobby
@@ -11,8 +12,9 @@ export interface IMatchTable {
   getPublicMatch(session?: string): IPublicMatch
 }
 
-export function MatchTable(matchSessionId: string, teamSize?: 1 | 2 | 3) {
+export function MatchTable(matchSessionId: string, ownerSession: string, teamSize?: 1 | 2 | 3) {
   const matchTable: IMatchTable = {
+    ownerSession,
     matchSessionId,
     currentPlayer: null,
     lobby: Lobby(teamSize),
