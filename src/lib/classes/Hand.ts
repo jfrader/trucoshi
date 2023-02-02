@@ -1,18 +1,49 @@
 import {
   EEnvidoCommand,
   EHandState,
+  EnvidoState,
   ESayCommand,
-  ICard,
-  IDeck,
-  IHand,
   IHandCommands,
-  IMatch,
-} from "../types"
+} from "../../types"
 import { checkHandWinner } from "../utils"
-import { PlayedCard } from "./Deck"
-import { PlayInstance } from "./Play"
-import { Round } from "./Round"
-import { Truco } from "./Truco"
+import { ICard, IDeck, PlayedCard } from "./Deck"
+import { IMatch } from "./Match"
+import { IPlayInstance, PlayInstance } from "./Play"
+import { IPlayer } from "./Player"
+import { IRound, Round } from "./Round"
+import { ITruco, Truco } from "./Truco"
+
+export interface IHandPoints {
+  0: number
+  1: number
+}
+
+export interface IHand {
+  idx: number
+  state: EHandState
+  turn: number
+  points: IHandPoints
+  truco: ITruco
+  envido: EnvidoState
+  rounds: Array<IRound>
+  _currentPlayer: IPlayer | null
+  get currentPlayer(): IPlayer | null
+  set currentPlayer(player: IPlayer | null)
+  currentRound: IRound | null
+  commands: IHandCommands
+  finished: () => boolean
+  play(): IPlayInstance | null
+  nextTurn(): void
+  use(idx: number, card: ICard): ICard | null
+  pushRound(round: IRound): IRound
+  setTurn(turn: number): IPlayer
+  addPoints(team: 0 | 1, points: number): void
+  disablePlayer(player: IPlayer): void
+  setCurrentRound(round: IRound | null): IRound | null
+  setCurrentPlayer(player: IPlayer | null): IPlayer | null
+  setState(state: EHandState): EHandState
+  getNextPlayer(): IteratorResult<IHand, IHand | void>
+}
 
 export function Hand(match: IMatch, deck: IDeck, idx: number) {
   match.teams.forEach((team) => {

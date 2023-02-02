@@ -1,6 +1,21 @@
 import { CARDS } from "../constants"
-import { ICard, IDeck, IPlayedCard, IPlayer } from "../types"
 import { shuffleArray } from "../utils"
+import { IPlayer, IPublicPlayer } from "./Player"
+
+export interface IDeck {
+  cards: Array<ICard>
+  usedCards: Array<ICard>
+  takeCard(): ICard
+  shuffle(): IDeck
+}
+
+export type ICard = keyof typeof CARDS
+
+export interface IPlayedCard {
+  get key(): string
+  player: IPlayer & IPublicPlayer
+  card: ICard
+}
 
 export function Deck(): IDeck {
   const deck: IDeck = {

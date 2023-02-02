@@ -1,4 +1,26 @@
-import { ICard, IPlayer } from "../types"
+import { ECommand } from "../../types"
+import { ICard } from "./Deck"
+
+export interface IPlayer {
+  teamIdx: number
+  id: string
+  session?: string
+  hand: Array<ICard>
+  commands: Array<ECommand>
+  usedHand: Array<ICard>
+  prevHand: Array<ICard>
+  isTurn: boolean
+  disabled: boolean
+  ready: boolean
+  setTurn(turn: boolean): void
+  getPublicPlayer(): IPlayer
+  setSession(session: string): void
+  enable(): void
+  disable(): void
+  setReady(ready: boolean): void
+  setHand(hand: Array<ICard>): Array<ICard>
+  useCard(idx: number, card: ICard): ICard | null
+}
 
 export type IPublicPlayer = Pick<
   IPlayer,

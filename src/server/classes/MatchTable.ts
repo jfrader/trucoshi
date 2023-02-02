@@ -1,7 +1,8 @@
-import { Lobby } from "../../lib"
-import { IPublicPlayer } from "../../lib/classes/Player"
-import { IPublicTeam } from "../../lib/classes/Team"
-import { IHandPoints, ILobby, IPlayedCard, IPlayer, ITeam } from "../../lib/types"
+import { IPlayedCard } from "../../lib/classes/Deck"
+import { IHandPoints } from "../../lib/classes/Hand"
+import { ILobby, Lobby } from "../../lib/classes/Lobby"
+import { IPlayer, IPublicPlayer } from "../../lib/classes/Player"
+import { IPublicTeam, ITeam } from "../../lib/classes/Team"
 
 export interface IPublicMatch {
   state: EMatchTableState

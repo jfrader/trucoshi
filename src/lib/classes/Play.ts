@@ -1,4 +1,24 @@
-import { EEnvidoCommand, EHandState, ESayCommand, IHand, IPlayInstance, ITeam } from "../types"
+import { ECommand, EEnvidoCommand, EHandState, EnvidoState, ESayCommand } from "../../types"
+import { ICard } from "./Deck"
+import { IHand } from "./Hand"
+import { IPlayer } from "./Player"
+import { IRound } from "./Round"
+import { ITeam } from "./Team"
+import { ITruco } from "./Truco"
+
+export interface IPlayInstance {
+  teams: [ITeam, ITeam]
+  handIdx: number
+  roundIdx: number
+  state: EHandState
+  truco: ITruco
+  envido: EnvidoState
+  player: IPlayer | null
+  commands: Array<ECommand> | null
+  rounds: Array<IRound> | null
+  use(idx: number, card: ICard): ICard | null
+  say(command: ECommand): ECommand | null
+}
 
 export function PlayInstance(hand: IHand, teams: [ITeam, ITeam]) {
   const instance: IPlayInstance = {

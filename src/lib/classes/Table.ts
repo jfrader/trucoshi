@@ -1,4 +1,15 @@
-import { IPlayer, ITable, ITeam } from "../types"
+import { IPlayedCard } from "./Deck"
+import { IPlayer } from "./Player"
+import { ITeam } from "./Team"
+
+export interface ITable {
+  forehandIdx: number
+  cards: Array<Array<IPlayedCard>>
+  players: Array<IPlayer>
+  nextTurn(): IPlayer
+  player(idx?: number): IPlayer
+  getPlayerPosition(id: string): number
+}
 
 export function Table(players: Array<IPlayer>, teams: Array<ITeam>): ITable {
   const table: ITable = {

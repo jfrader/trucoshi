@@ -1,5 +1,4 @@
-import { Lobby } from "../lib"
-import { IRound } from "../lib/types"
+import { IRound, Lobby } from "../lib"
 ;(async () => {
   const trucoshi = Lobby()
 

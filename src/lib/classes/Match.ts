@@ -1,6 +1,22 @@
-import { IHand, IMatch, ITable, ITeam } from "../types"
 import { Deck } from "./Deck"
-import { Hand } from "./Hand"
+import { Hand, IHand, IHandPoints } from "./Hand"
+import { IPlayInstance } from "./Play"
+import { ITable } from "./Table"
+import { ITeam } from "./Team"
+
+export interface IMatch {
+  teams: [ITeam, ITeam]
+  hands: Array<IHand>
+  winner: ITeam | null
+  currentHand: IHand | null
+  table: ITable
+  play(): IPlayInstance | null
+  addPoints(points: IHandPoints): [ITeam, ITeam]
+  pushHand(hand: IHand): void
+  setCurrentHand(hand: IHand | null): IHand | null
+  setWinner(winner: ITeam): void
+  getNextTurn(): IteratorResult<IMatch | null, IMatch | null | void>
+}
 
 export function Match(table: ITable, teams: Array<ITeam> = [], matchPoint: number = 9): IMatch {
   const deck = Deck().shuffle()

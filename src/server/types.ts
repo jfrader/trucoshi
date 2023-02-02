@@ -1,5 +1,6 @@
 import { Socket } from "socket.io"
-import { ECommand, ICard } from "../lib/types"
+import { ICard } from "../lib"
+import { ECommand } from "../lib/types"
 
 export enum EClientEvent {
   PING = "PING",

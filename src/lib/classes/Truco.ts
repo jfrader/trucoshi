@@ -1,4 +1,21 @@
-import { ITruco } from "../types"
+import { IPlayer } from "./Player"
+
+export interface ITruco {
+  state: 1 | 2 | 3 | 4
+  teamIdx: 0 | 1 | null
+  answer: boolean | null
+  turn: number
+  players: Array<IPlayer>
+  currentPlayer: IPlayer | null
+  generator: Generator<ITruco, void, unknown>
+  sayTruco(teamIdx: 0 | 1, players: Array<IPlayer>): ITruco
+  setPlayers(players: Array<IPlayer>): void
+  setAnswer(answer: boolean | null): ITruco
+  setTurn(turn: number): number
+  setTeam(idx: 0 | 1): 0 | 1
+  setCurrentPlayer(player: IPlayer | null): IPlayer | null
+  getNextPlayer(): IteratorResult<ITruco, ITruco | void>
+}
 
 export function Truco() {
   function* trucoAnswerGeneratorSequence() {

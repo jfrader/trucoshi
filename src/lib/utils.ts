@@ -1,5 +1,5 @@
+import { ICard, IRound, IRoundPoints } from "./classes"
 import { CARDS } from "./constants"
-import { ICard, IRound, ITeam, IRoundPoints } from "./types"
 
 export function getMaxNumberIndex<T = number>(array: Array<T>) {
   return array.reduce((accumulator, current, index) => {
@@ -24,10 +24,7 @@ export function shuffleArray<T = unknown>(array: Array<T>) {
   return array as Array<T>
 }
 
-export function checkHandWinner(
-  rounds: Array<IRound>,
-  forehandTeamIdx: 0 | 1
-): null | 0 | 1 {
+export function checkHandWinner(rounds: Array<IRound>, forehandTeamIdx: 0 | 1): null | 0 | 1 {
   const roundsWon: IRoundPoints = {
     0: 0,
     1: 0,

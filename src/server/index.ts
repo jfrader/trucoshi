@@ -1,11 +1,11 @@
 import { randomUUID } from "crypto"
 import { createServer } from "http"
 import { Server } from "socket.io"
+import { IPlayInstance } from "../lib/classes/Play"
 import { IPublicPlayer } from "../lib/classes/Player"
-import { ICard, IPlayer, IPlayInstance } from "../lib/types"
-import { EMatchTableState, IMatchTable, MatchTable } from "./classes/MatchTable"
+import { IMatchTable, MatchTable } from "./classes/MatchTable"
 import { IUser, User } from "./classes/User"
-import { EClientEvent, EServerEvent, IWaitingPlayData, TrucoshiSocket } from "./types"
+import { EClientEvent, EServerEvent, IWaitingPlayData, TrucoshiSocket } from "../types"
 
 const PORT = process.env.NODE_PORT || 4001
 const ORIGIN = process.env.NODE_ORIGIN || "http://localhost:3000"
@@ -113,13 +113,9 @@ io.on("connection", (_socket) => {
   })
 
   const sendWaitingForPlay = async (table: IMatchTable, play: IPlayInstance) => {
-    let player: IPlayer | null = null
-    let sock: string | null = null
     return new Promise<void>((resolve, reject) => {
       return getTableSockets(table, async (playerSocket) => {
         if (playerSocket.session && playerSocket.session === play.player?.session) {
-          sock = playerSocket.id
-          player = play.player
           playerSocket.emit(
             EServerEvent.WAITING_PLAY,
             table.getPublicMatch(playerSocket.session),
@@ -157,7 +153,7 @@ io.on("connection", (_socket) => {
         table.lobby
           .startMatch()
           .onTurn((play) => {
-            return new Promise(async (resolve) => {
+            return new Promise<void>(async (resolve) => {
               table.setCurrentPlayer(play.player as IPublicPlayer)
               turns.set(table.matchSessionId, { play, resolve })
 
@@ -172,12 +168,7 @@ io.on("connection", (_socket) => {
                 }
 
                 await emitMatchUpdate(table)
-                try {
-                  await sendWaitingForPlay(table, play)
-                } catch (e) {
-                  console.error(e)
-                  return
-                }
+                await sendWaitingForPlay(table, play)
 
                 return resolve()
               } catch (e) {
@@ -191,9 +182,9 @@ io.on("connection", (_socket) => {
 
         return tables.set(socket.session as string, table)
       }
-      console.error("ASL:KDJALSk")
+      return null
     } catch (e) {
-      console.error("ERROR", e)
+      return null
     }
   }
 
@@ -294,7 +285,10 @@ io.on("connection", (_socket) => {
 
           socket.join(currentTable.matchSessionId)
 
-          if (currentTable.isSessionPlaying(session) && session === currentTable.currentPlayer?.session) {
+          if (
+            currentTable.isSessionPlaying(session) &&
+            session === currentTable.currentPlayer?.session
+          ) {
             try {
               const { play, resolve } = turns.get(currentTable.matchSessionId) || {}
               if (!play) {
@@ -340,4 +334,4 @@ io.on("connection", (_socket) => {
 
 httpServer.listen(PORT)
 
-console.log("Listening on port", PORT)
+console.log("Listening on", ORIGIN, PORT)

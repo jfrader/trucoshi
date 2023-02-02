@@ -1,11 +1,4 @@
-import {
-  EEnvidoCommand,
-  ESayCommand,
-  IEnvidoCalculator,
-  IEnvidoCalculatorArgs,
-  ITeam,
-  ITeamPoints,
-} from "./types"
+import { EEnvidoCommand, IEnvidoCalculator } from "../types"
 import { getMaxNumberIndex } from "./utils"
 
 export const CARDS = {
@@ -52,14 +45,6 @@ export const CARDS = {
 }
 
 export const TEAM_SIZE_VALUES = [1, 2, 3]
-
-export enum GAME_ERROR {
-  MATCH_ALREADY_STARTED = "MATCH_ALREADY_STARTED",
-  LOBBY_IS_FULL = "LOBBY_IS_FULL",
-  UNEXPECTED_TEAM_SIZE = "UNEXPECTED_TEAM_SIZE",
-  TEAM_NOT_READY = "TEAM_NOT_READY",
-  TEAM_IS_FULL = "TEAM_IS_FULL",
-}
 
 export const EnvidoCalculator: IEnvidoCalculator = {
   [EEnvidoCommand.ENVIDO]: () => ({
