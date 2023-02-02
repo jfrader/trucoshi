@@ -1,5 +1,24 @@
 import { Socket } from "socket.io"
-import { ICard, IPlayer, ITeam } from "./lib"
+import { ICard, IHandPoints, IPlayedCard, IPlayer, IPublicPlayer, IPublicTeam, ITeam } from "./lib"
+
+export interface IPublicMatch {
+  state: EMatchTableState
+  winner: ITeam | null
+  matchSessionId: string
+  teams: Array<IPublicTeam>
+  players: Array<IPublicPlayer>
+  me: IPublicPlayer
+  rounds: IPlayedCard[][]
+  prevRounds: IPlayedCard[][] | null
+  prevHandPoints?: IHandPoints | null
+}
+
+export enum EMatchTableState {
+  UNREADY,
+  READY,
+  STARTED,
+  FINISHED,
+}
 
 export enum ESayCommand {
   QUIERO = "QUIERO",

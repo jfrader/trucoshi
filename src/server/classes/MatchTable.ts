@@ -1,20 +1,5 @@
-import { IPlayedCard } from "../../lib/classes/Deck"
-import { IHandPoints } from "../../lib/classes/Hand"
-import { ILobby, Lobby } from "../../lib/classes/Lobby"
-import { IPlayer, IPublicPlayer } from "../../lib/classes/Player"
-import { IPublicTeam, ITeam } from "../../lib/classes/Team"
-
-export interface IPublicMatch {
-  state: EMatchTableState
-  winner: ITeam | null
-  matchSessionId: string
-  teams: Array<IPublicTeam>
-  players: Array<IPublicPlayer>
-  me: IPublicPlayer
-  rounds: IPlayedCard[][]
-  prevRounds: IPlayedCard[][] | null
-  prevHandPoints?: IHandPoints | null
-}
+import { ILobby, IPlayer, IPublicPlayer, Lobby } from "lib"
+import { EMatchTableState, IPublicMatch } from "types"
 
 export interface IMatchTable {
   matchSessionId: string
@@ -24,13 +9,6 @@ export interface IMatchTable {
   setCurrentPlayer(player: IPublicPlayer): void
   isSessionPlaying(session: string): IPublicPlayer | null
   getPublicMatch(session?: string): IPublicMatch
-}
-
-export enum EMatchTableState {
-  UNREADY,
-  READY,
-  STARTED,
-  FINISHED,
 }
 
 export function MatchTable(matchSessionId: string, teamSize?: 1 | 2 | 3) {

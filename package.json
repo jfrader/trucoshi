@@ -1,7 +1,7 @@
 {
   "name": "trucoshi",
-  "version": "0.1.0",
-  "main": "build/server/index.js",
+  "version": "0.1.2",
+  "main": "dist/index.js",
   "license": "GPL-3.0",
   "scripts": {
     "start": "node ./dist/server/index.js",
@@ -17,7 +17,7 @@
     "nodemon": "^2.0.20"
   },
   "files": [
-    "dist"
+    "dist/index.js"
   ],
   "dependencies": {
     "rimraf": "^4.1.1",
