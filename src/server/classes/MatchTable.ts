@@ -10,6 +10,14 @@ export interface IMatchTable {
   setCurrentPlayer(player: IPublicPlayer): void
   isSessionPlaying(session: string): IPublicPlayer | null
   getPublicMatch(session?: string): IPublicMatch
+  getPublicMatchInfo(): IPublicMatchInfo
+}
+
+export interface IPublicMatchInfo {
+  matchSessionId: string
+  players: number
+  maxPlayers: number
+  state: EMatchTableState
 }
 
 export function MatchTable(matchSessionId: string, ownerSession: string, teamSize?: 1 | 2 | 3) {
@@ -38,6 +46,19 @@ export function MatchTable(matchSessionId: string, ownerSession: string, teamSiz
       const { lobby } = matchTable
       const search = lobby.players.find((player) => player && player.session === session)
       return search || null
+    },
+    getPublicMatchInfo() {
+      const {
+        matchSessionId,
+        state,
+        lobby: { players, maxPlayers },
+      } = matchTable
+      return {
+        matchSessionId,
+        maxPlayers,
+        players: players.length,
+        state: state(),
+      }
     },
     getPublicMatch(userSession) {
       const { lobby } = matchTable

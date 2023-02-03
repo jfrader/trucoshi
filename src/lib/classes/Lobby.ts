@@ -37,6 +37,7 @@ export interface ILobby
     | "players"
     | "gameLoop"
     | "table"
+    | "maxPlayers"
     | "calculateReady"
   > {}
 

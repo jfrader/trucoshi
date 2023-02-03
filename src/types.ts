@@ -82,7 +82,6 @@ export enum EClientEvent {
   PING = "PING",
   PLAY = "PLAY",
   CREATE_MATCH = "CREATE_MATCH",
-  GET_MATCH = "GET_MATCH",
   LIST_MATCHES = "LIST_MATCHES",
   JOIN_MATCH = "JOIN_MATCH",
   START_MATCH = "START_MATCH",
@@ -94,10 +93,6 @@ export enum EServerEvent {
   PONG = "PONG",
   UPDATE_MATCH = "UPDATE_MATCH",
   WAITING_PLAY = "WAITING_PLAY",
-}
-
-export interface TrucoshiSocket extends Socket {
-  session?: string
 }
 
 export enum ETrucoshiMatchState {
