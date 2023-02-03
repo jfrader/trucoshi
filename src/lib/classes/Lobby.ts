@@ -17,7 +17,7 @@ export interface IPrivateLobby {
   full: boolean
   ready: boolean
   started: boolean
-  addPlayer(id: string, session: string, teamIdx?: 0 | 1, isOwner?: boolean): IPlayer
+  addPlayer(key: string, id: string, session: string, teamIdx?: 0 | 1, isOwner?: boolean): IPlayer
   removePlayer(id: string): ILobby
   calculateReady(): boolean
   calculateFull(): boolean
@@ -74,7 +74,7 @@ export function Lobby(teamSize?: 1 | 2 | 3): ILobby {
       lobby.full = lobby.players.length >= lobby.maxPlayers
       return lobby.full
     },
-    addPlayer(id, session, teamIdx, isOwner) {
+    addPlayer(key, id, session, teamIdx, isOwner) {
       const exists = lobby.players.find((player) => player.session === session)
       if (exists) {
         if (exists.teamIdx === teamIdx) {
@@ -99,6 +99,7 @@ export function Lobby(teamSize?: 1 | 2 | 3): ILobby {
         throw new Error(GAME_ERROR.TEAM_IS_FULL)
       }
       const player = Player(
+        key,
         id,
         teamIdx !== undefined ? teamIdx : Number(!lobby.lastTeamIdx),
         isOwner

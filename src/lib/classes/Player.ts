@@ -1,4 +1,3 @@
-import { randomUUID } from "crypto"
 import { ECommand } from "../../types"
 import { ICard } from "./Deck"
 
@@ -41,9 +40,9 @@ export type IPublicPlayer = Pick<
   | "isOwner"
 >
 
-export function Player(id: string, teamIdx: number, isOwner: boolean = false) {
+export function Player(key: string, id: string, teamIdx: number, isOwner: boolean = false) {
   const player: IPlayer = {
-    key: randomUUID(),
+    key,
     id,
     session: undefined,
     teamIdx,

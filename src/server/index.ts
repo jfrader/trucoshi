@@ -46,7 +46,7 @@ server.io.on("connection", (socket) => {
 
         user.ownedMatchId = matchId
 
-        table.lobby.addPlayer(user.id, socket.data.session, 0, true)
+        table.lobby.addPlayer(user.key, user.id, socket.data.session, 0, true)
 
         socket.join(matchId)
         server.tables.set(matchId, table)
@@ -91,7 +91,7 @@ server.io.on("connection", (socket) => {
       const table = server.tables.get(matchSessionId)
 
       if (table) {
-        table.lobby.addPlayer(user.id, socket.data.session, teamIdx)
+        table.lobby.addPlayer(user.key, user.id, socket.data.session, teamIdx)
 
         socket.join(table.matchSessionId)
 
@@ -140,8 +140,9 @@ server.io.on("connection", (socket) => {
     }
 
     const newSession = randomUUID()
+    const userKey = randomUUID()
     socket.data.session = newSession
-    server.users.set(newSession, User(id))
+    server.users.set(newSession, User(userKey, id))
     callback({ success: false, session: newSession, activeMatches: [] })
   })
 
