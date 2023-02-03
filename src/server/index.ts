@@ -152,7 +152,7 @@ server.io.on("connection", (socket) => {
       if (user) {
         socket.data.session = session
         const match = server.sendCurrentMatch(socket, matchId)
-        return callback({ success: true, match })
+        return callback({ success: Boolean(match), match })
       }
     }
     callback({ success: false })
