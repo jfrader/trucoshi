@@ -1,5 +1,5 @@
 import { ILobby, IPlayer, IPublicPlayer, Lobby } from "../../lib"
-import { EMatchTableState, IPublicMatch } from "../../types"
+import { EMatchTableState, IPublicMatch, IPublicMatchInfo } from "../../types"
 
 export interface IMatchTable {
   ownerSession: string
@@ -11,13 +11,6 @@ export interface IMatchTable {
   isSessionPlaying(session: string): IPublicPlayer | null
   getPublicMatch(session?: string): IPublicMatch
   getPublicMatchInfo(): IPublicMatchInfo
-}
-
-export interface IPublicMatchInfo {
-  matchSessionId: string
-  players: number
-  maxPlayers: number
-  state: EMatchTableState
 }
 
 export function MatchTable(matchSessionId: string, ownerSession: string, teamSize?: 1 | 2 | 3) {

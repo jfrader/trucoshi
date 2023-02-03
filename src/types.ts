@@ -1,5 +1,4 @@
 import { ICard, IHandPoints, IPlayedCard, IPlayer, IPublicPlayer, IPublicTeam, ITeam } from "./lib"
-import { IPublicMatchInfo } from "./server/classes/MatchTable"
 
 export interface IPublicMatch {
   state: EMatchTableState
@@ -11,6 +10,13 @@ export interface IPublicMatch {
   rounds: IPlayedCard[][]
   prevRounds: IPlayedCard[][] | null
   prevHandPoints?: IHandPoints | null
+}
+
+export interface IPublicMatchInfo {
+  matchSessionId: string
+  players: number
+  maxPlayers: number
+  state: EMatchTableState
 }
 
 export enum EMatchTableState {
