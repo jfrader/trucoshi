@@ -3,7 +3,7 @@ import { MatchTable } from "./classes/MatchTable"
 import { IUser, User } from "./classes/User"
 import { EClientEvent, EServerEvent } from "../types"
 import { Trucoshi } from "./classes/Trucoshi"
-import { SocketServer, TrucoshiSocket } from "./classes/SocketServer"
+import { SocketServer } from "./classes/SocketServer"
 
 const PORT = process.env.NODE_PORT || 4001
 const ORIGIN = process.env.NODE_ORIGIN || "http://localhost:3000"
@@ -106,34 +106,52 @@ server.io.on("connection", (socket) => {
   })
 
   /**
-   * Get match ids
+   * Get public matches
    */
   socket.on(EClientEvent.LIST_MATCHES, (filters = {}, callback) => {
-    callback({ success: true, matches: server.tables.getAll(filters) })
+    const publicMatches = server.tables.getAll(filters)
+    callback({ success: true, matches: publicMatches })
   })
 
   /**
    * Set Session
    */
-  socket.on(EClientEvent.SET_SESSION, (session, id, currentMatchId = null, callback = () => {}) => {
+  socket.on(EClientEvent.SET_SESSION, (session, id, callback = () => {}) => {
     id = id || "Satoshi"
-    const user = server.users.get(session)
-    if (user) {
-      const updatedUser: IUser = {
-        ...user,
-        id,
+    if (session) {
+      const user = server.users.get(session)
+      if (user) {
+        const updatedUser: IUser = {
+          ...user,
+          id,
+        }
+        server.users.set(session, updatedUser)
+        socket.data.session = session
+
+        const activeMatches = server.tables
+          .findAll((table) => Boolean(table.isSessionPlaying(session)))
+          .map((match) => match.getPublicMatchInfo())
+
+        return callback({ success: true, session, activeMatches })
       }
-      server.users.set(session, updatedUser)
-      socket.data.session = session
-      server.sendCurrentMatch(socket, currentMatchId)
-      return callback({ success: true, session })
     }
 
     const newSession = randomUUID()
     socket.data.session = newSession
     server.users.set(newSession, User(id))
-    server.sendCurrentMatch(socket, currentMatchId)
-    callback({ success: true, session: newSession })
+    callback({ success: true, session: newSession, activeMatches: [] })
+  })
+
+  socket.on(EClientEvent.FETCH_MATCH, (session, matchId, callback) => {
+    if (session) {
+      const user = server.users.get(session)
+      if (user) {
+        socket.data.session = session
+        const match = server.sendCurrentMatch(socket, matchId)
+        return callback({ success: true, match })
+      }
+    }
+    callback({ success: false })
   })
 
   /**

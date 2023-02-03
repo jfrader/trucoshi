@@ -2,63 +2,14 @@ import { createServer } from "http"
 import { Server, Socket } from "socket.io"
 import { IPlayInstance, IPublicPlayer } from "../../lib"
 import {
-  EClientEvent,
-  EMatchTableState,
+  ClientToServerEvents,
   EServerEvent,
   IPublicMatch,
   IWaitingPlayData,
+  ServerToClientEvents,
 } from "../../types"
-import { IMatchTable, IPublicMatchInfo } from "./MatchTable"
+import { IMatchTable } from "./MatchTable"
 import { ITrucoshi } from "./Trucoshi"
-
-type IEventCallback<T = {}> = (
-  args: {
-    success: boolean
-  } & T
-) => void
-
-interface ServerToClientEvents {
-  [EServerEvent.PONG]: (msg: string) => void
-
-  [EServerEvent.UPDATE_MATCH]: (match: IPublicMatch) => void
-
-  [EServerEvent.WAITING_PLAY]: (
-    match: IPublicMatch,
-    callback: (data: IWaitingPlayData) => void
-  ) => void
-}
-
-interface ClientToServerEvents {
-  [EClientEvent.PING]: (msg: string) => void
-
-  [EClientEvent.CREATE_MATCH]: (callback: IEventCallback<{ match?: IPublicMatch }>) => void
-
-  [EClientEvent.START_MATCH]: (callback: IEventCallback<{ matchSessionId?: string }>) => void
-
-  [EClientEvent.LIST_MATCHES]: (
-    filters: { state?: Array<EMatchTableState> },
-    callback: IEventCallback<{ matches: Array<IPublicMatchInfo> }>
-  ) => void
-
-  [EClientEvent.SET_PLAYER_READY]: (
-    matchSessionId: string,
-    ready: boolean,
-    callback: IEventCallback<{ match?: IPublicMatch }>
-  ) => void
-
-  [EClientEvent.SET_SESSION]: (
-    session: string,
-    id: string,
-    currentMatchId: string | null,
-    callback: IEventCallback<{ session?: string }>
-  ) => void
-
-  [EClientEvent.JOIN_MATCH]: (
-    matchSessionId: string,
-    teamIdx: 0 | 1 | undefined,
-    callback: IEventCallback<{ match?: IPublicMatch }>
-  ) => void
-}
 
 interface InterServerEvents {}
 
@@ -73,7 +24,7 @@ type TrucoshiServer = Server<
   SocketData
 >
 
-export type TrucoshiSocket = Socket<
+type TrucoshiSocket = Socket<
   ClientToServerEvents,
   ServerToClientEvents,
   InterServerEvents,
@@ -89,7 +40,7 @@ export interface ISocketServer extends ITrucoshi {
   sendMatchUpdate(table: IMatchTable, skipSocketIds?: Array<string>): Promise<void>
   sendWaitingForPlay(table: IMatchTable, play: IPlayInstance): Promise<void>
   startMatch(matchSessionId: string): Promise<void>
-  sendCurrentMatch(socket: TrucoshiSocket, currentMatchId: string | null): void
+  sendCurrentMatch(socket: TrucoshiSocket, currentMatchId: string | null): IPublicMatch | null
   listen: () => void
 }
 
@@ -213,7 +164,7 @@ export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string |
     },
     sendCurrentMatch(socket, matchId) {
       if (!matchId || !socket.data.session) {
-        return
+        return null
       }
 
       const currentTable = server.tables.get(matchId)
@@ -237,7 +188,9 @@ export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string |
         } else {
           socket.emit(EServerEvent.UPDATE_MATCH, currentTable.getPublicMatch(socket.data.session))
         }
+        return currentTable.getPublicMatch(socket.data.session)
       }
+      return null
     },
   }
 

@@ -1,5 +1,5 @@
-import { Socket } from "socket.io"
 import { ICard, IHandPoints, IPlayedCard, IPlayer, IPublicPlayer, IPublicTeam, ITeam } from "./lib"
+import { IPublicMatchInfo } from "./server/classes/MatchTable"
 
 export interface IPublicMatch {
   state: EMatchTableState
@@ -87,6 +87,61 @@ export enum EClientEvent {
   START_MATCH = "START_MATCH",
   SET_PLAYER_READY = "SET_PLAYER_READY",
   SET_SESSION = "SET_SESSION",
+  FETCH_MATCH = "FETCH_MATCH",
+}
+
+export type IEventCallback<T = {}> = (
+  args: {
+    success: boolean
+  } & T
+) => void
+
+export interface ServerToClientEvents {
+  [EServerEvent.PONG]: (msg: string) => void
+
+  [EServerEvent.UPDATE_MATCH]: (match: IPublicMatch) => void
+
+  [EServerEvent.WAITING_PLAY]: (
+    match: IPublicMatch,
+    callback: (data: IWaitingPlayData) => void
+  ) => void
+}
+
+export interface ClientToServerEvents {
+  [EClientEvent.PING]: (msg: string) => void
+
+  [EClientEvent.CREATE_MATCH]: (callback: IEventCallback<{ match?: IPublicMatch }>) => void
+
+  [EClientEvent.START_MATCH]: (callback: IEventCallback<{ matchSessionId?: string }>) => void
+
+  [EClientEvent.FETCH_MATCH]: (
+    session: string | null,
+    matchId: string,
+    callback: IEventCallback<{ match?: IPublicMatch | null }>
+  ) => void
+
+  [EClientEvent.LIST_MATCHES]: (
+    filters: { state?: Array<EMatchTableState> },
+    callback: IEventCallback<{ matches: Array<IPublicMatchInfo> }>
+  ) => void
+
+  [EClientEvent.SET_PLAYER_READY]: (
+    matchSessionId: string,
+    ready: boolean,
+    callback: IEventCallback<{ match?: IPublicMatch }>
+  ) => void
+
+  [EClientEvent.SET_SESSION]: (
+    session: string | null,
+    id: string | null,
+    callback?: IEventCallback<{ session?: string; activeMatches: Array<IPublicMatchInfo> }>
+  ) => void
+
+  [EClientEvent.JOIN_MATCH]: (
+    matchSessionId: string,
+    teamIdx: 0 | 1 | undefined,
+    callback: IEventCallback<{ match?: IPublicMatch }>
+  ) => void
 }
 
 export enum EServerEvent {

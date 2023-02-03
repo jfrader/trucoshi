@@ -16,12 +16,25 @@ interface TMap<K, V> extends Map<K, V> {
 class TMap<K, V> extends Map<K, V> {
   find(finder: (value: V) => boolean) {
     let result: void | V = undefined
-    this.forEach((value) => {
+
+    for (let value of this.values()) {
       const find = finder(value)
       if (!result && find) {
         result = value
       }
-    })
+    }
+    return result
+  }
+
+  findAll(finder: (value: V) => boolean) {
+    let result: Array<V> = []
+
+    for (let value of this.values()) {
+      const find = finder(value)
+      if (find) {
+        result.push(value)
+      }
+    }
     return result
   }
 
@@ -41,11 +54,13 @@ interface MatchTableMap extends TMap<string, IMatchTable> {
 class MatchTableMap extends TMap<string, IMatchTable> {
   getAll(filters: { state?: Array<EMatchTableState> } = {}) {
     let results: Array<IPublicMatchInfo> = []
-    this.forEach((table) => {
-      if (!filters.state || !filters.state.length || filters.state.includes(table.state())) {
-        results.push(table.getPublicMatchInfo())
+
+    for (let value of this.values()) {
+      if (!filters.state || !filters.state.length || filters.state.includes(value.state())) {
+        results.push(value.getPublicMatchInfo())
       }
-    })
+    }
+
     return results
   }
 }
