@@ -117,7 +117,7 @@ server.io.on("connection", (socket) => {
    * Set Session
    */
   socket.on(EClientEvent.SET_SESSION, (session, id, callback = () => {}) => {
-    if (!callback.call) {
+    if (!callback) {
       return
     }
     id = id || "Satoshi"
