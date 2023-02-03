@@ -160,7 +160,6 @@ export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string |
         server.tables.set(matchSessionId as string, table)
         return
       }
-      throw new Error("Table not found or already started")
     },
     sendCurrentMatch(socket, matchId) {
       if (!matchId || !socket.data.session) {
