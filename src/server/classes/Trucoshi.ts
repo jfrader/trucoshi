@@ -1,6 +1,6 @@
 import { IPlayInstance } from "../../lib"
-import { EMatchTableState } from "../../types"
-import { IMatchTable, IPublicMatchInfo } from "./MatchTable"
+import { EMatchTableState, IPublicMatchInfo } from "../../types"
+import { IMatchTable } from "./MatchTable"
 import { IUser } from "./User"
 
 export interface ITrucoshi {
