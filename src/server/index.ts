@@ -142,7 +142,7 @@ server.io.on("connection", (socket) => {
     const newSession = randomUUID()
     socket.data.session = newSession
     server.users.set(newSession, User(id))
-    callback({ success: true, session: newSession, activeMatches: [] })
+    callback({ success: false, session: newSession, activeMatches: [] })
   })
 
   socket.on(EClientEvent.FETCH_MATCH, (session, matchId, callback) => {

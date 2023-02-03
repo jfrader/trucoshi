@@ -1,9 +1,11 @@
+import { randomUUID } from "crypto"
 import { ECommand } from "../../types"
 import { ICard } from "./Deck"
 
 export interface IPlayer {
   teamIdx: number
   id: string
+  key: string
   session?: string
   hand: Array<ICard>
   commands: Array<ECommand>
@@ -27,6 +29,7 @@ export interface IPlayer {
 export type IPublicPlayer = Pick<
   IPlayer,
   | "id"
+  | "key"
   | "disabled"
   | "ready"
   | "hand"
@@ -40,6 +43,7 @@ export type IPublicPlayer = Pick<
 
 export function Player(id: string, teamIdx: number, isOwner: boolean = false) {
   const player: IPlayer = {
+    key: randomUUID(),
     id,
     session: undefined,
     teamIdx,
@@ -58,9 +62,10 @@ export function Player(id: string, teamIdx: number, isOwner: boolean = false) {
       player.isTurn = turn
     },
     getPublicPlayer() {
-      const { id, disabled, ready, usedHand, prevHand, teamIdx, isTurn, isOwner } = player
+      const { id, key, disabled, ready, usedHand, prevHand, teamIdx, isTurn, isOwner } = player
       return {
         id,
+        key,
         disabled,
         ready,
         usedHand,
