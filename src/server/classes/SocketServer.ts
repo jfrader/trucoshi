@@ -153,7 +153,7 @@ export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string |
           }
           playerSocket.emit(
             EServerEvent.WAITING_POSSIBLE_SAY,
-            table.getPublicMatch(player.session, false),
+            table.getPublicMatch(player.session, play.state === EHandState.WAITING_PLAY),
             (data) => {
               if (!data) {
                 return reject(
