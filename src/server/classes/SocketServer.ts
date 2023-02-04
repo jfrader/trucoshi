@@ -165,6 +165,9 @@ export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string |
                 if (command) {
                   const saidCommand = play.say(command, player)
                   if (saidCommand) {
+                    server.chat.rooms
+                      .get(table.matchSessionId)
+                      ?.send({ id: player.id, key: player.key }, saidCommand)
                     return resolve(saidCommand)
                   }
                 }
@@ -190,7 +193,10 @@ export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string |
             return
           }
 
-          const publicMatch = table.getPublicMatch(playerSocket.data.user?.session)
+          const publicMatch = table.getPublicMatch(
+            playerSocket.data.user?.session,
+            play.state === EHandState.WAITING_PLAY
+          )
 
           if (playerSocket.data.user?.session === play.player?.session) {
             playerSocket.emit(EServerEvent.WAITING_PLAY, publicMatch, (data: IWaitingPlayData) => {
@@ -232,7 +238,7 @@ export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string |
                   throw new Error("Unexpected Error")
                 }
 
-                await server.emitMatchUpdate(table)
+                await server.emitMatchUpdate(table, [], true)
                 await server.emitWaitingForPlay(play, table)
 
                 return resolve()
@@ -248,7 +254,7 @@ export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string |
               console.log("NEW TRUCO", play.player?.id)
 
               try {
-                await server.emitMatchUpdate(table, [])
+                await server.emitMatchUpdate(table, [], false)
                 await server.emitWaitingPossibleSay(play, table)
                 return resolve()
               } catch (e) {
@@ -288,10 +294,10 @@ export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string |
         } else {
           socket.emit(
             EServerEvent.UPDATE_MATCH,
-            currentTable.getPublicMatch(socket.data.user.session)
+            currentTable.getPublicMatch(socket.data.user.session, false)
           )
         }
-        return currentTable.getPublicMatch(socket.data.user.session)
+        return currentTable.getPublicMatch(socket.data.user.session, false)
       }
       return null
     },
@@ -330,7 +336,7 @@ export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string |
         user.waitReconnection(table.matchSessionId, reconnect, abandon)
       },
       () => {
-        server.emitMatchUpdate(table)
+        server.emitMatchUpdate(table, [], false)
       }
     )
   })
