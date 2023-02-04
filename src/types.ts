@@ -1,5 +1,5 @@
 import { ICard, IHandPoints, IPlayedCard, IPlayer, IPublicPlayer, IPublicTeam, ITeam } from "./lib"
-import { IPublicChatRoom } from "./server/classes/Chat"
+import { IChatRoom } from "./server/classes/Chat"
 
 export interface IPublicMatch {
   state: EMatchTableState
@@ -19,6 +19,8 @@ export interface IPublicMatchInfo {
   maxPlayers: number
   state: EMatchTableState
 }
+
+export type IPublicChatRoom = Pick<IChatRoom, "id" | "messages">
 
 export enum EMatchTableState {
   UNREADY,

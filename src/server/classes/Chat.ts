@@ -9,9 +9,9 @@ export interface IChatMessage {
   content: string
 }
 
-export type IPublicChatRoom = Pick<IChatRoom, "id" | "messages">
+const SYSTEM_ID = "system"
 
-interface IChatRoom {
+export interface IChatRoom {
   id: string
   messages: Array<IChatMessage>
   send(user: IChatMessage["user"], message: string): void
@@ -42,7 +42,7 @@ const ChatRoom = (io: TrucoshiServer, id: string) => {
       room.emit()
     },
     system(message) {
-      room.messages.push(ChatMessage({ id: "system", key: "system" }, message, true))
+      room.messages.push(ChatMessage({ id: SYSTEM_ID, key: SYSTEM_ID }, message, true))
       room.emit()
     },
     emit() {
