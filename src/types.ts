@@ -1,5 +1,4 @@
 import { ICard, IHandPoints, IPlayedCard, IPlayer, IPublicPlayer, IPublicTeam, ITeam } from "./lib"
-import { IChatRoom } from "./server/classes/Chat"
 
 export interface IPublicMatch {
   state: EMatchTableState
@@ -21,6 +20,20 @@ export interface IPublicMatchInfo {
 }
 
 export type IPublicChatRoom = Pick<IChatRoom, "id" | "messages">
+export interface IChatMessage {
+  date: number
+  user: { id: string, key: string }
+  system: boolean
+  content: string
+}
+
+export interface IChatRoom {
+  id: string
+  messages: Array<IChatMessage>
+  send(user: IChatMessage["user"], message: string): void
+  system(message: string): void
+  emit(): void
+}
 
 export enum EMatchTableState {
   UNREADY,

@@ -1,23 +1,7 @@
-import { EClientEvent, EServerEvent, TMap } from "../../types"
+import { EClientEvent, EServerEvent, IChatMessage, IChatRoom, TMap } from "../../types"
 import { TrucoshiServer } from "./SocketServer"
-import { IUser } from "./User"
-
-export interface IChatMessage {
-  date: number
-  user: Pick<IUser, "id" | "key">
-  system: boolean
-  content: string
-}
 
 const SYSTEM_ID = "system"
-
-export interface IChatRoom {
-  id: string
-  messages: Array<IChatMessage>
-  send(user: IChatMessage["user"], message: string): void
-  system(message: string): void
-  emit(): void
-}
 
 export interface IChat {
   rooms: TMap<string, IChatRoom>
