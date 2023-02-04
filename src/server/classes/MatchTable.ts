@@ -1,15 +1,13 @@
-import { ILobby, IPlayer, IPublicPlayer, Lobby } from "../../lib"
+import { ILobby, IPlayer, IPlayInstance, IPublicPlayer, Lobby } from "../../lib"
 import { EMatchTableState, IPublicMatch, IPublicMatchInfo } from "../../types"
 
 export interface IMatchTable {
   ownerSession: string
   matchSessionId: string
-  currentPlayer: IPublicPlayer | null
   lobby: ILobby
   state(): EMatchTableState
-  setCurrentPlayer(player: IPublicPlayer): void
   isSessionPlaying(session: string): IPlayer | null
-  getPublicMatch(session?: string): IPublicMatch
+  getPublicMatch(session?: string, includePreviousHand?: boolean): IPublicMatch
   getPublicMatchInfo(): IPublicMatchInfo
   waitPlayerReconnection(
     player: IPlayer,
@@ -22,7 +20,6 @@ export function MatchTable(matchSessionId: string, ownerSession: string, teamSiz
   const matchTable: IMatchTable = {
     ownerSession,
     matchSessionId,
-    currentPlayer: null,
     lobby: Lobby(teamSize),
     state() {
       matchTable.lobby.calculateReady()
@@ -36,9 +33,6 @@ export function MatchTable(matchSessionId: string, ownerSession: string, teamSiz
         return EMatchTableState.READY
       }
       return EMatchTableState.UNREADY
-    },
-    setCurrentPlayer(player) {
-      matchTable.currentPlayer = player
     },
     isSessionPlaying(session) {
       const { lobby } = matchTable
@@ -76,7 +70,7 @@ export function MatchTable(matchSessionId: string, ownerSession: string, teamSiz
 
       update()
     },
-    getPublicMatch(userSession) {
+    getPublicMatch(userSession, includePreviousHand = true) {
       const { lobby } = matchTable
 
       const winner = lobby.gameLoop?.winner || null
@@ -91,7 +85,7 @@ export function MatchTable(matchSessionId: string, ownerSession: string, teamSiz
       const newHandNotStarted = rounds[0]?.length === 0
 
       const prevRounds =
-        hasPrevHand && newHandNotStarted
+        includePreviousHand && hasPrevHand && newHandNotStarted
           ? lobby.gameLoop?.hands[prevHandIdx]?.rounds.map((round) => round.cards)
           : null
 

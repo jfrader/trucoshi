@@ -7,7 +7,8 @@ export interface IPlayer {
   key: string
   session?: string
   hand: Array<ICard>
-  commands: Array<ECommand>
+  _commands: Set<ECommand>
+  get commands(): Array<ECommand>
   usedHand: Array<ICard>
   prevHand: Array<ICard>
   isTurn: boolean
@@ -41,17 +42,18 @@ export type IPublicPlayer = Pick<
   | "session"
   | "isTurn"
   | "isOwner"
->
+> & {
+  commands: Array<ECommand>
+}
 
 export function Player(key: string, id: string, teamIdx: number, isOwner: boolean = false) {
-
   const player: IPlayer = {
     key,
     id,
     session: undefined,
     teamIdx,
     hand: [],
-    commands: [],
+    _commands: new Set(),
     usedHand: [],
     prevHand: [],
     isOwner,
@@ -59,6 +61,9 @@ export function Player(key: string, id: string, teamIdx: number, isOwner: boolea
     disabled: false,
     connected: false,
     ready: false,
+    get commands() {
+      return Array.from(player._commands.values())
+    },
     setOwner(owner) {
       player.isOwner = owner
     },
@@ -66,11 +71,24 @@ export function Player(key: string, id: string, teamIdx: number, isOwner: boolea
       player.isTurn = turn
     },
     getPublicPlayer() {
-      const { id, key, connected, disabled, ready, usedHand, prevHand, teamIdx, isTurn, isOwner } = player
+      const {
+        id,
+        key,
+        commands,
+        connected,
+        disabled,
+        ready,
+        usedHand,
+        prevHand,
+        teamIdx,
+        isTurn,
+        isOwner,
+      } = player
       return {
         id,
         key,
-        connected, 
+        connected,
+        commands,
         disabled,
         ready,
         usedHand,

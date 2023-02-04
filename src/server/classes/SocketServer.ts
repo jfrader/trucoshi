@@ -1,9 +1,14 @@
+import { randomUUID } from "crypto"
 import { createServer } from "http"
 import { Server, Socket } from "socket.io"
 import { IPlayer, IPlayInstance, IPublicPlayer } from "../../lib"
 import {
   ClientToServerEvents,
+  ECommand,
+  EHandState,
+  ESayCommand,
   EServerEvent,
+  IEventCallback,
   IPublicMatch,
   IWaitingPlayData,
   ServerToClientEvents,
@@ -11,7 +16,7 @@ import {
 import { Chat, IChat } from "./Chat"
 import { IMatchTable } from "./MatchTable"
 import { ITrucoshi } from "./Trucoshi"
-import { IUser } from "./User"
+import { IUser, User } from "./User"
 
 interface InterServerEvents {}
 
@@ -38,12 +43,25 @@ export interface ISocketServer extends ITrucoshi {
   chat: IChat
   getTableSockets(
     table: IMatchTable,
-    callback: (playerSocket: TrucoshiSocket) => Promise<void>
+    callback: (playerSocket: TrucoshiSocket, player: IPlayer | null) => Promise<void>
   ): Promise<void>
-  sendMatchUpdate(table: IMatchTable, skipSocketIds?: Array<string>): Promise<void>
-  sendWaitingForPlay(table: IMatchTable, play: IPlayInstance): Promise<void>
+  setOrGetSession(
+    socket: TrucoshiSocket,
+    id: string | null,
+    session: string | null,
+    callback: IEventCallback<{
+      session?: string
+    }>
+  ): Promise<void>
+  emitWaitingPossibleSay(play: IPlayInstance, table: IMatchTable): Promise<ECommand>
+  emitWaitingForPlay(play: IPlayInstance, table: IMatchTable): Promise<void>
+  emitMatchUpdate(
+    table: IMatchTable,
+    skipSocketIds?: Array<string>,
+    includePreviousHand?: boolean
+  ): Promise<void>
+  emitSocketMatch(socket: TrucoshiSocket, currentMatchId: string | null): IPublicMatch | null
   startMatch(matchSessionId: string): Promise<void>
-  sendCurrentMatch(socket: TrucoshiSocket, currentMatchId: string | null): IPublicMatch | null
   listen: () => void
 }
 
@@ -70,65 +88,125 @@ export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string |
       httpServer.listen(port)
       console.log("Listening on", port, " from origin at", origin)
     },
-    async getTableSockets(
-      table: IMatchTable,
-      callback: (playerSocket: TrucoshiSocket) => Promise<void>
+    async setOrGetSession(
+      socket: TrucoshiSocket,
+      id: string | null,
+      session: string | null,
+      callback: IEventCallback<{
+        session?: string
+      }> = () => {}
     ) {
+      if (session) {
+        const user = server.users.get(session)
+        if (user) {
+          const newId = id || user.id || "Satoshi"
+          user.connect()
+          user.setId(newId)
+          socket.data.user = user
+          return callback({ success: true, session })
+        }
+      }
+
+      const newSession = randomUUID()
+      const userKey = randomUUID()
+      const newId = id || "Satoshi"
+      const newUser = User(userKey, newId, newSession)
+      socket.data.user = newUser
+      server.users.set(newSession, newUser)
+      callback({ success: false, session: newSession })
+    },
+    async getTableSockets(table, callback) {
       return new Promise<void>(async (resolve) => {
         const sockets = await server.io.sockets.adapter.fetchSockets({
           rooms: new Set([table.matchSessionId]),
         })
 
         for (const playerSocket of sockets) {
-          await callback(playerSocket)
+          if (!playerSocket.data.user?.session) {
+            continue
+          }
+
+          const player = table.isSessionPlaying(playerSocket.data.user?.session)
+
+          await callback(playerSocket, player)
         }
 
         resolve()
       })
     },
-    async sendMatchUpdate(table, skipSocketIds = []) {
+    async emitMatchUpdate(table, skipSocketIds = [], includePreviousHand = true) {
       await server.getTableSockets(table, async (playerSocket: TrucoshiSocket) => {
         if (skipSocketIds.includes(playerSocket.id)) {
           return
         }
         playerSocket.emit(
           EServerEvent.UPDATE_MATCH,
-          table.getPublicMatch(playerSocket.data.user?.session as string)
+          table.getPublicMatch(playerSocket.data.user?.session as string, includePreviousHand)
         )
       })
     },
-    async sendWaitingForPlay(table, play) {
-      return new Promise<void>((resolve, reject) => {
-        return server.getTableSockets(table, async (playerSocket) => {
-          if (
-            playerSocket.data.user?.session &&
-            playerSocket.data.user?.session === play.player?.session
-          ) {
-            playerSocket.emit(
-              EServerEvent.WAITING_PLAY,
-              table.getPublicMatch(playerSocket.data.user?.session),
-              (data: IWaitingPlayData) => {
-                if (!data) {
-                  return reject(new Error("Callback returned empty"))
-                }
-                const { cardIdx, card, command } = data
-                if (cardIdx !== undefined && card) {
-                  const playedCard = play.use(cardIdx, card)
-                  if (playedCard) {
-                    return resolve()
-                  }
-                  return reject(new Error("Invalid Card"))
-                }
-                if (command) {
-                  const saidCommand = play.say(command)
-                  if (saidCommand) {
-                    return resolve()
-                  }
-                  return reject(new Error("Invalid Command"))
-                }
-                return reject(new Error("Invalid Callback response"))
+    async emitWaitingPossibleSay(play, table) {
+      return new Promise<ECommand>((resolve, reject) => {
+        return server.getTableSockets(table, async (playerSocket, player) => {
+          if (!player) {
+            return
+          }
+          playerSocket.emit(
+            EServerEvent.WAITING_POSSIBLE_SAY,
+            table.getPublicMatch(player.session, false),
+            (data) => {
+              if (!data) {
+                return reject(
+                  new Error(EServerEvent.WAITING_POSSIBLE_SAY + " callback returned empty")
+                )
               }
-            )
+              const { command } = data
+              try {
+                if (command) {
+                  const saidCommand = play.say(command, player)
+                  if (saidCommand) {
+                    return resolve(saidCommand)
+                  }
+                }
+                reject()
+              } catch (e) {
+                reject()
+              }
+            }
+          )
+        })
+      })
+    },
+    async emitWaitingForPlay(play, table) {
+      return new Promise<void>((resolve, reject) => {
+        server
+          .emitWaitingPossibleSay(play, table)
+          .then(() => {
+            resolve()
+          })
+          .catch(console.error)
+        return server.getTableSockets(table, async (playerSocket, player) => {
+          if (!player) {
+            return
+          }
+
+          const publicMatch = table.getPublicMatch(playerSocket.data.user?.session)
+
+          if (playerSocket.data.user?.session === play.player?.session) {
+            playerSocket.emit(EServerEvent.WAITING_PLAY, publicMatch, (data: IWaitingPlayData) => {
+              if (!data) {
+                return reject(new Error(EServerEvent.WAITING_PLAY + " callback returned empty"))
+              }
+              const { cardIdx, card } = data
+              if (cardIdx !== undefined && card) {
+                const playedCard = play.use(cardIdx, card)
+                if (playedCard) {
+                  return resolve()
+                }
+                return reject(new Error("Invalid Card"))
+              }
+              return reject(new Error("Invalid Callback Response"))
+            })
           }
         })
       })
@@ -140,8 +218,9 @@ export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string |
           .startMatch()
           .onTurn((play) => {
             return new Promise<void>(async (resolve) => {
-              table.setCurrentPlayer(play.player as IPublicPlayer)
               server.turns.set(table.matchSessionId, { play, resolve })
+
+              console.log("NEW TURN", play.player?.id)
 
               try {
                 const session = play.player?.session as string
@@ -153,16 +232,30 @@ export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string |
                   throw new Error("Unexpected Error")
                 }
 
-                await server.sendMatchUpdate(table)
-                await server.sendWaitingForPlay(table, play)
+                await server.emitMatchUpdate(table)
+                await server.emitWaitingForPlay(play, table)
 
                 return resolve()
               } catch (e) {
-                console.error("ERROR", e)
+                console.error("ON TURN ERROR", e)
               }
             })
           })
-          .onTruco(async (play) => {})
+          .onTruco((play) => {
+            return new Promise<void>(async (resolve) => {
+              server.turns.set(table.matchSessionId, { play, resolve })
+
+              console.log("NEW TRUCO", play.player?.id)
+
+              try {
+                await server.emitMatchUpdate(table, [])
+                await server.emitWaitingPossibleSay(play, table)
+                return resolve()
+              } catch (e) {
+                console.error("ON TRUCO ERROR", e)
+              }
+            })
+          })
           .onWinner(async () => {})
           .begin()
 
@@ -170,7 +263,7 @@ export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string |
         return
       }
     },
-    sendCurrentMatch(socket, matchId) {
+    emitSocketMatch(socket, matchId) {
       if (!matchId || !socket.data.user?.session) {
         return null
       }
@@ -180,18 +273,17 @@ export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string |
       if (currentTable) {
         socket.join(currentTable.matchSessionId)
 
+        const { play, resolve } = server.turns.get(currentTable.matchSessionId) || {}
         if (
+          play &&
+          play.player &&
           currentTable.isSessionPlaying(socket.data.user.session) &&
-          socket.data.user?.session === currentTable.currentPlayer?.session
+          socket.data.user?.session === play.player?.session
         ) {
-          try {
-            const { play, resolve } = server.turns.get(currentTable.matchSessionId) || {}
-            if (!play) {
-              throw new Error("Unexpected Error")
-            }
-            server.sendWaitingForPlay(currentTable, play).then(resolve).catch(console.error)
-          } catch (e) {
-            console.error("ERROR", e)
+          if (play.state === EHandState.WAITING_PLAY) {
+            server.emitWaitingForPlay(play, currentTable).then(resolve).catch(console.error)
+          } else if (play.state === EHandState.WAITING_FOR_TRUCO_ANSWER) {
+            server.emitWaitingPossibleSay(play, currentTable).then(resolve).catch(console.error)
           }
         } else {
           socket.emit(
@@ -238,7 +330,7 @@ export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string |
         user.waitReconnection(table.matchSessionId, reconnect, abandon)
       },
       () => {
-        server.sendMatchUpdate(table)
+        server.emitMatchUpdate(table)
       }
     )
   })

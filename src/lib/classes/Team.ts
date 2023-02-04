@@ -7,6 +7,7 @@ export interface ITeam {
   getPublicTeam(playerSession?: string): IPublicTeam
   isTeamDisabled(): boolean
   disable(player: IPlayer): boolean
+  enable(player?: IPlayer): boolean
   addPoints(matchPoint: number, points: number): ITeamPoints
 }
 
@@ -39,6 +40,16 @@ export function Team(players: Array<IPlayer>) {
     },
     isTeamDisabled() {
       return team.players.reduce((prev, curr) => prev && curr.disabled, true)
+    },
+    enable(player) {
+      if (player) {
+        team._players.get(player.session as string)?.enable()
+        return team.isTeamDisabled()
+      }
+      for (const player of team.players) {
+        player.enable()
+      }
+      return team.isTeamDisabled()
     },
     disable(player) {
       team._players.get(player.session as string)?.disable()

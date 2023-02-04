@@ -1,5 +1,6 @@
 import * as readline from "readline"
-import { ICard, IPlayInstance, IRound, ITeam, Lobby } from "../lib"
+import { ICard, IPlayer, IPlayInstance, IRound, ITeam, Lobby } from "../lib"
+import { ESayCommand } from "../types"
 
 const command = (
   title: string,
@@ -52,18 +53,24 @@ const playCommand = (play: IPlayInstance) =>
     }
   )
 
-const sayCommand = (play: IPlayInstance, canPlay: boolean) =>
-  command(
-    `${play.player?.id} elije una accion [${canPlay ? "0," : ""}${play.commands?.map(
+const sayCommand = (play: IPlayInstance, canPlay: boolean) => {
+  if (!play.player?._commands) {
+    return () => {}
+  }
+  const commandsArr = Array.from(play.player?._commands?.values())
+  return command(
+    `${play.player?.id} elije una accion [${canPlay ? "0," : ""}${commandsArr.map(
       (_c, i) => i + 1
     )}]: ${
-      canPlay ? JSON.stringify(["CARTA", ...(play.commands || [])]) : JSON.stringify(play.commands)
+      canPlay ? JSON.stringify(["CARTA", ...(commandsArr || [])]) : JSON.stringify(commandsArr)
     }\n`,
     async (idx, close) => {
-      const selectedCommand = play.commands?.[Number(idx) - 1]
+      const selectedCommand = commandsArr[Number(idx) - 1]
 
       if (selectedCommand) {
-        play.say(selectedCommand)
+        close()
+        const saidCommand = play.say(selectedCommand, play.player as IPlayer)
+        console.log({ saidCommand })
         return Promise.resolve()
       }
 
@@ -76,6 +83,7 @@ const sayCommand = (play: IPlayInstance, canPlay: boolean) =>
       return Promise.reject()
     }
   )
+}
 
 ;(async () => {
   const trucoshi = Lobby()

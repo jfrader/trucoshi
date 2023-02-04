@@ -22,7 +22,7 @@ export interface IPublicMatchInfo {
 export type IPublicChatRoom = Pick<IChatRoom, "id" | "messages">
 export interface IChatMessage {
   date: number
-  user: { id: string, key: string }
+  user: { id: string; key: string }
   system: boolean
   content: string
 }
@@ -102,7 +102,7 @@ export type IEnvidoCalculator = {
 
 export enum EClientEvent {
   PING = "PING",
-  PLAY = "PLAY",
+  SAY = "SAY",
   CREATE_MATCH = "CREATE_MATCH",
   LIST_MATCHES = "LIST_MATCHES",
   JOIN_MATCH = "JOIN_MATCH",
@@ -121,6 +121,11 @@ export type IEventCallback<T = {}> = (
 
 export interface ServerToClientEvents {
   [EServerEvent.PONG]: (msg: string) => void
+
+  [EServerEvent.WAITING_POSSIBLE_SAY]: (
+    match: IPublicMatch,
+    callback: (data: IWaitingSayData) => void
+  ) => void
 
   [EServerEvent.UPDATE_CHAT]: (room: IPublicChatRoom) => void
 
@@ -175,6 +180,7 @@ export enum EServerEvent {
   PONG = "PONG",
   UPDATE_MATCH = "UPDATE_MATCH",
   WAITING_PLAY = "WAITING_PLAY",
+  WAITING_POSSIBLE_SAY = "WAITING_POSSIBLE_SAY",
   UPDATE_CHAT = "UPDAET_CHAT",
 }
 
@@ -184,11 +190,11 @@ export enum ETrucoshiMatchState {
   FINISHED,
 }
 
-export type IWaitingPlayData =
-  | { cardIdx: number; card: ICard; command?: undefined }
-  | { cardIdx?: undefined; card?: undefined; command: ECommand }
-
+export type IWaitingPlayData = { cardIdx: number; card: ICard }
 export type IWaitingPlayCallback = (data: IWaitingPlayData) => void | null
+
+export type IWaitingSayData = { command: ECommand }
+export type IWaitingSayCallback = (data: IWaitingSayData) => void | null
 
 export interface TMap<K, V> extends Map<K, V> {
   find(finder: (value: V) => boolean): V | void

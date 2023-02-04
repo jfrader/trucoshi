@@ -18,9 +18,9 @@ export interface IRoundPoints {
   ties: number
 }
 
-export function Round(turn: number): IRound {
+export function Round(): IRound {
   const round: IRound = {
-    turn,
+    turn: 0,
     highest: -1,
     winner: null,
     cards: [],

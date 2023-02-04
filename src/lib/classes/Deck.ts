@@ -6,6 +6,7 @@ export interface IDeck {
   cards: Array<ICard>
   usedCards: Array<ICard>
   takeCard(): ICard
+  takeThree(): [ICard, ICard, ICard]
   shuffle(): IDeck
 }
 
@@ -25,6 +26,9 @@ export function Deck(): IDeck {
       const card = deck.cards.shift() as ICard
       deck.usedCards.push(card)
       return card
+    },
+    takeThree() {
+      return [deck.takeCard(), deck.takeCard(), deck.takeCard()]
     },
     shuffle() {
       deck.cards = deck.cards.concat(deck.usedCards)

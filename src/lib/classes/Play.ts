@@ -14,10 +14,9 @@ export interface IPlayInstance {
   truco: ITruco
   envido: EnvidoState
   player: IPlayer | null
-  commands: Array<ECommand> | null
   rounds: Array<IRound> | null
   use(idx: number, card: ICard): ICard | null
-  say(command: ECommand): ECommand | null
+  say(command: ECommand, player: IPlayer): ECommand | null
 }
 
 export function PlayInstance(hand: IHand, teams: [ITeam, ITeam]) {
@@ -29,32 +28,17 @@ export function PlayInstance(hand: IHand, teams: [ITeam, ITeam]) {
     handIdx: hand.idx,
     roundIdx: hand.rounds.length,
     player: hand.currentPlayer,
-    commands: [],
     rounds: hand.rounds,
     use(idx, card) {
       return hand.use(idx, card)
     },
-    say(command) {
-      if (!hand._currentPlayer || !instance.commands?.includes(command)) {
-        return null
-      }
-
-      hand.commands[command](hand._currentPlayer)
-
+    say(command, player) {
+      hand.commands[command](player)
       return command
     },
   }
 
-  instance.commands?.push(ESayCommand.MAZO)
-  instance.commands?.push(ESayCommand.TRUCO)
-
-  if (hand.rounds.length === 1) {
-    instance.commands?.push(EEnvidoCommand.ENVIDO)
-  }
-
-  if (hand.state === EHandState.WAITING_FOR_TRUCO_ANSWER) {
-    instance.commands = [ESayCommand.TRUCO, ESayCommand.QUIERO, ESayCommand.NO_QUIERO]
-  }
+  teams.forEach((team) => team.players.forEach((player) => player._commands.add(ESayCommand.MAZO)))
 
   return instance
 }

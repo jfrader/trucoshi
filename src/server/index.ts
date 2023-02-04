@@ -1,7 +1,6 @@
 import { randomUUID } from "crypto"
 import { MatchTable } from "./classes/MatchTable"
-import { IUser, User } from "./classes/User"
-import { EClientEvent, EServerEvent, IEventCallback } from "../types"
+import { EClientEvent, EServerEvent } from "../types"
 import { Trucoshi } from "./classes/Trucoshi"
 import { SocketServer } from "./classes/SocketServer"
 
@@ -32,43 +31,40 @@ server.io.on("connection", (socket) => {
    * Create Match
    */
   socket.on(EClientEvent.CREATE_MATCH, (callback) => {
-    if (socket.data.user) {
-      try {
-        const user = server.users.getOrThrow(socket.data.user.session)
-        const existingTable = user.ownedMatchId && server.tables.get(user.ownedMatchId)
-        if (existingTable) {
-          return callback({
-            success: false,
-            match: existingTable.getPublicMatch(socket.data.user.session),
-          })
-        }
-
-        const matchId = randomUUID()
-        const table = MatchTable(matchId, socket.data.user.session)
-
-        user.ownedMatchId = matchId
-
-        table.lobby.addPlayer(user.key, user.id, socket.data.user.session, 0, true)
-
-        server.chat.create(matchId)
-        socket.join(matchId)
-        server.tables.set(matchId, table)
-
-        return callback({ success: true, match: table.getPublicMatch(user.id) })
-      } catch (e) {
-        return callback({ success: false })
+    try {
+      if (!socket.data.user) {
+        throw new Error("Session not found")
       }
+      const user = server.users.getOrThrow(socket.data.user.session)
+      const existingTable = user.ownedMatchId && server.tables.get(user.ownedMatchId)
+      if (existingTable) {
+        return callback({
+          success: false,
+          match: existingTable.getPublicMatch(socket.data.user.session),
+        })
+      }
+
+      const matchId = randomUUID()
+      const table = MatchTable(matchId, socket.data.user.session)
+
+      user.ownedMatchId = matchId
+
+      table.lobby.addPlayer(user.key, user.id, socket.data.user.session, 0, true)
+
+      server.chat.create(matchId)
+      socket.join(matchId)
+      server.tables.set(matchId, table)
+
+      return callback({ success: true, match: table.getPublicMatch(user.id) })
+    } catch (e) {
+      return callback({ success: false })
     }
-    callback({ success: false })
   })
 
   /**
    * Start Match
    */
   socket.on(EClientEvent.START_MATCH, (callback) => {
-    if (!callback) {
-      return
-    }
     try {
       const user = server.users.getOrThrow(socket.data.user?.session)
       const matchId = user.ownedMatchId
@@ -86,21 +82,15 @@ server.io.on("connection", (socket) => {
    * Join Match
    */
   socket.on(EClientEvent.JOIN_MATCH, (matchSessionId, teamIdx, callback) => {
-    if (!socket.data.user) {
-      return callback({ success: false })
-    }
     try {
-      const user = server.users.getOrThrow(socket.data.user.session)
+      const user = server.users.getOrThrow(socket.data.user?.session)
       const table = server.tables.get(matchSessionId)
 
       if (table) {
-        table.lobby.addPlayer(user.key, user.id, user.session, teamIdx)
-
+        table.lobby.addPlayer(user.key, user.id, user.session, teamIdx, user.ownedMatchId === matchSessionId)
         socket.join(table.matchSessionId)
-
-        server.sendMatchUpdate(table)
-
-        return callback({ success: true, match: table.getPublicMatch(socket.data.user.session) })
+        server.emitMatchUpdate(table)
+        return callback({ success: true, match: table.getPublicMatch(socket.data.user?.session) })
       }
       callback({ success: false })
     } catch (e) {
@@ -116,41 +106,11 @@ server.io.on("connection", (socket) => {
     callback({ success: true, matches: publicMatches })
   })
 
-  const setOrGetSession = (
-    id: string | null,
-    session: string | null,
-    callback: IEventCallback<{
-      session?: string
-    }> = () => {}
-  ) => {
-    if (session) {
-      const user = server.users.get(session)
-      if (user) {
-        const newId = id || user.id || "Satoshi"
-        user.connect()
-        user.setId(newId)
-        socket.data.user = user
-        return callback({ success: true, session })
-      }
-    }
-
-    const newSession = randomUUID()
-    const userKey = randomUUID()
-    const newId = id || "Satoshi"
-    const newUser = User(userKey, newId, newSession)
-    socket.data.user = newUser
-    server.users.set(newSession, newUser)
-    callback({ success: false, session: newSession })
-  }
-
   /**
    * Set Session
    */
   socket.on(EClientEvent.SET_SESSION, (id, session, callback = () => {}) => {
-    if (!callback) {
-      return
-    }
-    setOrGetSession(id, session, ({ success, session }) => {
+    server.setOrGetSession(socket, id, session, ({ success, session }) => {
       if (session && success) {
         const activeMatches = server.tables
           .findAll((table) => Boolean(table.isSessionPlaying(session)))
@@ -161,14 +121,17 @@ server.io.on("connection", (socket) => {
     })
   })
 
+  /**
+   * Fetch match with session
+   */
   socket.on(EClientEvent.FETCH_MATCH, (session, matchId, callback) => {
-    return setOrGetSession(null, session, ({ success }) => {
+    return server.setOrGetSession(socket, null, session, ({ success }) => {
       if (!success) {
         return callback({ success: false, match: null })
       }
 
       server.chat.rooms.get(matchId)?.emit()
-      const match = server.sendCurrentMatch(socket, matchId)
+      const match = server.emitSocketMatch(socket, matchId)
       callback({ success: Boolean(match), match })
     })
   })
@@ -178,13 +141,16 @@ server.io.on("connection", (socket) => {
    */
   socket.on(EClientEvent.SET_PLAYER_READY, (matchSessionId, ready, callback) => {
     try {
+      if (!socket.data.user) {
+        throw new Error("Session not found")
+      }
       const table = server.tables.getOrThrow(matchSessionId)
       const player = table.lobby.players.find(
         (player) => player && player.session === socket.data.user?.session
       )
       if (player) {
         player.setReady(ready)
-        server.sendMatchUpdate(table, [socket.id])
+        server.emitMatchUpdate(table, [socket.id])
         callback({ success: true, match: table.getPublicMatch(socket.data.user?.session) })
       }
     } catch (e) {

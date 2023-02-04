@@ -40,21 +40,19 @@ export interface IHand {
 }
 
 export function Hand(match: IMatch, deck: IDeck, idx: number) {
-  match.teams.forEach((team) => {
-    team.players.forEach((player) => {
-      const playerHand = [deck.takeCard(), deck.takeCard(), deck.takeCard()]
-      player.setHand(playerHand)
+  for (const team of match.teams) {
+    for (const player of team.players) {
       player.enable()
-      // player.setHand(["5c", "4c", "6c"])
-    })
-  })
+      player.setHand(deck.takeThree())
+    }
+  }
 
   function* roundsGeneratorSequence() {
     let currentRoundIdx = 0
     let forehandTeamIdx = match.table.player(hand.turn).teamIdx as 0 | 1
 
     while (currentRoundIdx < 3 && !hand.finished()) {
-      const round = Round(0)
+      const round = Round()
       hand.setCurrentRound(round)
       hand.pushRound(round)
 
@@ -77,10 +75,17 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
           }
         }
 
+        if (hand.truco.answer === false) {
+          hand.setState(EHandState.FINISHED)
+          break
+        }
+
         const player = match.table.player(hand.turn)
         hand.setCurrentPlayer(player)
+
         if (player.disabled || !player.ready) {
           hand.setCurrentPlayer(null)
+          hand.nextTurn()
         }
 
         yield hand
@@ -115,24 +120,25 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
   const commands: IHandCommands = {
     [ESayCommand.MAZO]: (player) => {
       hand.disablePlayer(player)
+      hand.nextTurn()
     },
     [ESayCommand.TRUCO]: (player) => {
-      const { teamIdx } = hand.truco
-      if (teamIdx === null || teamIdx !== player.teamIdx) {
+      hand.truco.sayTruco(player, () => {
         hand.setState(EHandState.WAITING_FOR_TRUCO_ANSWER)
-        hand.truco.sayTruco(player.teamIdx as 0 | 1, match.teams[Number(!player.teamIdx)].players)
-      }
+      })
     },
-    [ESayCommand.QUIERO]: () => {
+    [ESayCommand.QUIERO]: (player) => {
       if (hand.state === EHandState.WAITING_FOR_TRUCO_ANSWER) {
-        hand.truco.setAnswer(true)
-        hand.setState(EHandState.WAITING_PLAY)
+        hand.truco.sayAnswer(player, true, () => {
+          hand.setState(EHandState.WAITING_PLAY)
+        })
       }
     },
     [ESayCommand.NO_QUIERO]: (player) => {
       if (hand.state === EHandState.WAITING_FOR_TRUCO_ANSWER) {
-        hand.truco.setAnswer(false)
-        hand.setState(EHandState.WAITING_PLAY)
+        hand.truco.sayAnswer(player, false, () => {
+          hand.setState(EHandState.WAITING_PLAY)
+        })
       }
     },
     [ESayCommand.FLOR]: () => {},
@@ -148,7 +154,7 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
     turn: Number(match.table.forehandIdx),
     state: EHandState.WAITING_PLAY,
     rounds: [],
-    truco: Truco(),
+    truco: Truco(match.teams),
     envido: {
       accept: 1,
       decline: 2,
