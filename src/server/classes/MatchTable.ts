@@ -8,9 +8,14 @@ export interface IMatchTable {
   lobby: ILobby
   state(): EMatchTableState
   setCurrentPlayer(player: IPublicPlayer): void
-  isSessionPlaying(session: string): IPublicPlayer | null
+  isSessionPlaying(session: string): IPlayer | null
   getPublicMatch(session?: string): IPublicMatch
   getPublicMatchInfo(): IPublicMatchInfo
+  waitPlayerReconnection(
+    player: IPlayer,
+    callback: (onReconnect: () => void, onAbandon: () => void) => void,
+    update: () => void
+  ): Promise<void>
 }
 
 export function MatchTable(matchSessionId: string, ownerSession: string, teamSize?: 1 | 2 | 3) {
@@ -52,6 +57,24 @@ export function MatchTable(matchSessionId: string, ownerSession: string, teamSiz
         players: players.length,
         state: state(),
       }
+    },
+    async waitPlayerReconnection(player, callback, update) {
+      if (matchTable.state() !== EMatchTableState.STARTED) {
+        player.setReady(false)
+      }
+
+      update()
+
+      try {
+        await new Promise<void>(callback)
+      } catch (e) {
+        player.setReady(false)
+        if (matchTable.state() !== EMatchTableState.STARTED) {
+          matchTable.lobby.removePlayer(player.session as string)
+        }
+      }
+
+      update()
     },
     getPublicMatch(userSession) {
       const { lobby } = matchTable

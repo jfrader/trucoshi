@@ -1,4 +1,5 @@
 import { ICard, IHandPoints, IPlayedCard, IPlayer, IPublicPlayer, IPublicTeam, ITeam } from "./lib"
+import { IPublicChatRoom } from "./server/classes/Chat"
 
 export interface IPublicMatch {
   state: EMatchTableState
@@ -94,6 +95,7 @@ export enum EClientEvent {
   SET_PLAYER_READY = "SET_PLAYER_READY",
   SET_SESSION = "SET_SESSION",
   FETCH_MATCH = "FETCH_MATCH",
+  CHAT = "CHAT",
 }
 
 export type IEventCallback<T = {}> = (
@@ -105,6 +107,8 @@ export type IEventCallback<T = {}> = (
 export interface ServerToClientEvents {
   [EServerEvent.PONG]: (msg: string) => void
 
+  [EServerEvent.UPDATE_CHAT]: (room: IPublicChatRoom) => void
+
   [EServerEvent.UPDATE_MATCH]: (match: IPublicMatch) => void
 
   [EServerEvent.WAITING_PLAY]: (
@@ -115,6 +119,8 @@ export interface ServerToClientEvents {
 
 export interface ClientToServerEvents {
   [EClientEvent.PING]: (msg: string) => void
+
+  [EClientEvent.CHAT]: (matchId: string, msg: string, callback: () => void) => void
 
   [EClientEvent.CREATE_MATCH]: (callback: IEventCallback<{ match?: IPublicMatch }>) => void
 
@@ -154,6 +160,7 @@ export enum EServerEvent {
   PONG = "PONG",
   UPDATE_MATCH = "UPDATE_MATCH",
   WAITING_PLAY = "WAITING_PLAY",
+  UPDATE_CHAT = "UPDAET_CHAT",
 }
 
 export enum ETrucoshiMatchState {
@@ -167,3 +174,41 @@ export type IWaitingPlayData =
   | { cardIdx?: undefined; card?: undefined; command: ECommand }
 
 export type IWaitingPlayCallback = (data: IWaitingPlayData) => void | null
+
+export interface TMap<K, V> extends Map<K, V> {
+  find(finder: (value: V) => boolean): V | void
+}
+
+export class TMap<K, V> extends Map<K, V> {
+  find(finder: (value: V) => boolean): V | void {
+    let result: void | V = undefined
+
+    for (let value of this.values()) {
+      const find = finder(value)
+      if (!result && find) {
+        result = value
+      }
+    }
+    return result
+  }
+
+  findAll(finder: (value: V) => boolean) {
+    let result: Array<V> = []
+
+    for (let value of this.values()) {
+      const find = finder(value)
+      if (find) {
+        result.push(value)
+      }
+    }
+    return result
+  }
+
+  getOrThrow(key?: K) {
+    const result = key && this.get(key)
+    if (!result) {
+      throw new Error(`getOrThrow(${key}) not found`)
+    }
+    return result
+  }
+}

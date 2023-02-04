@@ -1,6 +1,7 @@
 import { Deck } from "./Deck"
 import { Hand, IHand, IHandPoints } from "./Hand"
 import { IPlayInstance } from "./Play"
+import { IPlayer } from "./Player"
 import { ITable } from "./Table"
 import { ITeam } from "./Team"
 
@@ -18,6 +19,8 @@ export interface IMatch {
   getNextTurn(): IteratorResult<IMatch | null, IMatch | null | void>
 }
 
+const playerIsNotReady = (player: IPlayer) => !player.ready
+
 export function Match(table: ITable, teams: Array<ITeam> = [], matchPoint: number = 9): IMatch {
   const deck = Deck().shuffle()
 
@@ -29,6 +32,16 @@ export function Match(table: ITable, teams: Array<ITeam> = [], matchPoint: numbe
 
   function* handsGeneratorSequence() {
     while (!match.winner) {
+      if (match.teams[0].players.every(playerIsNotReady)) {
+        match.setWinner(match.teams[1])
+        break
+      }
+
+      if (match.teams[1].players.every(playerIsNotReady)) {
+        match.setWinner(match.teams[0])
+        break
+      }
+
       deck.shuffle()
       const hand = match.setCurrentHand(Hand(match, deck, match.hands.length + 1)) as IHand
       match.pushHand(hand)

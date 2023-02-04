@@ -1,10 +1,4 @@
-import {
-  EEnvidoCommand,
-  EHandState,
-  EnvidoState,
-  ESayCommand,
-  IHandCommands,
-} from "../../types"
+import { EEnvidoCommand, EHandState, EnvidoState, ESayCommand, IHandCommands } from "../../types"
 import { checkHandWinner } from "../utils"
 import { ICard, IDeck, PlayedCard } from "./Deck"
 import { IMatch } from "./Match"
@@ -85,7 +79,7 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
 
         const player = match.table.player(hand.turn)
         hand.setCurrentPlayer(player)
-        if (player.disabled) {
+        if (player.disabled || !player.ready) {
           hand.setCurrentPlayer(null)
         }
 

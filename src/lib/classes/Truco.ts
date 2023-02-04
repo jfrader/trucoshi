@@ -23,7 +23,7 @@ export function Truco() {
     while (i < truco.players.length && truco.answer === null) {
       const player = truco.players[truco.turn]
       truco.setCurrentPlayer(player)
-      if (player.disabled) {
+      if (player.disabled || !player.ready) {
         truco.setCurrentPlayer(null)
       }
 

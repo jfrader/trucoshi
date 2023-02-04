@@ -14,11 +14,13 @@ export interface IPlayer {
   isOwner: boolean
   disabled: boolean
   ready: boolean
+  connected: boolean
   setTurn(turn: boolean): void
   getPublicPlayer(): IPublicPlayer
   setSession(session: string): void
   enable(): void
   disable(): void
+  setConnected(connected: boolean): void
   setOwner(owner: boolean): void
   setReady(ready: boolean): void
   setHand(hand: Array<ICard>): Array<ICard>
@@ -31,6 +33,7 @@ export type IPublicPlayer = Pick<
   | "key"
   | "disabled"
   | "ready"
+  | "connected"
   | "hand"
   | "usedHand"
   | "prevHand"
@@ -41,6 +44,7 @@ export type IPublicPlayer = Pick<
 >
 
 export function Player(key: string, id: string, teamIdx: number, isOwner: boolean = false) {
+
   const player: IPlayer = {
     key,
     id,
@@ -53,6 +57,7 @@ export function Player(key: string, id: string, teamIdx: number, isOwner: boolea
     isOwner,
     isTurn: false,
     disabled: false,
+    connected: false,
     ready: false,
     setOwner(owner) {
       player.isOwner = owner
@@ -61,10 +66,11 @@ export function Player(key: string, id: string, teamIdx: number, isOwner: boolea
       player.isTurn = turn
     },
     getPublicPlayer() {
-      const { id, key, disabled, ready, usedHand, prevHand, teamIdx, isTurn, isOwner } = player
+      const { id, key, connected, disabled, ready, usedHand, prevHand, teamIdx, isTurn, isOwner } = player
       return {
         id,
         key,
+        connected, 
         disabled,
         ready,
         usedHand,
@@ -84,6 +90,9 @@ export function Player(key: string, id: string, teamIdx: number, isOwner: boolea
     },
     disable() {
       player.disabled = true
+    },
+    setConnected(connected) {
+      player.connected = connected
     },
     setReady(ready) {
       player.ready = ready

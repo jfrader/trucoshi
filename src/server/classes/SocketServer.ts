@@ -1,6 +1,6 @@
 import { createServer } from "http"
 import { Server, Socket } from "socket.io"
-import { IPlayInstance, IPublicPlayer } from "../../lib"
+import { IPlayer, IPlayInstance, IPublicPlayer } from "../../lib"
 import {
   ClientToServerEvents,
   EServerEvent,
@@ -8,23 +8,25 @@ import {
   IWaitingPlayData,
   ServerToClientEvents,
 } from "../../types"
+import { Chat, IChat } from "./Chat"
 import { IMatchTable } from "./MatchTable"
 import { ITrucoshi } from "./Trucoshi"
+import { IUser } from "./User"
 
 interface InterServerEvents {}
 
 interface SocketData {
-  session?: string
+  user?: IUser
 }
 
-type TrucoshiServer = Server<
+export type TrucoshiServer = Server<
   ClientToServerEvents,
   ServerToClientEvents,
   InterServerEvents,
   SocketData
 >
 
-type TrucoshiSocket = Socket<
+export type TrucoshiSocket = Socket<
   ClientToServerEvents,
   ServerToClientEvents,
   InterServerEvents,
@@ -33,6 +35,7 @@ type TrucoshiSocket = Socket<
 
 export interface ISocketServer extends ITrucoshi {
   io: TrucoshiServer
+  chat: IChat
   getTableSockets(
     table: IMatchTable,
     callback: (playerSocket: TrucoshiSocket) => Promise<void>
@@ -47,19 +50,22 @@ export interface ISocketServer extends ITrucoshi {
 export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string | Array<string>) => {
   const httpServer = createServer()
 
+  const io = new Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>(
+    httpServer,
+    {
+      cors: {
+        origin,
+        methods: ["GET", "POST"],
+      },
+    }
+  )
+
   const server: ISocketServer = {
-    io: new Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>(
-      httpServer,
-      {
-        cors: {
-          origin,
-          methods: ["GET", "POST"],
-        },
-      }
-    ),
+    io,
     turns: trucoshi.turns,
     tables: trucoshi.tables,
     users: trucoshi.users,
+    chat: Chat(io),
     listen() {
       httpServer.listen(port)
       console.log("Listening on", port, " from origin at", origin)
@@ -87,17 +93,20 @@ export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string |
         }
         playerSocket.emit(
           EServerEvent.UPDATE_MATCH,
-          table.getPublicMatch(playerSocket.data.session as string)
+          table.getPublicMatch(playerSocket.data.user?.session as string)
         )
       })
     },
     async sendWaitingForPlay(table, play) {
       return new Promise<void>((resolve, reject) => {
         return server.getTableSockets(table, async (playerSocket) => {
-          if (playerSocket.data.session && playerSocket.data.session === play.player?.session) {
+          if (
+            playerSocket.data.user?.session &&
+            playerSocket.data.user?.session === play.player?.session
+          ) {
             playerSocket.emit(
               EServerEvent.WAITING_PLAY,
-              table.getPublicMatch(playerSocket.data.session),
+              table.getPublicMatch(playerSocket.data.user?.session),
               (data: IWaitingPlayData) => {
                 if (!data) {
                   return reject(new Error("Callback returned empty"))
@@ -162,7 +171,7 @@ export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string |
       }
     },
     sendCurrentMatch(socket, matchId) {
-      if (!matchId || !socket.data.session) {
+      if (!matchId || !socket.data.user?.session) {
         return null
       }
 
@@ -172,8 +181,8 @@ export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string |
         socket.join(currentTable.matchSessionId)
 
         if (
-          currentTable.isSessionPlaying(socket.data.session) &&
-          socket.data.session === currentTable.currentPlayer?.session
+          currentTable.isSessionPlaying(socket.data.user.session) &&
+          socket.data.user?.session === currentTable.currentPlayer?.session
         ) {
           try {
             const { play, resolve } = server.turns.get(currentTable.matchSessionId) || {}
@@ -185,13 +194,63 @@ export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string |
             console.error("ERROR", e)
           }
         } else {
-          socket.emit(EServerEvent.UPDATE_MATCH, currentTable.getPublicMatch(socket.data.session))
+          socket.emit(
+            EServerEvent.UPDATE_MATCH,
+            currentTable.getPublicMatch(socket.data.user.session)
+          )
         }
-        return currentTable.getPublicMatch(socket.data.session)
+        return currentTable.getPublicMatch(socket.data.user.session)
       }
       return null
     },
   }
+
+  const getPossiblePlayingMatch = (
+    room: any,
+    socketId: any
+  ): { table: IMatchTable; player: IPlayer; user: IUser } | null => {
+    const socket = server.io.sockets.sockets.get(socketId)
+
+    if (!socket || !socket.data.user) {
+      return null
+    }
+
+    const table = server.tables.get(room)
+    if (table) {
+      const player = table.isSessionPlaying(socket.data.user.session)
+      if (player) {
+        return { table, player, user: socket.data.user }
+      }
+    }
+    return null
+  }
+
+  io.of("/").adapter.on("leave-room", (room, socketId) => {
+    const playingMatch = getPossiblePlayingMatch(room, socketId)
+    if (!playingMatch) {
+      return
+    }
+    const { player, table, user } = playingMatch
+
+    table.waitPlayerReconnection(
+      player,
+      (reconnect, abandon) => {
+        user.waitReconnection(table.matchSessionId, reconnect, abandon)
+      },
+      () => {
+        server.sendMatchUpdate(table)
+      }
+    )
+  })
+
+  io.of("/").adapter.on("join-room", (room, socketId) => {
+    const playingMatch = getPossiblePlayingMatch(room, socketId)
+    if (!playingMatch) {
+      return
+    }
+    const { table, user } = playingMatch
+    user.reconnect(table.matchSessionId)
+  })
 
   return server
 }

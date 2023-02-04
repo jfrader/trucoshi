@@ -1,5 +1,5 @@
 import { IPlayInstance } from "../../lib"
-import { EMatchTableState, IPublicMatchInfo } from "../../types"
+import { EMatchTableState, IPublicMatchInfo, TMap } from "../../types"
 import { IMatchTable } from "./MatchTable"
 import { IUser } from "./User"
 
@@ -7,44 +7,6 @@ export interface ITrucoshi {
   users: TMap<string, IUser> // sessionId, user
   tables: MatchTableMap // sessionId, table
   turns: TMap<string, { play: IPlayInstance; resolve(): void }> // sessionId, play instance
-}
-
-interface TMap<K, V> extends Map<K, V> {
-  find(finder: (value: V) => boolean): V | void
-}
-
-class TMap<K, V> extends Map<K, V> {
-  find(finder: (value: V) => boolean) {
-    let result: void | V = undefined
-
-    for (let value of this.values()) {
-      const find = finder(value)
-      if (!result && find) {
-        result = value
-      }
-    }
-    return result
-  }
-
-  findAll(finder: (value: V) => boolean) {
-    let result: Array<V> = []
-
-    for (let value of this.values()) {
-      const find = finder(value)
-      if (find) {
-        result.push(value)
-      }
-    }
-    return result
-  }
-
-  getOrThrow(key?: K) {
-    const result = key && this.get(key)
-    if (!result) {
-      throw new Error(`getOrThrow(${key}) not found`)
-    }
-    return result
-  }
 }
 
 interface MatchTableMap extends TMap<string, IMatchTable> {

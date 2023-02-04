@@ -18,7 +18,7 @@ export interface IPrivateLobby {
   ready: boolean
   started: boolean
   addPlayer(key: string, id: string, session: string, teamIdx?: 0 | 1, isOwner?: boolean): IPlayer
-  removePlayer(id: string): ILobby
+  removePlayer(session: string): ILobby
   calculateReady(): boolean
   calculateFull(): boolean
   startMatch(matchPoint?: 9 | 12 | 15): IGameLoop
@@ -80,6 +80,7 @@ export function Lobby(teamSize?: 1 | 2 | 3): ILobby {
         if (exists.teamIdx === teamIdx) {
           return exists
         }
+        isOwner = exists.isOwner
         lobby.removePlayer(exists.session as string)
       }
 

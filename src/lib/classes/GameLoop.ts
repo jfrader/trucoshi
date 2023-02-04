@@ -2,6 +2,7 @@ import { EHandState } from "../../types"
 import { IHand } from "./Hand"
 import { IMatch } from "./Match"
 import { IPlayInstance } from "./Play"
+import { IPlayer } from "./Player"
 import { ITeam } from "./Team"
 
 export type IWinnerCallback = (winner: ITeam, teams: [ITeam, ITeam]) => Promise<void>
@@ -12,6 +13,7 @@ export interface IGameLoop {
   _onTruco: ITrucoCallback
   _onTurn: ITurnCallback
   _onWinner: IWinnerCallback
+  currentPlayer: IPlayer | null
   teams: Array<ITeam>
   hands: Array<IHand>
   winner: ITeam | null
@@ -28,6 +30,7 @@ export const GameLoop = (match: IMatch) => {
     _onWinner: () => Promise.resolve(),
     teams: [],
     winner: null,
+    currentPlayer: null,
     hands: [],
     onTruco: (callback: ITrucoCallback) => {
       gameloop._onTruco = callback
@@ -53,6 +56,8 @@ export const GameLoop = (match: IMatch) => {
           continue
         }
 
+        gameloop.currentPlayer = play.player
+
         if (play.state === EHandState.WAITING_FOR_TRUCO_ANSWER) {
           await gameloop._onTruco(play)
           continue
@@ -67,6 +72,7 @@ export const GameLoop = (match: IMatch) => {
       }
 
       gameloop.winner = match.winner
+      gameloop.currentPlayer = null
 
       await gameloop._onWinner(match.winner, match.teams)
     },
