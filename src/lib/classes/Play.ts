@@ -38,7 +38,11 @@ export function PlayInstance(hand: IHand, teams: [ITeam, ITeam]) {
     },
   }
 
-  teams.forEach((team) => team.players.forEach((player) => player._commands.add(ESayCommand.MAZO)))
+  if (!hand.truco.waitingAnswer) {
+    teams.forEach((team) =>
+      team.players.forEach((player) => player._commands.add(ESayCommand.MAZO))
+    )
+  }
 
   return instance
 }

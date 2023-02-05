@@ -52,8 +52,16 @@ export interface ISocketServer extends ITrucoshi {
       session?: string
     }>
   ): Promise<void>
-  emitWaitingPossibleSay(play: IPlayInstance, table: IMatchTable): Promise<ECommand>
-  emitWaitingForPlay(play: IPlayInstance, table: IMatchTable): Promise<void>
+  emitWaitingPossibleSay(
+    play: IPlayInstance,
+    table: IMatchTable,
+    includePreviousHand?: boolean
+  ): Promise<ECommand>
+  emitWaitingForPlay(
+    play: IPlayInstance,
+    table: IMatchTable,
+    includePreviousHand?: boolean
+  ): Promise<void>
   emitMatchUpdate(
     table: IMatchTable,
     skipSocketIds?: Array<string>,
@@ -125,7 +133,7 @@ export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string |
             continue
           }
 
-          const player = table.isSessionPlaying(playerSocket.data.user?.session)
+          const player = table.isSessionPlaying(playerSocket.data.user.session)
 
           await callback(playerSocket, player)
         }
@@ -144,15 +152,16 @@ export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string |
         )
       })
     },
-    async emitWaitingPossibleSay(play, table) {
+    async emitWaitingPossibleSay(play, table, includePreviousHand = true) {
       return new Promise<ECommand>((resolve, reject) => {
         return server.getTableSockets(table, async (playerSocket, player) => {
           if (!player) {
             return
           }
+
           playerSocket.emit(
             EServerEvent.WAITING_POSSIBLE_SAY,
-            table.getPublicMatch(player.session, play.state === EHandState.WAITING_PLAY),
+            table.getPublicMatch(player.session, includePreviousHand),
             (data) => {
               if (!data) {
                 return reject(
@@ -179,10 +188,10 @@ export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string |
         })
       })
     },
-    async emitWaitingForPlay(play, table) {
+    async emitWaitingForPlay(play, table, includePreviousHand = true) {
       return new Promise<void>((resolve, reject) => {
         server
-          .emitWaitingPossibleSay(play, table)
+          .emitWaitingPossibleSay(play, table, includePreviousHand)
           .then(() => {
             resolve()
           })
@@ -192,26 +201,25 @@ export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string |
             return
           }
 
-          const publicMatch = table.getPublicMatch(
-            playerSocket.data.user?.session,
-            play.state === EHandState.WAITING_PLAY
-          )
-
-          if (playerSocket.data.user?.session === play.player?.session) {
-            playerSocket.emit(EServerEvent.WAITING_PLAY, publicMatch, (data: IWaitingPlayData) => {
-              if (!data) {
-                return reject(new Error(EServerEvent.WAITING_PLAY + " callback returned empty"))
-              }
-              const { cardIdx, card } = data
-              if (cardIdx !== undefined && card) {
-                const playedCard = play.use(cardIdx, card)
-                if (playedCard) {
-                  return resolve()
+          if (player.session === play.player?.session) {
+            playerSocket.emit(
+              EServerEvent.WAITING_PLAY,
+              table.getPublicMatch(player.session, includePreviousHand),
+              (data: IWaitingPlayData) => {
+                if (!data) {
+                  return reject(new Error(EServerEvent.WAITING_PLAY + " callback returned empty"))
                 }
-                return reject(new Error("Invalid Card"))
+                const { cardIdx, card } = data
+                if (cardIdx !== undefined && card) {
+                  const playedCard = play.use(cardIdx, card)
+                  if (playedCard) {
+                    return resolve()
+                  }
+                  return reject(new Error("Invalid Card"))
+                }
+                return reject(new Error("Invalid Callback Response"))
               }
-              return reject(new Error("Invalid Callback Response"))
-            })
+            )
           }
         })
       })
@@ -222,38 +230,34 @@ export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string |
         table.lobby
           .startMatch()
           .onTurn((play) => {
-            return new Promise<void>(async (resolve) => {
-              server.turns.set(table.matchSessionId, { play, resolve })
+            return new Promise<void>(async (resolve, reject) => {
+              const includePreviousHand = server.turns.get(table.matchSessionId)?.type === "play"
+              server.turns.set(table.matchSessionId, { play, resolve, type: "play" })
 
               try {
                 const session = play.player?.session as string
                 if (!session || !play) {
                   throw new Error("Unexpected Error")
                 }
-                const user = server.users.get(session)
-                if (!user) {
-                  throw new Error("Unexpected Error")
-                }
+                server.users.getOrThrow(session)
 
-                await server.emitMatchUpdate(table, [], true)
-                await server.emitWaitingForPlay(play, table)
+                await server.emitWaitingForPlay(play, table, includePreviousHand)
 
                 return resolve()
               } catch (e) {
-                console.error("ON TURN ERROR", e)
+                reject(e)
               }
             })
           })
           .onTruco((play) => {
-            return new Promise<void>(async (resolve) => {
-              server.turns.set(table.matchSessionId, { play, resolve })
+            return new Promise<void>(async (resolve, reject) => {
+              server.turns.set(table.matchSessionId, { play, resolve, type: "truco" })
 
               try {
-                await server.emitMatchUpdate(table, [], false)
-                await server.emitWaitingPossibleSay(play, table)
+                await server.emitWaitingPossibleSay(play, table, false)
                 return resolve()
               } catch (e) {
-                console.error("ON TRUCO ERROR", e)
+                reject(e)
               }
             })
           })

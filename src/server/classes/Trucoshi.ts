@@ -6,9 +6,14 @@ import { IUser } from "./User"
 export interface ITrucoshi {
   users: TMap<string, IUser> // sessionId, user
   tables: MatchTableMap // sessionId, table
-  turns: TMap<string, { play: IPlayInstance; resolve(): void }> // sessionId, play instance
+  turns: TMap<string, ITrucoshiTurn> // sessionId, play instance
 }
 
+interface ITrucoshiTurn {
+  type: "play" | "truco"
+  play: IPlayInstance
+  resolve(): void
+}
 interface MatchTableMap extends TMap<string, IMatchTable> {
   getAll(filters: { state?: Array<EMatchTableState> }): Array<IPublicMatchInfo>
 }
@@ -30,7 +35,7 @@ class MatchTableMap extends TMap<string, IMatchTable> {
 export const Trucoshi = () => {
   const users = new TMap<string, IUser>() // sessionId, user
   const tables = new MatchTableMap() // sessionId, table
-  const turns = new TMap<string, { play: IPlayInstance; resolve(): void }>() // sessionId, play instance
+  const turns = new TMap<string, ITrucoshiTurn>() // sessionId, play instance, play promise resolve and type
 
   const trucoshi: ITrucoshi = {
     users,

@@ -59,13 +59,21 @@ export const GameLoop = (match: IMatch) => {
         gameloop.currentPlayer = play.player
 
         if (play.state === EHandState.WAITING_FOR_TRUCO_ANSWER) {
-          await gameloop._onTruco(play)
+          try {
+            await gameloop._onTruco(play)
+          } catch (e) {
+            console.error("GAME LOOP ERROR", e)
+          }
           continue
         }
 
         if (play.state === EHandState.WAITING_PLAY) {
           play.player.setTurn(true)
-          await gameloop._onTurn(play)
+          try {
+            await gameloop._onTurn(play)
+          } catch (e) {
+            console.error("GAME LOOP ERROR", e)
+          }
           play.player.setTurn(false)
           continue
         }

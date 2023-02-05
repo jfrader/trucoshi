@@ -91,11 +91,6 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
         yield hand
       }
 
-      if (match.teams[0].isTeamDisabled() && match.teams[1].isTeamDisabled()) {
-        hand.setState(EHandState.FINISHED)
-        break
-      }
-
       let winnerTeamIdx = checkHandWinner(hand.rounds, forehandTeamIdx)
 
       if (match.teams[0].isTeamDisabled()) {
@@ -120,6 +115,11 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
   const commands: IHandCommands = {
     [ESayCommand.MAZO]: (player) => {
       hand.disablePlayer(player)
+
+      if (match.teams.every((team) => team.isTeamDisabled())) {
+        hand.setState(EHandState.FINISHED)
+      }
+
       hand.nextTurn()
     },
     [ESayCommand.TRUCO]: (player) => {

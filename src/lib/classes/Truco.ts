@@ -5,6 +5,7 @@ import { ITeam } from "./Team"
 export interface ITruco {
   state: 1 | 2 | 3 | 4
   teamIdx: 0 | 1 | null
+  waitingAnswer: boolean
   answer: boolean | null
   turn: number
   teams: [ITeam, ITeam]
@@ -48,6 +49,7 @@ export function Truco(teams: [ITeam, ITeam]) {
     teams,
     teamIdx: null,
     answer: null,
+    waitingAnswer: false,
     currentPlayer: null,
     generator: trucoAnswerGeneratorSequence(),
     players: [],
@@ -58,6 +60,7 @@ export function Truco(teams: [ITeam, ITeam]) {
       const playerTeamIdx = player.teamIdx as 0 | 1
       const teamIdx = truco.teamIdx
       if (teamIdx === null || teamIdx !== playerTeamIdx) {
+        truco.waitingAnswer = true
         truco.state++
         const opponentIdx = Number(!playerTeamIdx) as 0 | 1
         truco.teamIdx = playerTeamIdx
@@ -114,6 +117,7 @@ export function Truco(teams: [ITeam, ITeam]) {
         })
       }
       if (answer !== null) {
+        truco.waitingAnswer = false
         truco.teamIdx = Number(!player.teamIdx) as 0 | 1
         truco.answer = answer
         callback()
