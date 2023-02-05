@@ -62,9 +62,11 @@ export function MatchTable(matchSessionId: string, ownerSession: string, teamSiz
       try {
         await new Promise<void>(callback)
       } catch (e) {
-        player.setReady(false)
         if (matchTable.state() !== EMatchTableState.STARTED) {
+          player.setReady(false)
           matchTable.lobby.removePlayer(player.session as string)
+        } else {
+          player.setReady(true)
         }
       }
 

@@ -83,7 +83,7 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
         const player = match.table.player(hand.turn)
         hand.setCurrentPlayer(player)
 
-        if (player.disabled || !player.ready) {
+        if (player.disabled) {
           hand.setCurrentPlayer(null)
           hand.nextTurn()
         }
