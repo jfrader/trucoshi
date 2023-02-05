@@ -55,7 +55,7 @@ export function MatchTable(matchSessionId: string, ownerSession: string, teamSiz
     async waitPlayerReconnection(player, callback, update) {
       if (matchTable.state() !== EMatchTableState.STARTED) {
         player.setReady(false)
-      },
+      }
 
       update()
 
