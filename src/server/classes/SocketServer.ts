@@ -1,12 +1,11 @@
 import { randomUUID } from "crypto"
 import { createServer } from "http"
 import { Server, Socket } from "socket.io"
-import { IPlayer, IPlayInstance, IPublicPlayer } from "../../lib"
+import { IPlayer, IPlayInstance } from "../../lib"
 import {
   ClientToServerEvents,
   ECommand,
   EHandState,
-  ESayCommand,
   EServerEvent,
   IEventCallback,
   IPublicMatch,
@@ -171,9 +170,9 @@ export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string |
                     return resolve(saidCommand)
                   }
                 }
-                reject()
+                reject(new Error("Tried to play empty command"))
               } catch (e) {
-                reject()
+                reject(e)
               }
             }
           )
@@ -226,8 +225,6 @@ export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string |
             return new Promise<void>(async (resolve) => {
               server.turns.set(table.matchSessionId, { play, resolve })
 
-              console.log("NEW TURN", play.player?.id)
-
               try {
                 const session = play.player?.session as string
                 if (!session || !play) {
@@ -250,8 +247,6 @@ export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string |
           .onTruco((play) => {
             return new Promise<void>(async (resolve) => {
               server.turns.set(table.matchSessionId, { play, resolve })
-
-              console.log("NEW TRUCO", play.player?.id)
 
               try {
                 await server.emitMatchUpdate(table, [], false)
@@ -280,15 +275,13 @@ export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string |
         socket.join(currentTable.matchSessionId)
 
         const { play, resolve } = server.turns.get(currentTable.matchSessionId) || {}
-        if (
-          play &&
-          play.player &&
-          currentTable.isSessionPlaying(socket.data.user.session) &&
-          socket.data.user?.session === play.player?.session
-        ) {
-          if (play.state === EHandState.WAITING_PLAY) {
+        if (play && play.player && currentTable.isSessionPlaying(socket.data.user.session)) {
+          if (
+            play.state === EHandState.WAITING_PLAY &&
+            socket.data.user.session === play.player.session
+          ) {
             server.emitWaitingForPlay(play, currentTable).then(resolve).catch(console.error)
-          } else if (play.state === EHandState.WAITING_FOR_TRUCO_ANSWER) {
+          } else {
             server.emitWaitingPossibleSay(play, currentTable).then(resolve).catch(console.error)
           }
         } else {
