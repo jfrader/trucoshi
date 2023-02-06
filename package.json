@@ -1,12 +1,11 @@
 {
   "name": "trucoshi",
-  "version": "0.2.12",
+  "version": "0.2.13",
   "main": "dist/index.js",
   "license": "GPL-3.0",
-  "type": "module",
   "scripts": {
-    "start": "node ./dist/server/index.js",
-    "prepublishOnly": "yarn build",
+    "start": "node ./dist/trucoshi.js",
+    "prepublishOnly": "yarn test && yarn build",
     "dev": "nodemon",
     "test:autoplay": "yarn run ts-node src/test/autoplay",
     "test:play": "yarn run ts-node src/test/play",
