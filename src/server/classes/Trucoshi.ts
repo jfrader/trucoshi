@@ -1,4 +1,4 @@
-import { IPlayInstance } from "../../lib"
+import { IHand, IPlayInstance } from "../../lib"
 import { EMatchTableState, IPublicMatchInfo, TMap } from "../../types"
 import { IMatchTable } from "./MatchTable"
 import { IUser } from "./User"
@@ -10,7 +10,7 @@ export interface ITrucoshi {
 }
 
 interface ITrucoshiTurn {
-  type: "play" | "truco"
+  previousHandIdx: number | null
   play: IPlayInstance
   resolve(): void
 }

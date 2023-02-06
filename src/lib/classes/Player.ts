@@ -125,6 +125,7 @@ export function Player(key: string, id: string, teamIdx: number, isOwner: boolea
       if (player.hand[idx] && player.hand[idx] === card) {
         const card = player.hand.splice(idx, 1)[0]
         player.usedHand.push(card)
+        player.isTurn = false
         return card
       }
       return null

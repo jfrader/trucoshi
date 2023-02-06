@@ -1,7 +1,8 @@
+import e from "cors"
 import { randomUUID } from "crypto"
 import { createServer } from "http"
 import { Server, Socket } from "socket.io"
-import { IPlayer, IPlayInstance } from "../../lib"
+import { IHand, IPlayer, IPlayInstance } from "../../lib"
 import {
   ClientToServerEvents,
   ECommand,
@@ -12,6 +13,7 @@ import {
   IWaitingPlayData,
   ServerToClientEvents,
 } from "../../types"
+import { PREVIOUS_HAND_ACK_TIMEOUT } from "../constants"
 import { Chat, IChat } from "./Chat"
 import { IMatchTable } from "./MatchTable"
 import { ITrucoshi } from "./Trucoshi"
@@ -52,21 +54,10 @@ export interface ISocketServer extends ITrucoshi {
       session?: string
     }>
   ): Promise<void>
-  emitWaitingPossibleSay(
-    play: IPlayInstance,
-    table: IMatchTable,
-    includePreviousHand?: boolean
-  ): Promise<ECommand>
-  emitWaitingForPlay(
-    play: IPlayInstance,
-    table: IMatchTable,
-    includePreviousHand?: boolean
-  ): Promise<void>
-  emitMatchUpdate(
-    table: IMatchTable,
-    skipSocketIds?: Array<string>,
-    includePreviousHand?: boolean
-  ): Promise<void>
+  emitWaitingPossibleSay(play: IPlayInstance, table: IMatchTable): Promise<ECommand>
+  emitWaitingForPlay(play: IPlayInstance, table: IMatchTable): Promise<void>
+  emitMatchUpdate(table: IMatchTable, skipSocketIds?: Array<string>): Promise<void>
+  emitPreviousHand(play: IPlayInstance, table: IMatchTable): Promise<void>
   emitSocketMatch(socket: TrucoshiSocket, currentMatchId: string | null): IPublicMatch | null
   startMatch(matchSessionId: string): Promise<void>
   listen: () => void
@@ -141,18 +132,18 @@ export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string |
         resolve()
       })
     },
-    async emitMatchUpdate(table, skipSocketIds = [], includePreviousHand = true) {
+    async emitMatchUpdate(table, skipSocketIds = []) {
       await server.getTableSockets(table, async (playerSocket: TrucoshiSocket) => {
         if (skipSocketIds.includes(playerSocket.id)) {
           return
         }
         playerSocket.emit(
           EServerEvent.UPDATE_MATCH,
-          table.getPublicMatch(playerSocket.data.user?.session as string, includePreviousHand)
+          table.getPublicMatch(playerSocket.data.user?.session as string)
         )
       })
     },
-    async emitWaitingPossibleSay(play, table, includePreviousHand = true) {
+    async emitWaitingPossibleSay(play, table) {
       return new Promise<ECommand>((resolve, reject) => {
         return server.getTableSockets(table, async (playerSocket, player) => {
           if (!player) {
@@ -161,7 +152,7 @@ export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string |
 
           playerSocket.emit(
             EServerEvent.WAITING_POSSIBLE_SAY,
-            table.getPublicMatch(player.session, includePreviousHand),
+            table.getPublicMatch(player.session),
             (data) => {
               if (!data) {
                 return reject(
@@ -188,10 +179,10 @@ export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string |
         })
       })
     },
-    async emitWaitingForPlay(play, table, includePreviousHand = true) {
+    async emitWaitingForPlay(play, table) {
       return new Promise<void>((resolve, reject) => {
         server
-          .emitWaitingPossibleSay(play, table, includePreviousHand)
+          .emitWaitingPossibleSay(play, table)
           .then(() => {
             resolve()
           })
@@ -200,11 +191,10 @@ export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string |
           if (!player) {
             return
           }
-
           if (player.session === play.player?.session) {
             playerSocket.emit(
               EServerEvent.WAITING_PLAY,
-              table.getPublicMatch(player.session, includePreviousHand),
+              table.getPublicMatch(player.session),
               (data: IWaitingPlayData) => {
                 if (!data) {
                   return reject(new Error(EServerEvent.WAITING_PLAY + " callback returned empty"))
@@ -224,6 +214,34 @@ export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string |
         })
       })
     },
+    async emitPreviousHand(play, table) {
+      return new Promise<void>(async (resolve, reject) => {
+        try {
+          const promises: Array<PromiseLike<void>> = []
+          await server.getTableSockets(table, async (playerSocket, player) => {
+            promises.push(
+              new Promise<void>((resolvePlayer, rejectPlayer) => {
+                if (!player || !play.prevHand) {
+                  return rejectPlayer()
+                }
+                playerSocket.emit(
+                  EServerEvent.PREVIOUS_HAND,
+                  table.getPreviousHand(play.prevHand),
+                  resolvePlayer
+                )
+                setTimeout(() => {
+                  rejectPlayer()
+                }, PREVIOUS_HAND_ACK_TIMEOUT)
+              })
+            )
+          })
+          await Promise.allSettled(promises)
+          resolve()
+        } catch (e) {
+          reject(e)
+        }
+      })
+    },
     async startMatch(matchSessionId) {
       const table = server.tables.getOrThrow(matchSessionId)
       if (table && !table.lobby.gameLoop) {
@@ -231,8 +249,16 @@ export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string |
           .startMatch()
           .onTurn((play) => {
             return new Promise<void>(async (resolve, reject) => {
-              const includePreviousHand = server.turns.get(table.matchSessionId)?.type === "play"
-              server.turns.set(table.matchSessionId, { play, resolve, type: "play" })
+              const currentTurn = server.turns.get(table.matchSessionId)
+              const emitPreviousHand = currentTurn
+                ? currentTurn.previousHandIdx !== play.prevHand?.idx
+                : false
+
+              server.turns.set(table.matchSessionId, {
+                play,
+                resolve,
+                previousHandIdx: play.prevHand ? play.prevHand.idx : null,
+              })
 
               try {
                 const session = play.player?.session as string
@@ -241,7 +267,11 @@ export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string |
                 }
                 server.users.getOrThrow(session)
 
-                await server.emitWaitingForPlay(play, table, includePreviousHand)
+                if (emitPreviousHand) {
+                  await server.emitPreviousHand(play, table)
+                }
+
+                await server.emitWaitingForPlay(play, table)
 
                 return resolve()
               } catch (e) {
@@ -251,10 +281,13 @@ export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string |
           })
           .onTruco((play) => {
             return new Promise<void>(async (resolve, reject) => {
-              server.turns.set(table.matchSessionId, { play, resolve, type: "truco" })
+              server.turns.update(table.matchSessionId, {
+                play,
+                resolve,
+              })
 
               try {
-                await server.emitWaitingPossibleSay(play, table, false)
+                await server.emitWaitingPossibleSay(play, table)
                 return resolve()
               } catch (e) {
                 reject(e)
@@ -291,10 +324,10 @@ export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string |
         } else {
           socket.emit(
             EServerEvent.UPDATE_MATCH,
-            currentTable.getPublicMatch(socket.data.user.session, false)
+            currentTable.getPublicMatch(socket.data.user.session)
           )
         }
-        return currentTable.getPublicMatch(socket.data.user.session, false)
+        return currentTable.getPublicMatch(socket.data.user.session)
       }
       return null
     },
@@ -333,7 +366,7 @@ export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string |
         user.waitReconnection(table.matchSessionId, reconnect, abandon)
       },
       () => {
-        server.emitMatchUpdate(table, [], false)
+        server.emitMatchUpdate(table, [])
       }
     )
   })

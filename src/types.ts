@@ -1,5 +1,11 @@
 import { ICard, IHandPoints, IPlayedCard, IPlayer, IPublicPlayer, IPublicTeam, ITeam } from "./lib"
 
+export interface IMatchPreviousHand {
+  rounds: IPlayedCard[][]
+  points: IHandPoints
+  matchSessionId: string
+}
+
 export interface IPublicMatch {
   state: EMatchTableState
   winner: ITeam | null
@@ -8,8 +14,6 @@ export interface IPublicMatch {
   players: Array<IPublicPlayer>
   me: IPublicPlayer
   rounds: IPlayedCard[][]
-  prevRounds: IPlayedCard[][] | null
-  prevHandPoints?: IHandPoints | null
 }
 
 export interface IPublicMatchInfo {
@@ -127,6 +131,8 @@ export interface ServerToClientEvents {
     callback: (data: IWaitingSayData) => void
   ) => void
 
+  [EServerEvent.PREVIOUS_HAND]: (value: IMatchPreviousHand, callback: () => void) => void
+
   [EServerEvent.UPDATE_CHAT]: (room: IPublicChatRoom) => void
 
   [EServerEvent.UPDATE_MATCH]: (match: IPublicMatch) => void
@@ -178,6 +184,7 @@ export interface ClientToServerEvents {
 
 export enum EServerEvent {
   PONG = "PONG",
+  PREVIOUS_HAND = "PREVIOUS_HAND",
   UPDATE_MATCH = "UPDATE_MATCH",
   WAITING_PLAY = "WAITING_PLAY",
   WAITING_POSSIBLE_SAY = "WAITING_POSSIBLE_SAY",
@@ -231,5 +238,13 @@ export class TMap<K, V> extends Map<K, V> {
       throw new Error(`getOrThrow(${key}) not found`)
     }
     return result
+  }
+
+  update(key: K, value: Partial<V>) {
+    const current = this.get(key)
+    if (!current) {
+      throw new Error(`update(${key}) not found`)
+    }
+    this.set(key, { ...current, ...value })
   }
 }

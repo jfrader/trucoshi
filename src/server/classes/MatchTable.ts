@@ -1,5 +1,5 @@
-import { ILobby, IPlayer, IPlayInstance, IPublicPlayer, Lobby } from "../../lib"
-import { EMatchTableState, IPublicMatch, IPublicMatchInfo } from "../../types"
+import { IHand, IHandPoints, ILobby, IPlayedCard, IPlayer, Lobby } from "../../lib"
+import { EMatchTableState, IMatchPreviousHand, IPublicMatch, IPublicMatchInfo } from "../../types"
 
 export interface IMatchTable {
   ownerSession: string
@@ -7,7 +7,9 @@ export interface IMatchTable {
   lobby: ILobby
   state(): EMatchTableState
   isSessionPlaying(session: string): IPlayer | null
-  getPublicMatch(session?: string, includePreviousHand?: boolean): IPublicMatch
+  getPreviousHand(hand: IHand): IMatchPreviousHand
+  getHandRounds(hand: IHand): IPlayedCard[][]
+  getPublicMatch(session?: string): IPublicMatch
   getPublicMatchInfo(): IPublicMatchInfo
   waitPlayerReconnection(
     player: IPlayer,
@@ -72,26 +74,27 @@ export function MatchTable(matchSessionId: string, ownerSession: string, teamSiz
 
       update()
     },
-    getPublicMatch(userSession, includePreviousHand = true) {
+    getHandRounds(hand) {
+      if (!hand) {
+        return []
+      }
+      return hand.rounds.map((round) => round.cards) || []
+    },
+    getPreviousHand(hand) {
+      return {
+        rounds: matchTable.getHandRounds(hand),
+        points: hand.points,
+        matchSessionId: matchTable.matchSessionId,
+      }
+    },
+    getPublicMatch(userSession) {
       const { lobby } = matchTable
 
       const winner = lobby.gameLoop?.winner || null
 
-      const lastHandIdx = (lobby.gameLoop?.hands.length || 1) - 1
-      const rounds = lobby.gameLoop?.hands[lastHandIdx]?.rounds.map((round) => round.cards) || []
-
-      const prevHandIdx = lastHandIdx - 1
-
-      const hasPrevHand = prevHandIdx !== -1
-
-      const newHandNotStarted = rounds[0]?.length === 0
-
-      const prevRounds =
-        includePreviousHand && hasPrevHand && newHandNotStarted
-          ? lobby.gameLoop?.hands[prevHandIdx]?.rounds.map((round) => round.cards)
-          : null
-
-      const prevHandPoints = prevRounds && lobby.gameLoop?.hands[prevHandIdx]?.points
+      const rounds = lobby.gameLoop?.currentHand
+        ? matchTable.getHandRounds(lobby.gameLoop?.currentHand)
+        : []
 
       const players = lobby.players.filter((player) => Boolean(player)) as IPlayer[]
 
@@ -118,9 +121,7 @@ export function MatchTable(matchSessionId: string, ownerSession: string, teamSiz
         state: matchTable.state(),
         teams: publicTeams,
         players: publicPlayers,
-        rounds: rounds || [[]],
-        prevRounds: prevRounds || null,
-        prevHandPoints,
+        rounds
       }
     },
   }

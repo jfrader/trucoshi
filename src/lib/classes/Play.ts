@@ -15,11 +15,12 @@ export interface IPlayInstance {
   envido: EnvidoState
   player: IPlayer | null
   rounds: Array<IRound> | null
+  prevHand: IHand | null
   use(idx: number, card: ICard): ICard | null
   say(command: ECommand, player: IPlayer): ECommand | null
 }
 
-export function PlayInstance(hand: IHand, teams: [ITeam, ITeam]) {
+export function PlayInstance(hand: IHand, prevHand: IHand | null, teams: [ITeam, ITeam]) {
   const instance: IPlayInstance = {
     state: hand.state,
     teams,
@@ -29,6 +30,7 @@ export function PlayInstance(hand: IHand, teams: [ITeam, ITeam]) {
     roundIdx: hand.rounds.length,
     player: hand.currentPlayer,
     rounds: hand.rounds,
+    prevHand: prevHand && !hand.started && !hand.truco.waitingAnswer ? prevHand : null,
     use(idx, card) {
       return hand.use(idx, card)
     },

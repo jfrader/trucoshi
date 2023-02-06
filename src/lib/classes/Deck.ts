@@ -48,7 +48,7 @@ export function PlayedCard(player: IPlayer, card: ICard): IPlayedCard {
     player,
     card,
     get key() {
-      return card + player.session
+      return card + player.key
     },
   }
   return pc

@@ -14,8 +14,9 @@ export interface IGameLoop {
   _onTurn: ITurnCallback
   _onWinner: IWinnerCallback
   currentPlayer: IPlayer | null
+  currentHand: IHand | null
+  previousHand: IHand | null
   teams: Array<ITeam>
-  hands: Array<IHand>
   winner: ITeam | null
   onTurn: (callback: ITurnCallback) => IGameLoop
   onWinner: (callback: IWinnerCallback) => IGameLoop
@@ -31,7 +32,8 @@ export const GameLoop = (match: IMatch) => {
     teams: [],
     winner: null,
     currentPlayer: null,
-    hands: [],
+    currentHand: null,
+    previousHand: null,
     onTruco: (callback: ITrucoCallback) => {
       gameloop._onTruco = callback
       return gameloop
@@ -50,7 +52,7 @@ export const GameLoop = (match: IMatch) => {
       while (!match.winner) {
         const play = match.play()
 
-        gameloop.hands = match.hands
+        gameloop.currentHand = match.currentHand
 
         if (!play || !play.player) {
           continue
@@ -74,6 +76,7 @@ export const GameLoop = (match: IMatch) => {
           } catch (e) {
             console.error("GAME LOOP ERROR", e)
           }
+          gameloop.previousHand = match.prevHand
           play.player.setTurn(false)
           continue
         }

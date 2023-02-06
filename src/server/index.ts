@@ -87,9 +87,15 @@ server.io.on("connection", (socket) => {
       const table = server.tables.get(matchSessionId)
 
       if (table) {
-        table.lobby.addPlayer(user.key, user.id, user.session, teamIdx, user.ownedMatchId === matchSessionId)
+        table.lobby.addPlayer(
+          user.key,
+          user.id,
+          user.session,
+          teamIdx,
+          user.ownedMatchId === matchSessionId
+        )
         socket.join(table.matchSessionId)
-        server.emitMatchUpdate(table, [], false)
+        server.emitMatchUpdate(table, [])
         return callback({ success: true, match: table.getPublicMatch(socket.data.user?.session) })
       }
       callback({ success: false })
@@ -150,7 +156,7 @@ server.io.on("connection", (socket) => {
       )
       if (player) {
         player.setReady(ready)
-        server.emitMatchUpdate(table, [socket.id], false)
+        server.emitMatchUpdate(table, [socket.id])
         callback({ success: true, match: table.getPublicMatch(socket.data.user?.session) })
       }
     } catch (e) {

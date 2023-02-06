@@ -18,6 +18,19 @@ export interface ITruco {
   setTeam(idx: 0 | 1): 0 | 1
   setCurrentPlayer(player: IPlayer | null): IPlayer | null
   getNextPlayer(): IteratorResult<ITruco, ITruco | void>
+  reset(): void
+}
+
+const EMPTY_TRUCO: Pick<
+  ITruco,
+  "turn" | "teamIdx" | "answer" | "waitingAnswer" | "currentPlayer" | "players"
+> = {
+  turn: 0,
+  teamIdx: null,
+  answer: null,
+  waitingAnswer: false,
+  currentPlayer: null,
+  players: [],
 }
 
 export function Truco(teams: [ITeam, ITeam]) {
@@ -44,15 +57,20 @@ export function Truco(teams: [ITeam, ITeam]) {
   }
 
   const truco: ITruco = {
-    turn: 0,
+    ...EMPTY_TRUCO,
     state: 1,
     teams,
-    teamIdx: null,
-    answer: null,
-    waitingAnswer: false,
-    currentPlayer: null,
     generator: trucoAnswerGeneratorSequence(),
-    players: [],
+    reset() {
+      teams.forEach((team) =>
+        team.players.forEach((player) => {
+          player._commands.delete(ESayCommand.TRUCO)
+          player._commands.delete(ESayCommand.QUIERO)
+          player._commands.delete(ESayCommand.NO_QUIERO)
+        })
+      )
+      Object.assign(truco, EMPTY_TRUCO)
+    },
     sayTruco(player, callback) {
       if (truco.state === 4) {
         return truco

@@ -16,6 +16,7 @@ export interface IHand {
   idx: number
   state: EHandState
   turn: number
+  started: boolean
   points: IHandPoints
   truco: ITruco
   envido: EnvidoState
@@ -26,7 +27,7 @@ export interface IHand {
   currentRound: IRound | null
   commands: IHandCommands
   finished: () => boolean
-  play(): IPlayInstance | null
+  play(prevHand: IHand | null): IPlayInstance | null
   nextTurn(): void
   use(idx: number, card: ICard): ICard | null
   pushRound(round: IRound): IRound
@@ -85,7 +86,11 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
 
         if (player.disabled) {
           hand.setCurrentPlayer(null)
-          hand.nextTurn()
+        }
+
+        if (match.teams.some((team) => team.isTeamDisabled())) {
+          hand.setState(EHandState.FINISHED)
+          break
         }
 
         yield hand
@@ -115,11 +120,8 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
   const commands: IHandCommands = {
     [ESayCommand.MAZO]: (player) => {
       hand.disablePlayer(player)
-
-      if (match.teams.every((team) => team.isTeamDisabled())) {
-        hand.setState(EHandState.FINISHED)
-      }
-
+      hand.setState(EHandState.WAITING_PLAY)
+      hand.truco.reset()
       hand.nextTurn()
     },
     [ESayCommand.TRUCO]: (player) => {
@@ -151,6 +153,7 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
 
   const hand: IHand = {
     idx,
+    started: false,
     turn: Number(match.table.forehandIdx),
     state: EHandState.WAITING_PLAY,
     rounds: [],
@@ -173,10 +176,11 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
       return hand._currentPlayer
     },
     commands,
-    play() {
-      return PlayInstance(hand, match.teams)
+    play(prevHand) {
+      return PlayInstance(hand, prevHand, match.teams)
     },
     use(idx: number, card: ICard) {
+      hand.started = true
       const player = hand.currentPlayer
       const round = hand.currentRound
       if (!player || !round) {
@@ -185,8 +189,9 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
 
       const playerCard = player.useCard(idx, card)
       if (playerCard) {
+        const card = round.use(PlayedCard(player, playerCard))
         hand.nextTurn()
-        return round.use(PlayedCard(player, playerCard))
+        return card
       }
 
       return null

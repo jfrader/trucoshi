@@ -9,11 +9,13 @@ export interface IMatch {
   teams: [ITeam, ITeam]
   hands: Array<IHand>
   winner: ITeam | null
+  prevHand: IHand | null
   currentHand: IHand | null
   table: ITable
   play(): IPlayInstance | null
   addPoints(points: IHandPoints): [ITeam, ITeam]
   pushHand(hand: IHand): void
+  setPrevHand(hand: IHand | null): IHand | null
   setCurrentHand(hand: IHand | null): IHand | null
   setWinner(winner: ITeam): void
   getNextTurn(): IteratorResult<IMatch | null, IMatch | null | void>
@@ -44,6 +46,7 @@ export function Match(table: ITable, teams: Array<ITeam> = [], matchPoint: numbe
 
       deck.shuffle()
       const hand = match.setCurrentHand(Hand(match, deck, match.hands.length + 1)) as IHand
+      match.setPrevHand(match.hands.at(-1) || null)
       match.pushHand(hand)
       while (!hand.finished()) {
         const { value } = hand.getNextPlayer()
@@ -76,13 +79,14 @@ export function Match(table: ITable, teams: Array<ITeam> = [], matchPoint: numbe
     teams: teams as [ITeam, ITeam],
     hands: [],
     table,
+    prevHand: null,
     currentHand: null,
     play() {
       match.getNextTurn()
       if (!match.currentHand) {
         return null
       }
-      return match.currentHand.play()
+      return match.currentHand.play(match.prevHand)
     },
     addPoints(points) {
       match.teams[0].addPoints(matchPoint, points[0])
@@ -95,6 +99,10 @@ export function Match(table: ITable, teams: Array<ITeam> = [], matchPoint: numbe
     setCurrentHand(hand) {
       match.currentHand = hand
       return match.currentHand
+    },
+    setPrevHand(hand) {
+      match.prevHand = hand
+      return match.prevHand
     },
     setWinner(winner) {
       match.winner = winner
