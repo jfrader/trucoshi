@@ -3,18 +3,26 @@
   "version": "0.2.12",
   "main": "dist/index.js",
   "license": "GPL-3.0",
+  "type": "module",
   "scripts": {
     "start": "node ./dist/server/index.js",
     "prepublishOnly": "yarn build",
     "dev": "nodemon",
     "test:autoplay": "yarn run ts-node src/test/autoplay",
     "test:play": "yarn run ts-node src/test/play",
-    "test:legacy": "yarn run ts-node src/test/legacy",
+    "test": "yarn run ts-mocha --exit ./test/**/*.ts",
     "build": "yarn run rimraf ./dist && yarn run tsc --project ."
   },
   "devDependencies": {
+    "@types/chai": "^4.3.4",
+    "@types/expect": "^24.3.0",
+    "@types/mocha": "^10.0.1",
     "@types/node": "^18.11.18",
-    "nodemon": "^2.0.20"
+    "chai": "^4.3.7",
+    "mocha": "^10.2.0",
+    "nodemon": "^2.0.20",
+    "socket.io-client": "^4.5.4",
+    "ts-mocha": "^10.0.0"
   },
   "files": [
     "dist/index.js",

@@ -170,8 +170,8 @@ export interface ClientToServerEvents {
   ) => void
 
   [EClientEvent.SET_SESSION]: (
-    session: string | null,
     id: string | null,
+    session: string | null,
     callback?: IEventCallback<{ session?: string; activeMatches: Array<IPublicMatchInfo> }>
   ) => void
 

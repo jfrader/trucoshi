@@ -1,8 +1,8 @@
 import e from "cors"
 import { randomUUID } from "crypto"
-import { createServer } from "http"
+import { createServer, Server as HttpServer } from "http"
 import { Server, Socket } from "socket.io"
-import { IHand, IPlayer, IPlayInstance } from "../../lib"
+import { IPlayer, IPlayInstance } from "../../lib"
 import {
   ClientToServerEvents,
   ECommand,
@@ -41,6 +41,7 @@ export type TrucoshiSocket = Socket<
 
 export interface ISocketServer extends ITrucoshi {
   io: TrucoshiServer
+  httpServer: HttpServer
   chat: IChat
   getTableSockets(
     table: IMatchTable,
@@ -60,10 +61,14 @@ export interface ISocketServer extends ITrucoshi {
   emitPreviousHand(play: IPlayInstance, table: IMatchTable): Promise<void>
   emitSocketMatch(socket: TrucoshiSocket, currentMatchId: string | null): IPublicMatch | null
   startMatch(matchSessionId: string): Promise<void>
-  listen: () => void
+  listen: (callback: (io: TrucoshiServer) => void) => void
 }
 
-export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string | Array<string>) => {
+export const SocketServer = (
+  trucoshi: ITrucoshi,
+  port: number,
+  origin?: string | Array<string>
+) => {
   const httpServer = createServer()
 
   const io = new Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>(
@@ -78,13 +83,13 @@ export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string |
 
   const server: ISocketServer = {
     io,
+    httpServer,
     turns: trucoshi.turns,
     tables: trucoshi.tables,
     users: trucoshi.users,
     chat: Chat(io),
-    listen() {
-      httpServer.listen(port)
-      console.log("Listening on", port, " from origin at", origin)
+    listen(callback) {
+      httpServer.listen(port, undefined, undefined, () => callback(server.io))
     },
     async setOrGetSession(
       socket: TrucoshiSocket,
@@ -296,7 +301,9 @@ export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string |
               }
             })
           })
-          .onWinner(async () => {})
+          .onWinner(async () => {
+            await server.emitMatchUpdate(table)
+          })
           .begin()
 
         server.tables.set(matchSessionId as string, table)

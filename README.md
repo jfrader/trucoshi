@@ -40,12 +40,12 @@ Right now there's only a local CLI way of playing as there is no socket server i
 
     [x] Logica de turnos, rondas y battalla de cartas
     [x] Irse al mazo
-    [] Cantar truco
+    [x] Cantar truco
     [] Cantar envido
     [] Cantar flor
     [x] Socket server
+    [-] Unit tests
     [] Bitcoin Lightning integration
-    [] Unit tests
 
 # Donations
 
