@@ -1,6 +1,6 @@
 {
   "name": "trucoshi",
-  "version": "0.2.13",
+  "version": "0.2.14",
   "main": "dist/index.js",
   "license": "GPL-3.0",
   "scripts": {
@@ -28,6 +28,7 @@
     "dist/index.d.ts",
     "dist/types.js",
     "dist/types.d.ts",
+    "dist/server/**/*",
     "dist/lib/**/*"
   ],
   "dependencies": {
