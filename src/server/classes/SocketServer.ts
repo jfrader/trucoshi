@@ -144,6 +144,7 @@ export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string |
       })
     },
     async emitWaitingPossibleSay(play, table) {
+      let someoneSaidSomething = false
       return new Promise<ECommand>((resolve, reject) => {
         return server.getTableSockets(table, async (playerSocket, player) => {
           if (!player) {
@@ -155,22 +156,23 @@ export const SocketServer = (trucoshi: ITrucoshi, port: number, origin: string |
             table.getPublicMatch(player.session),
             (data) => {
               if (!data) {
-                return reject(
-                  new Error(EServerEvent.WAITING_POSSIBLE_SAY + " callback returned empty")
-                )
+                return
+              }
+              if (someoneSaidSomething) {
+                return
               }
               const { command } = data
               try {
                 if (command) {
                   const saidCommand = play.say(command, player)
                   if (saidCommand) {
+                    someoneSaidSomething = true
                     server.chat.rooms
                       .get(table.matchSessionId)
                       ?.send({ id: player.id, key: player.key }, saidCommand)
                     return resolve(saidCommand)
                   }
                 }
-                reject(new Error("Tried to play empty command"))
               } catch (e) {
                 reject(e)
               }
