@@ -56,7 +56,7 @@ describe("TrucoshiServer", () => {
       assert.equal(arg, "hello world")
       done()
     })
-    server.io.emit(EServerEvent.PONG, "hello world")
+    clientSocket0.emit(EClientEvent.PING, "hello world")
   })
 
   it("should play an entire match", async () => {
