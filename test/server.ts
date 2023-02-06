@@ -7,7 +7,6 @@ import {
   EClientEvent,
   EServerEvent,
   IPublicMatch,
-  IWaitingPlayCallback,
   ServerToClientEvents,
 } from "../src/types"
 import { ICard } from "../src/lib"
