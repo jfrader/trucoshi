@@ -11,7 +11,7 @@ import {
 } from "../src/types"
 import { ICard } from "../src/lib"
 
-describe("TrucoshiServer", () => {
+describe("Socket Server", () => {
   let serverSocket: TrucoshiSocket
 
   let clientSocket0: Socket<ServerToClientEvents, ClientToServerEvents>

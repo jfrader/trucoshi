@@ -1,7 +1,7 @@
 import { Lobby } from "../src/lib"
 import { expect } from "chai"
 
-describe("Match", () => {
+describe("Trucoshi Lib", () => {
   it("should play an entire match", (done) => {
     const trucoshi = Lobby()
 
