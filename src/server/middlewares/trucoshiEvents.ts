@@ -4,8 +4,7 @@ import { EClientEvent, EServerEvent } from "../../types"
 import { ISocketServer, MatchTable, TrucoshiSocket } from "../classes"
 
 export const trucoshiEvents =
-  (server: ISocketServer) =>
-  (socket: TrucoshiSocket, next: (err?: ExtendedError) => void) => {
+  (server: ISocketServer) => (socket: TrucoshiSocket, next: (err?: ExtendedError) => void) => {
     socket.on("disconnect", (_reason) => {
       try {
         const user = server.users.getOrThrow(socket.data.user?.session)
@@ -139,12 +138,12 @@ export const trucoshiEvents =
     /**
      * Set Player Ready
      */
-    socket.on(EClientEvent.SET_PLAYER_READY, (matchSessionId, ready, callback) => {
+    socket.on(EClientEvent.SET_PLAYER_READY, (matchId, ready, callback) => {
       try {
         if (!socket.data.user) {
           throw new Error("Session not found")
         }
-        const table = server.tables.getOrThrow(matchSessionId)
+        const table = server.tables.getOrThrow(matchId)
         const player = table.lobby.players.find(
           (player) => player && player.session === socket.data.user?.session
         )
@@ -156,6 +155,13 @@ export const trucoshiEvents =
       } catch (e) {
         callback({ success: false })
       }
+    })
+
+    /**
+     * Leave Match
+     */
+    socket.on(EClientEvent.LEAVE_MATCH, (matchId) => {
+      server.leaveMatch(matchId, socket.id, false)
     })
 
     next()

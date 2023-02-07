@@ -1,21 +1,6 @@
+import { ECommand, EEnvidoCommand } from "../types"
 import { IPlayer } from "./classes/Player"
 import { ITeam } from "./classes/Team"
-
-export enum ESayCommand {
-  QUIERO = "QUIERO",
-  NO_QUIERO = "NO_QUIERO",
-  TRUCO = "TRUCO",
-  MAZO = "MAZO",
-  FLOR = "FLOR",
-  CONTRAFLOR = "CONTRAFLOR",
-}
-
-export enum EEnvidoCommand {
-  ENVIDO = "ENVIDO",
-  ENVIDO_ENVIDO = "ENVIDO_ENVIDO",
-  REAL_ENVIDO = "REAL_ENVIDO",
-  FALTA_ENVIDO = "FALTA_ENVIDO",
-}
 
 export enum EHandState {
   WAITING_PLAY = "WAITING_PLAY",
@@ -23,8 +8,6 @@ export enum EHandState {
   WAITING_ENVIDO_ANSWER = "WAITING_ENVIDO_ANSWER",
   FINISHED = "FINISHED",
 }
-
-export type ECommand = ESayCommand | EEnvidoCommand
 
 export enum GAME_ERROR {
   MATCH_ALREADY_STARTED = "MATCH_ALREADY_STARTED",

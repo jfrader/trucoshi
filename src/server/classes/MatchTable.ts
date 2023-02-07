@@ -48,6 +48,7 @@ export function MatchTable(matchSessionId: string, ownerSession: string, teamSiz
         lobby: { players, maxPlayers },
       } = matchTable
       return {
+        ownerId: players.find((player) => player.isOwner)?.id as string,
         matchSessionId,
         maxPlayers,
         players: players.length,
@@ -55,16 +56,17 @@ export function MatchTable(matchSessionId: string, ownerSession: string, teamSiz
       }
     },
     async waitPlayerReconnection(player, callback, update) {
-      if (matchTable.state() !== EMatchTableState.STARTED) {
-        player.setReady(false)
-      }
+      player.setReady(false)
 
       update()
 
       try {
         await new Promise<void>(callback)
       } catch (e) {
-        if (matchTable.state() !== EMatchTableState.STARTED) {
+        if (
+          matchTable.state() !== EMatchTableState.STARTED &&
+          matchTable.state() !== EMatchTableState.FINISHED
+        ) {
           player.setReady(false)
           matchTable.lobby.removePlayer(player.session as string)
         } else {
@@ -121,7 +123,7 @@ export function MatchTable(matchSessionId: string, ownerSession: string, teamSiz
         state: matchTable.state(),
         teams: publicTeams,
         players: publicPlayers,
-        rounds
+        rounds,
       }
     },
   }

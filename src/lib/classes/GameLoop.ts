@@ -6,7 +6,7 @@ import { IPlayer } from "./Player"
 import { ITeam } from "./Team"
 
 export type IWinnerCallback = (winner: ITeam, teams: [ITeam, ITeam]) => Promise<void>
-export type ITurnCallback = (play: IPlayInstance) => Promise<void>
+export type ITurnCallback = (play: IPlayInstance, newHandJustStarted: boolean) => Promise<void>
 export type ITrucoCallback = (play: IPlayInstance) => Promise<void>
 
 export interface IGameLoop {
@@ -15,7 +15,7 @@ export interface IGameLoop {
   _onWinner: IWinnerCallback
   currentPlayer: IPlayer | null
   currentHand: IHand | null
-  previousHand: IHand | null
+  lastCheckedHand: number | null
   teams: Array<ITeam>
   winner: ITeam | null
   onTurn: (callback: ITurnCallback) => IGameLoop
@@ -33,7 +33,7 @@ export const GameLoop = (match: IMatch) => {
     winner: null,
     currentPlayer: null,
     currentHand: null,
-    previousHand: null,
+    lastCheckedHand: null,
     onTruco: (callback: ITrucoCallback) => {
       gameloop._onTruco = callback
       return gameloop
@@ -72,11 +72,14 @@ export const GameLoop = (match: IMatch) => {
         if (play.state === EHandState.WAITING_PLAY) {
           play.player.setTurn(true)
           try {
-            await gameloop._onTurn(play)
+            const newHandJustStarted = gameloop.lastCheckedHand !== play.prevHand?.idx
+
+            gameloop.lastCheckedHand = play.prevHand ? play.prevHand.idx : null
+
+            await gameloop._onTurn(play, newHandJustStarted)
           } catch (e) {
             console.error("GAME LOOP ERROR", e)
           }
-          gameloop.previousHand = match.prevHand
           play.player.setTurn(false)
           continue
         }

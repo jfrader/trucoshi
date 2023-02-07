@@ -15,13 +15,11 @@ export interface IPlayer {
   isOwner: boolean
   disabled: boolean
   ready: boolean
-  connected: boolean
   setTurn(turn: boolean): void
   getPublicPlayer(): IPublicPlayer
   setSession(session: string): void
   enable(): void
   disable(): void
-  setConnected(connected: boolean): void
   setOwner(owner: boolean): void
   setReady(ready: boolean): void
   setHand(hand: Array<ICard>): Array<ICard>
@@ -34,7 +32,6 @@ export type IPublicPlayer = Pick<
   | "key"
   | "disabled"
   | "ready"
-  | "connected"
   | "hand"
   | "usedHand"
   | "prevHand"
@@ -59,7 +56,6 @@ export function Player(key: string, id: string, teamIdx: number, isOwner: boolea
     isOwner,
     isTurn: false,
     disabled: false,
-    connected: false,
     ready: false,
     get commands() {
       return Array.from(player._commands.values())
@@ -75,7 +71,6 @@ export function Player(key: string, id: string, teamIdx: number, isOwner: boolea
         id,
         key,
         commands,
-        connected,
         disabled,
         ready,
         usedHand,
@@ -87,7 +82,6 @@ export function Player(key: string, id: string, teamIdx: number, isOwner: boolea
       return {
         id,
         key,
-        connected,
         commands,
         disabled,
         ready,
@@ -108,9 +102,6 @@ export function Player(key: string, id: string, teamIdx: number, isOwner: boolea
     },
     disable() {
       player.disabled = true
-    },
-    setConnected(connected) {
-      player.connected = connected
     },
     setReady(ready) {
       player.ready = ready

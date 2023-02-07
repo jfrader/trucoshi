@@ -17,6 +17,7 @@ export interface IPublicMatch {
 }
 
 export interface IPublicMatchInfo {
+  ownerId: string
   matchSessionId: string
   players: number
   maxPlayers: number
@@ -27,7 +28,8 @@ export type IPublicChatRoom = Pick<IChatRoom, "id" | "messages">
 export interface IChatMessage {
   date: number
   user: { id: string; key: string }
-  system: boolean
+  system?: boolean
+  command?: boolean
   content: string
 }
 
@@ -36,7 +38,14 @@ export interface IChatRoom {
   messages: Array<IChatMessage>
   send(user: IChatMessage["user"], message: string): void
   system(message: string): void
+  command(team: 0 | 1, command: ECommand): void
   emit(): void
+}
+
+export enum EChatSystem {
+  TEAM_0 = 0,
+  TEAM_1 = 1,
+  SYSTEM = "SYSTEM",
 }
 
 export enum EMatchTableState {
@@ -107,6 +116,7 @@ export type IEnvidoCalculator = {
 export enum EClientEvent {
   PING = "PING",
   SAY = "SAY",
+  LEAVE_MATCH = "LEAVE_MATCH",
   CREATE_MATCH = "CREATE_MATCH",
   LIST_MATCHES = "LIST_MATCHES",
   JOIN_MATCH = "JOIN_MATCH",
@@ -147,6 +157,8 @@ export interface ClientToServerEvents {
   [EClientEvent.PING]: (msg: string) => void
 
   [EClientEvent.CHAT]: (matchId: string, msg: string, callback: () => void) => void
+
+  [EClientEvent.LEAVE_MATCH]: (matchId: string) => void
 
   [EClientEvent.CREATE_MATCH]: (callback: IEventCallback<{ match?: IPublicMatch }>) => void
 
@@ -238,13 +250,5 @@ export class TMap<K, V> extends Map<K, V> {
       throw new Error(`getOrThrow(${key}) not found`)
     }
     return result
-  }
-
-  update(key: K, value: Partial<V>) {
-    const current = this.get(key)
-    if (!current) {
-      throw new Error(`update(${key}) not found`)
-    }
-    this.set(key, { ...current, ...value })
   }
 }

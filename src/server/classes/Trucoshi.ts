@@ -10,7 +10,6 @@ export interface ITrucoshi {
 }
 
 interface ITrucoshiTurn {
-  previousHandIdx: number | null
   play: IPlayInstance
   resolve(): void
 }

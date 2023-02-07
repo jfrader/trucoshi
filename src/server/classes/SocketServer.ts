@@ -2,11 +2,13 @@ import e from "cors"
 import { randomUUID } from "crypto"
 import { createServer, Server as HttpServer } from "http"
 import { Server, Socket } from "socket.io"
-import { IPlayer, IPlayInstance } from "../../lib"
+import { IPlayer, IPlayInstance, IPublicPlayer, ITeam } from "../../lib"
 import {
   ClientToServerEvents,
   ECommand,
   EHandState,
+  EMatchTableState,
+  ESayCommand,
   EServerEvent,
   IEventCallback,
   IPublicMatch,
@@ -45,8 +47,8 @@ export interface ISocketServer extends ITrucoshi {
   chat: IChat
   getTableSockets(
     table: IMatchTable,
-    callback: (playerSocket: TrucoshiSocket, player: IPlayer | null) => Promise<void>
-  ): Promise<void>
+    callback?: (playerSocket: TrucoshiSocket, player: IPlayer | null) => Promise<void>
+  ): Promise<{ sockets: any[]; players: IPublicPlayer[] }>
   setOrGetSession(
     socket: TrucoshiSocket,
     id: string | null,
@@ -54,13 +56,18 @@ export interface ISocketServer extends ITrucoshi {
     callback: IEventCallback<{
       session?: string
     }>
-  ): Promise<void>
+  ): Promise<IUser>
+  leaveMatch(matchId: string, socketId: string, mayReconnect?: boolean): Promise<void>
   emitWaitingPossibleSay(play: IPlayInstance, table: IMatchTable): Promise<ECommand>
   emitWaitingForPlay(play: IPlayInstance, table: IMatchTable): Promise<void>
   emitMatchUpdate(table: IMatchTable, skipSocketIds?: Array<string>): Promise<void>
   emitPreviousHand(play: IPlayInstance, table: IMatchTable): Promise<void>
   emitSocketMatch(socket: TrucoshiSocket, currentMatchId: string | null): IPublicMatch | null
   startMatch(matchSessionId: string): Promise<void>
+  onTurn(table: IMatchTable, play: IPlayInstance, newHandJustStarted: boolean): Promise<void>
+  onTruco(table: IMatchTable, play: IPlayInstance): Promise<void>
+  onWinner(table: IMatchTable, winner: ITeam): Promise<void>
+  cleanupMatchTable(match: IMatchTable): void
   listen: (callback: (io: TrucoshiServer) => void) => void
 }
 
@@ -106,7 +113,8 @@ export const SocketServer = (
           user.connect()
           user.setId(newId)
           socket.data.user = user
-          return callback({ success: true, session })
+          callback({ success: true, session })
+          return user
         }
       }
 
@@ -117,12 +125,15 @@ export const SocketServer = (
       socket.data.user = newUser
       server.users.set(newSession, newUser)
       callback({ success: false, session: newSession })
+      return newUser
     },
     async getTableSockets(table, callback) {
-      return new Promise<void>(async (resolve) => {
+      return new Promise(async (resolve) => {
         const sockets = await server.io.sockets.adapter.fetchSockets({
           rooms: new Set([table.matchSessionId]),
         })
+
+        const players: IPublicPlayer[] = []
 
         for (const playerSocket of sockets) {
           if (!playerSocket.data.user?.session) {
@@ -131,10 +142,16 @@ export const SocketServer = (
 
           const player = table.isSessionPlaying(playerSocket.data.user.session)
 
-          await callback(playerSocket, player)
+          if (player) {
+            players.push(player)
+          }
+
+          if (callback) {
+            await callback(playerSocket, player)
+          }
         }
 
-        resolve()
+        resolve({ sockets, players })
       })
     },
     async emitMatchUpdate(table, skipSocketIds = []) {
@@ -173,8 +190,8 @@ export const SocketServer = (
                   if (saidCommand) {
                     someoneSaidSomething = true
                     server.chat.rooms
-                      .get(table.matchSessionId)
-                      ?.send({ id: player.id, key: player.key }, saidCommand)
+                      .getOrThrow(table.matchSessionId)
+                      .command(player.teamIdx as 0 | 1, saidCommand)
                     return resolve(saidCommand)
                   }
                 }
@@ -249,61 +266,58 @@ export const SocketServer = (
         }
       })
     },
+    onTurn(table, play, newHandJustStarted) {
+      return new Promise<void>(async (resolve, reject) => {
+        server.turns.set(table.matchSessionId, {
+          play,
+          resolve,
+        })
+
+        try {
+          const session = play.player?.session as string
+          if (!session || !play) {
+            throw new Error("Unexpected Error")
+          }
+          server.users.getOrThrow(session)
+
+          if (newHandJustStarted) {
+            await server.emitPreviousHand(play, table)
+          }
+
+          await server.emitWaitingForPlay(play, table)
+
+          return resolve()
+        } catch (e) {
+          reject(e)
+        }
+      })
+    },
+    onTruco(table, play) {
+      return new Promise<void>(async (resolve, reject) => {
+        server.turns.set(table.matchSessionId, {
+          play,
+          resolve,
+        })
+
+        try {
+          await server.emitWaitingPossibleSay(play, table)
+          return resolve()
+        } catch (e) {
+          reject(e)
+        }
+      })
+    },
+    async onWinner(table, _winner) {
+      await server.emitMatchUpdate(table)
+    },
     async startMatch(matchSessionId) {
       const table = server.tables.getOrThrow(matchSessionId)
       if (table && !table.lobby.gameLoop) {
         table.lobby
           .startMatch()
-          .onTurn((play) => {
-            return new Promise<void>(async (resolve, reject) => {
-              const currentTurn = server.turns.get(table.matchSessionId)
-              const emitPreviousHand = currentTurn
-                ? currentTurn.previousHandIdx !== play.prevHand?.idx
-                : false
-
-              server.turns.set(table.matchSessionId, {
-                play,
-                resolve,
-                previousHandIdx: play.prevHand ? play.prevHand.idx : null,
-              })
-
-              try {
-                const session = play.player?.session as string
-                if (!session || !play) {
-                  throw new Error("Unexpected Error")
-                }
-                server.users.getOrThrow(session)
-
-                if (emitPreviousHand) {
-                  await server.emitPreviousHand(play, table)
-                }
-
-                await server.emitWaitingForPlay(play, table)
-
-                return resolve()
-              } catch (e) {
-                reject(e)
-              }
-            })
-          })
-          .onTruco((play) => {
-            return new Promise<void>(async (resolve, reject) => {
-              server.turns.update(table.matchSessionId, {
-                play,
-                resolve,
-              })
-
-              try {
-                await server.emitWaitingPossibleSay(play, table)
-                return resolve()
-              } catch (e) {
-                reject(e)
-              }
-            })
-          })
-          .onWinner(async () => {
-            await server.emitMatchUpdate(table)
-          })
+          .onTurn(server.onTurn.bind(this, table))
+          .onTruco(server.onTruco.bind(this, table))
+          .onWinner(server.onWinner.bind(this, table))
           .begin()
 
         server.tables.set(matchSessionId as string, table)
@@ -340,9 +354,74 @@ export const SocketServer = (
       }
       return null
     },
+    leaveMatch(matchId, socketId, mayReconnect) {
+      return new Promise((resolve, reject) => {
+        const _abandon = (table: IMatchTable, player: IPlayer, abandon: () => void) => {
+          try {
+            const { play, resolve: playResolve } = server.turns.getOrThrow(table.matchSessionId)
+            play.say(ESayCommand.MAZO, player)
+            playResolve()
+            abandon()
+          } catch (e) {
+            reject(e)
+          }
+        }
+        const playingMatch = _getPossiblePlayingMatch(matchId, socketId)
+        if (!playingMatch) {
+          return reject(new Error("Match not found"))
+        }
+        const { player, table, user } = playingMatch
+
+        if (table.state() === EMatchTableState.FINISHED && table.lobby.gameLoop?.winner) {
+          server.cleanupMatchTable(table)
+          return resolve()
+        }
+
+        if (!mayReconnect) {
+          return _abandon(table, player, resolve)
+        }
+
+        server.getTableSockets(table).then(({ players }) => {
+          const find = players.find((p) => p.key === player.key)
+
+          if (find) {
+            return resolve()
+          }
+
+          table.waitPlayerReconnection(
+            player,
+            (reconnect, abandon) => {
+              user.waitReconnection(
+                table.matchSessionId,
+                reconnect,
+                _abandon.bind({}, table, player, abandon)
+              )
+            },
+            () => {
+              server.emitMatchUpdate(table, [])
+            }
+          )
+          resolve()
+        })
+      })
+    },
+    cleanupMatchTable(table) {
+      try {
+        for (const player of table.lobby.players) {
+          const user = server.users.getOrThrow(player.session)
+          user.reconnect(table.matchSessionId) // resolve promises and timeouts
+          server.tables.delete(table.matchSessionId)
+          if (player.isOwner) {
+            user.setOwnedMatch(null)
+          }
+        }
+      } catch (e) {
+        console.error(e)
+      }
+    },
   }
 
-  const getPossiblePlayingMatch = (
+  const _getPossiblePlayingMatch = (
     room: any,
     socketId: any
   ): { table: IMatchTable; player: IPlayer; user: IUser } | null => {
@@ -363,25 +442,11 @@ export const SocketServer = (
   }
 
   io.of("/").adapter.on("leave-room", (room, socketId) => {
-    const playingMatch = getPossiblePlayingMatch(room, socketId)
-    if (!playingMatch) {
-      return
-    }
-    const { player, table, user } = playingMatch
-
-    table.waitPlayerReconnection(
-      player,
-      (reconnect, abandon) => {
-        user.waitReconnection(table.matchSessionId, reconnect, abandon)
-      },
-      () => {
-        server.emitMatchUpdate(table, [])
-      }
-    )
+    server.leaveMatch(room, socketId, true).then().catch(console.error)
   })
 
   io.of("/").adapter.on("join-room", (room, socketId) => {
-    const playingMatch = getPossiblePlayingMatch(room, socketId)
+    const playingMatch = _getPossiblePlayingMatch(room, socketId)
     if (!playingMatch) {
       return
     }

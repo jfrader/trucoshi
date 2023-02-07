@@ -1,3 +1,5 @@
+import { PLAYER_ABANDON_TIMEOUT } from "../constants"
+
 export interface IUser {
   key: string
   id: string
@@ -7,14 +9,12 @@ export interface IUser {
   waitingTimeouts: Map<string, NodeJS.Timeout | null>
   waitingPromises: Map<string, () => void> // room (matchId), resolver promise
   waitReconnection(room: string, reconnect: () => void, abandon: () => void): void
-  setOwnedMatch(id: string): void
+  setOwnedMatch(id: string | null): void
   connect(): void
   disconnect(): void
   reconnect(room: string): void
   setId(id: string): void
 }
-
-const PLAYER_ABANDON_TIMEOUT = 10000
 
 export function User(key: string, id: string, session: string) {
   const user: IUser = {
@@ -48,15 +48,13 @@ export function User(key: string, id: string, session: string) {
         user.waitingTimeouts.delete(room)
       }
     },
-    setOwnedMatch(id: string) {
+    setOwnedMatch(id) {
       user.ownedMatchId = id
     },
     connect() {
       user.online = true
     },
-    disconnect() {
-      user.online = false
-    },
+    disconnect() {},
     setId(id) {
       user.id = id
     },

@@ -1,4 +1,4 @@
-import { EClientEvent, EServerEvent, IChatMessage, IChatRoom, TMap } from "../../types"
+import { EChatSystem, EClientEvent, EServerEvent, IChatMessage, IChatRoom, TMap } from "../../types"
 import { TrucoshiServer } from "./SocketServer"
 
 const SYSTEM_ID = "system"
@@ -8,12 +8,30 @@ export interface IChat {
   create(id: string): void
 }
 
-const ChatMessage = (user: IChatMessage["user"], message: string, system: boolean = false) => {
+const ChatUser = (id: string) => {
+  return {
+    id,
+    key: id,
+  }
+}
+
+const ChatMessage = ({
+  user,
+  system,
+  command,
+  content,
+}: {
+  user: IChatMessage["user"]
+  content: string
+  system?: boolean
+  command?: boolean
+}) => {
   return {
     date: Date.now() / 1000,
     user,
-    system,
-    content: message,
+    content,
+    system: system || false,
+    command: command || false,
   }
 }
 
@@ -21,12 +39,33 @@ const ChatRoom = (io: TrucoshiServer, id: string) => {
   const room: IChatRoom = {
     id,
     messages: [],
-    send(user, message) {
-      room.messages.push(ChatMessage(user, message))
+    send(user, content) {
+      room.messages.push(
+        ChatMessage({
+          user,
+          content,
+        })
+      )
       room.emit()
     },
-    system(message) {
-      room.messages.push(ChatMessage({ id: SYSTEM_ID, key: SYSTEM_ID }, message, true))
+    system(content) {
+      room.messages.push(
+        ChatMessage({
+          user: ChatUser(SYSTEM_ID),
+          content,
+          system: true,
+        })
+      )
+      room.emit()
+    },
+    command(team, command) {
+      room.messages.push(
+        ChatMessage({
+          user: ChatUser(EChatSystem[team]),
+          content: command,
+          command: true,
+        })
+      )
       room.emit()
     },
     emit() {
