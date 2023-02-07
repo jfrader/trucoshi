@@ -368,7 +368,7 @@ export const SocketServer = (
         }
         const playingMatch = _getPossiblePlayingMatch(matchId, socketId)
         if (!playingMatch) {
-          return reject(new Error("Match not found"))
+          return resolve()
         }
         const { player, table, user } = playingMatch
 
