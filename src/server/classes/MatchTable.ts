@@ -62,6 +62,7 @@ export function MatchTable(matchSessionId: string, ownerSession: string, teamSiz
 
       try {
         await new Promise<void>(callback)
+        player.setReady(true)
       } catch (e) {
         if (
           matchTable.state() !== EMatchTableState.STARTED &&

@@ -1,6 +1,6 @@
 {
   "name": "trucoshi",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "main": "dist/index.js",
   "license": "GPL-3.0",
   "scripts": {
@@ -24,8 +24,11 @@
     "ts-mocha": "^10.0.0"
   },
   "files": [
-    "dist",
-    "bin"
+    "dist/index.js",
+    "dist/index.d.ts",
+    "dist/types.js",
+    "dist/types.d.ts",
+    "dist/lib/**/*"
   ],
   "dependencies": {
     "rimraf": "^4.1.1",
