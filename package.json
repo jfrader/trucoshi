@@ -1,16 +1,16 @@
 {
   "name": "trucoshi",
-  "version": "0.2.17",
+  "version": "0.2.18",
   "main": "dist/index.js",
   "license": "GPL-3.0",
   "scripts": {
-    "start": "node ./dist/trucoshi.js",
-    "prepublishOnly": "yarn test && yarn build",
     "dev": "nodemon",
-    "test:autoplay": "yarn run ts-node src/test/autoplay",
-    "test:play": "yarn run ts-node src/test/play",
+    "start": "node ./bin/trucoshi-server",
+    "build": "yarn run rimraf ./dist && yarn run tsc --project .",
+    "prepublishOnly": "yarn test && yarn build",
     "test": "yarn run ts-mocha --exit ./test/**/*.ts",
-    "build": "yarn run rimraf ./dist && yarn run tsc --project ."
+    "test:autoplay": "yarn run ts-node src/test/autoplay",
+    "test:play": "yarn run ts-node src/test/play"
   },
   "devDependencies": {
     "@types/chai": "^4.3.4",
