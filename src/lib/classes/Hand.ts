@@ -60,10 +60,14 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
       let previousRound = hand.rounds[currentRoundIdx - 1]
 
       // Put previous round winner as forehand
-      if (previousRound && previousRound.winner && !previousRound.tie) {
-        const newTurn = match.table.getPlayerPosition(previousRound.winner.id)
-        if (newTurn !== -1) {
-          hand.setTurn(newTurn)
+      if (previousRound && previousRound.winner) {
+        if (!previousRound.tie) {
+          const newTurn = match.table.getPlayerPosition(previousRound.winner.id)
+          if (newTurn !== -1) {
+            hand.setTurn(newTurn)
+          }
+        } else {
+          hand.setTurn(match.table.forehandIdx)
         }
       }
 
