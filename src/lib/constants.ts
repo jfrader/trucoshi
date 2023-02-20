@@ -1,6 +1,3 @@
-import { EEnvidoCommand, IEnvidoCalculator } from "../types"
-import { getMaxNumberIndex } from "./utils"
-
 export const CARDS = {
   "1e": 14,
   "1b": 13,
@@ -45,40 +42,3 @@ export const CARDS = {
 }
 
 export const TEAM_SIZE_VALUES = [1, 2, 3]
-
-export const EnvidoCalculator: IEnvidoCalculator = {
-  [EEnvidoCommand.ENVIDO]: () => ({
-    accept: 2,
-    decline: 1,
-    next: [EEnvidoCommand.ENVIDO_ENVIDO, EEnvidoCommand.REAL_ENVIDO, EEnvidoCommand.FALTA_ENVIDO],
-  }),
-  [EEnvidoCommand.ENVIDO_ENVIDO]: () => ({
-    accept: 4,
-    decline: 2,
-    next: [EEnvidoCommand.REAL_ENVIDO, EEnvidoCommand.FALTA_ENVIDO],
-  }),
-  [EEnvidoCommand.REAL_ENVIDO]: () => ({
-    accept: 3,
-    decline: 1,
-    next: [EEnvidoCommand.FALTA_ENVIDO],
-  }),
-  [EEnvidoCommand.FALTA_ENVIDO]: (args) => {
-    if (!args || !args.teams || !args.matchPoint) {
-      return {
-        accept: 1,
-        decline: 1,
-        next: [],
-      }
-    }
-    const { teams, matchPoint } = args
-    const totals = teams.map((team) => team.points.malas + team.points.buenas)
-    const higher = getMaxNumberIndex(totals)
-    const points = teams[higher].points
-    const accept = points.buenas > 0 ? matchPoint - points.buenas : matchPoint - points.malas
-    return {
-      accept,
-      decline: 2,
-      next: [],
-    }
-  },
-}

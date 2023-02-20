@@ -1,5 +1,5 @@
 import { EChatSystem, EClientEvent, EServerEvent, IChatMessage, IChatRoom, TMap } from "../../types"
-import { TrucoshiServer } from "./SocketServer"
+import { TrucoshiServer } from "./Trucoshi"
 
 const SYSTEM_ID = "system"
 
@@ -62,22 +62,14 @@ const ChatRoom = (io: TrucoshiServer, id: string) => {
       room.messages.push(
         ChatMessage({
           user: ChatUser(EChatSystem[team]),
-          content: command,
+          content: String(command),
           command: true,
         })
       )
       room.emit()
     },
     emit() {
-      io.sockets.adapter
-        .fetchSockets({
-          rooms: new Set([room.id]),
-        })
-        .then((sockets) => {
-          for (const playerSocket of sockets) {
-            playerSocket.emit(EServerEvent.UPDATE_CHAT, { id: room.id, messages: room.messages })
-          }
-        })
+      io.to(room.id).emit(EServerEvent.UPDATE_CHAT, { id: room.id, messages: room.messages })
     },
   }
 
@@ -88,11 +80,10 @@ export const Chat = (io: TrucoshiServer) => {
   const chat: IChat = {
     rooms: new TMap(),
     create(id) {
-      const room = ChatRoom(io, id)
-      const exists = chat.rooms.get(id)
-      if (exists) {
+      if (chat.rooms.has(id)) {
         return
       }
+      const room = ChatRoom(io, id)
       chat.rooms.set(id, room)
     },
   }

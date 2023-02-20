@@ -54,7 +54,9 @@ export function User(key: string, id: string, session: string) {
     connect() {
       user.online = true
     },
-    disconnect() {},
+    disconnect() {
+      user.online = false
+    },
     setId(id) {
       user.id = id
     },

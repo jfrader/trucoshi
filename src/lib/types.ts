@@ -15,6 +15,8 @@ export enum GAME_ERROR {
   UNEXPECTED_TEAM_SIZE = "UNEXPECTED_TEAM_SIZE",
   TEAM_NOT_READY = "TEAM_NOT_READY",
   TEAM_IS_FULL = "TEAM_IS_FULL",
+  INVALID_ENVIDO_POINTS = "INVALID_ENVIDO_POINTS",
+  ENVIDO_NOT_ACCEPTED = "ENVIDO_NOT_ACCEPTED",
 }
 
 export interface EnvidoState {
@@ -30,13 +32,19 @@ export type IHandCommands = {
 export type IEnvidoCalculatorResult = {
   accept: number
   decline: number
+  replace?: number
   next: Array<ECommand>
 }
 
-export type IEnvidoCalculatorArgs = {
+export type IFaltaEnvidoCalculatorArgs = {
   teams: [ITeam, ITeam]
   matchPoint: number
 }
+
+export type IEnvidoCalculatorArgs = {
+  stake: number
+  declineStake: number
+} & (IFaltaEnvidoCalculatorArgs | never)
 
 export type IEnvidoCalculator = {
   [key in EEnvidoCommand]: (args?: IEnvidoCalculatorArgs) => IEnvidoCalculatorResult

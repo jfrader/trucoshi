@@ -2,5 +2,5 @@
     "watch": ["src"],
     "ext": ".ts,.js",
     "ignore": [],
-    "exec": "yarn build && node ./dist/trucoshi.js"
+    "exec": "yarn build && node ./bin/trucoshi-server"
 }

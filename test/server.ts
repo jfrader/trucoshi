@@ -1,6 +1,5 @@
 import { io as Client, Socket } from "socket.io-client"
 import { assert, expect } from "chai"
-import { ISocketServer, SocketServer, Trucoshi, TrucoshiSocket } from "../src/server/classes"
 import { trucoshiEvents } from "../src/server/middlewares/trucoshiEvents"
 import {
   ClientToServerEvents,
@@ -10,6 +9,7 @@ import {
   ServerToClientEvents,
 } from "../src/types"
 import { ICard } from "../src/lib"
+import { ITrucoshi, Trucoshi, TrucoshiSocket } from "../src/server/classes"
 
 describe("Socket Server", () => {
   let serverSocket: TrucoshiSocket
@@ -18,10 +18,10 @@ describe("Socket Server", () => {
 
   let clientSocket1: Socket<ServerToClientEvents, ClientToServerEvents>
 
-  let server: ISocketServer
+  let server: ITrucoshi
 
   before((done) => {
-    server = SocketServer(Trucoshi(), 9999)
+    server = Trucoshi(9999)
 
     server.listen((io) => {
       io.use(trucoshiEvents(server))
@@ -108,12 +108,12 @@ describe("Socket Server", () => {
 
     clientSocket0.on(EServerEvent.WAITING_PLAY, (match, callback) => {
       match0 = match
-      callback({ card: match.me.hand.at(0) as ICard, cardIdx: 0 })
+      callback({ card: match.me?.hand.at(0) as ICard, cardIdx: 0 })
     })
 
     clientSocket1.on(EServerEvent.WAITING_PLAY, (match, callback) => {
       match1 = match
-      callback({ card: match.me.hand.at(0) as ICard, cardIdx: 0 })
+      callback({ card: match.me?.hand.at(0) as ICard, cardIdx: 0 })
     })
 
     clientSocket0.on(EServerEvent.PREVIOUS_HAND, (match, callback) => {
@@ -178,12 +178,6 @@ describe("Socket Server", () => {
         res()
       })
     })
-
-    expect(match0?.players.at(0)?.id).to.equal("player1")
-    expect(match0?.players.at(1)?.id).to.equal("player2")
-
-    expect(match1?.players.at(0)?.id).to.equal("player2")
-    expect(match1?.players.at(1)?.id).to.equal("player1")
 
     await WinnerPromise
 

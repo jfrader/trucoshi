@@ -158,7 +158,7 @@ export function Lobby(teamSize?: 1 | 2 | 3): ILobby {
         throw new Error(GAME_ERROR.UNEXPECTED_TEAM_SIZE)
       }
 
-      lobby.table = Table(lobby.players, lobby.teams)
+      lobby.table = Table(lobby.players)
       lobby.gameLoop = GameLoop(Match(lobby.table, lobby.teams, matchPoint))
 
       lobby.started = true

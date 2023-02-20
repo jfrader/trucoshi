@@ -12,7 +12,7 @@ export interface IPublicMatch {
   matchSessionId: string
   teams: Array<IPublicTeam>
   players: Array<IPublicPlayer>
-  me: IPublicPlayer
+  me: IPublicPlayer | null
   rounds: IPlayedCard[][]
 }
 
@@ -38,7 +38,7 @@ export interface IChatRoom {
   messages: Array<IChatMessage>
   send(user: IChatMessage["user"], message: string): void
   system(message: string): void
-  command(team: 0 | 1, command: ECommand): void
+  command(team: 0 | 1, command: ECommand | number): void
   emit(): void
 }
 
@@ -56,12 +56,27 @@ export enum EMatchTableState {
 }
 
 export enum ESayCommand {
-  QUIERO = "QUIERO",
-  NO_QUIERO = "NO_QUIERO",
-  TRUCO = "TRUCO",
   MAZO = "MAZO",
+}
+
+export enum EFlorCommand {
   FLOR = "FLOR",
   CONTRAFLOR = "CONTRAFLOR",
+}
+
+export enum ETrucoCommand {
+  TRUCO = "TRUCO",
+  RE_TRUCO = "RE_TRUCO",
+  VALE_CUATRO = "VALE_CUATRO",
+}
+
+export enum EAnswerCommand {
+  QUIERO = "QUIERO",
+  NO_QUIERO = "NO_QUIERO",
+}
+
+export enum EEnvidoAnswerCommand {
+  SON_BUENAS = "SON_BUENAS",
 }
 
 export enum EEnvidoCommand {
@@ -75,10 +90,17 @@ export enum EHandState {
   WAITING_PLAY = "WAITING_PLAY",
   WAITING_FOR_TRUCO_ANSWER = "WAITING_FOR_TRUCO_ANSWER",
   WAITING_ENVIDO_ANSWER = "WAITING_ENVIDO_ANSWER",
+  WAITING_ENVIDO_POINTS_ANSWER = "WAITING_ENVIDO_POINTS_ANSWER",
   FINISHED = "FINISHED",
 }
 
-export type ECommand = ESayCommand | EEnvidoCommand
+export type ECommand =
+  | ESayCommand
+  | EEnvidoCommand
+  | EAnswerCommand
+  | EEnvidoAnswerCommand
+  | ETrucoCommand
+  | EFlorCommand
 
 export enum GAME_ERROR {
   MATCH_ALREADY_STARTED = "MATCH_ALREADY_STARTED",
@@ -86,12 +108,6 @@ export enum GAME_ERROR {
   UNEXPECTED_TEAM_SIZE = "UNEXPECTED_TEAM_SIZE",
   TEAM_NOT_READY = "TEAM_NOT_READY",
   TEAM_IS_FULL = "TEAM_IS_FULL",
-}
-
-export interface EnvidoState {
-  accept: number
-  decline: number
-  teamIdx: 0 | 1 | null
 }
 
 export type IHandCommands = {
@@ -167,7 +183,7 @@ export interface ClientToServerEvents {
   [EClientEvent.FETCH_MATCH]: (
     session: string | null,
     matchId: string,
-    callback: IEventCallback<{ match?: IPublicMatch | null }>
+    callback: IEventCallback
   ) => void
 
   [EClientEvent.LIST_MATCHES]: (
@@ -214,10 +230,6 @@ export type IWaitingPlayCallback = (data: IWaitingPlayData) => void | null
 
 export type IWaitingSayData = { command: ECommand }
 export type IWaitingSayCallback = (data: IWaitingSayData) => void | null
-
-export interface TMap<K, V> extends Map<K, V> {
-  find(finder: (value: V) => boolean): V | void
-}
 
 export class TMap<K, V> extends Map<K, V> {
   find(finder: (value: V) => boolean): V | void {

@@ -1,5 +1,6 @@
-import { ECommand, EEnvidoCommand, EHandState, EnvidoState, ESayCommand } from "../../types"
+import { ECommand, EHandState, ESayCommand } from "../../types"
 import { ICard } from "./Deck"
+import { IEnvido } from "./Envido"
 import { IHand } from "./Hand"
 import { IPlayer } from "./Player"
 import { IRound } from "./Round"
@@ -12,12 +13,12 @@ export interface IPlayInstance {
   roundIdx: number
   state: EHandState
   truco: ITruco
-  envido: EnvidoState
+  envido: IEnvido
   player: IPlayer | null
   rounds: Array<IRound> | null
   prevHand: IHand | null
   use(idx: number, card: ICard): ICard | null
-  say(command: ECommand, player: IPlayer): ECommand | null
+  say(command: ECommand | number, player: IPlayer): ECommand | number | null
 }
 
 export function PlayInstance(hand: IHand, prevHand: IHand | null, teams: [ITeam, ITeam]) {
@@ -35,15 +36,19 @@ export function PlayInstance(hand: IHand, prevHand: IHand | null, teams: [ITeam,
       return hand.use(idx, card)
     },
     say(command, player) {
-      hand.commands[command](player)
-      return command
+      try {
+        const fn = hand.say[command as ECommand]
+        if (fn) {
+          fn(player)
+        } else {
+          hand.sayEnvidoPoints(player, command as number)
+        }
+        return command
+      } catch (e) {
+        console.error(e)
+        return null
+      }
     },
-  }
-
-  if (!hand.truco.waitingAnswer) {
-    teams.forEach((team) =>
-      team.players.forEach((player) => player._commands.add(ESayCommand.MAZO))
-    )
   }
 
   return instance

@@ -1,15 +1,15 @@
 import { randomUUID } from "crypto"
 import { ExtendedError } from "socket.io/dist/namespace"
 import { EClientEvent, EServerEvent } from "../../types"
-import { ISocketServer, MatchTable, TrucoshiSocket } from "../classes"
+import { ITrucoshi, MatchTable, TrucoshiSocket } from "../classes"
 
 export const trucoshiEvents =
-  (server: ISocketServer) => (socket: TrucoshiSocket, next: (err?: ExtendedError) => void) => {
+  (server: ITrucoshi) => (socket: TrucoshiSocket, next: (err?: ExtendedError) => void) => {
     socket.on("disconnect", (_reason) => {
       try {
         const user = server.users.getOrThrow(socket.data.user?.session)
         if (user) {
-          user.disconnect()
+          // user.disconnect() // should disconnect only if all sockets disconnected
         }
       } catch (e) {
         // noop
@@ -126,12 +126,12 @@ export const trucoshiEvents =
     socket.on(EClientEvent.FETCH_MATCH, (session, matchId, callback) => {
       return server.setOrGetSession(socket, null, session, ({ success }) => {
         if (!success) {
-          return callback({ success: false, match: null })
+          return callback({ success: false })
         }
 
         server.chat.rooms.get(matchId)?.emit()
         const match = server.emitSocketMatch(socket, matchId)
-        callback({ success: Boolean(match), match })
+        callback({ success: Boolean(match) })
       })
     })
 

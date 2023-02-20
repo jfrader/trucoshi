@@ -59,7 +59,7 @@ const sayCommand = (play: IPlayInstance, canPlay: boolean) => {
   }
   const commandsArr = Array.from(play.player?._commands?.values())
   return command(
-    `${play.player?.id} elije una accion [${canPlay ? "0," : ""}${commandsArr.map(
+    `${play.state} ${play.player?.id} elije una accion [${canPlay ? "0," : ""}${commandsArr.map(
       (_c, i) => i + 1
     )}]: ${
       canPlay ? JSON.stringify(["CARTA", ...(commandsArr || [])]) : JSON.stringify(commandsArr)
@@ -85,6 +85,24 @@ const sayCommand = (play: IPlayInstance, canPlay: boolean) => {
   )
 }
 
+const sayPoints = (play: IPlayInstance) =>
+  command(
+    "Canta los puntos " +
+      play.player?.id +
+      ", puede cantar: " +
+      play.player?.envido.map((e) => e + ", "),
+    async (line, close) => {
+      if (line && play.player?.envido.includes(Number(line))) {
+        close()
+        if (play.say(Number(line), play.player)) {
+          return Promise.resolve()
+        }
+      }
+
+      return Promise.reject()
+    }
+  )
+
 ;(async () => {
   const trucoshi = Lobby()
 
@@ -95,6 +113,12 @@ const sayCommand = (play: IPlayInstance, canPlay: boolean) => {
 
   trucoshi
     .startMatch()
+    .onEnvido(async (play, isPointsRound) => {
+      if (isPointsRound) {
+        return sayPoints(play)()
+      }
+      await sayCommand(play, false)()
+    })
     .onTruco(async (play) => {
       await sayCommand(play, false)()
     })

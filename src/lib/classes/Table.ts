@@ -1,17 +1,17 @@
 import { IPlayedCard } from "./Deck"
 import { IPlayer } from "./Player"
-import { ITeam } from "./Team"
 
 export interface ITable {
   forehandIdx: number
   cards: Array<Array<IPlayedCard>>
   players: Array<IPlayer>
   nextTurn(): IPlayer
-  player(idx?: number): IPlayer
-  getPlayerPosition(id: string): number
+  getPlayer(idx?: number, forehandFirst?: boolean): IPlayer
+  getPlayerPosition(key: string, forehandFirst?: boolean): number
+  getPlayersForehandFirst(forehandIdx?: number): Array<IPlayer>
 }
 
-export function Table(players: Array<IPlayer>, teams: Array<ITeam>): ITable {
+export function Table(players: Array<IPlayer>): ITable {
   const table: ITable = {
     players,
     cards: [],
@@ -22,16 +22,24 @@ export function Table(players: Array<IPlayer>, teams: Array<ITeam>): ITable {
       } else {
         table.forehandIdx = 0
       }
-      return table.player()
+      return table.getPlayer()
     },
-    getPlayerPosition(id) {
-      return table.players.findIndex((p) => p.id === id)
+    getPlayerPosition(key, forehandFirst = false) {
+      const array = forehandFirst ? table.getPlayersForehandFirst() : table.players
+      return array.findIndex((p) => p.key === key)
     },
-    player(idx) {
+    getPlayersForehandFirst(forehand) {
+      const idx = forehand !== undefined ? forehand : table.forehandIdx
+      const cut = players.slice(idx, table.players.length)
+      const end = players.slice(0, idx)
+      return cut.concat(end)
+    },
+    getPlayer(idx, forehandFirst = false) {
+      const array = forehandFirst ? table.getPlayersForehandFirst() : table.players
       if (idx !== undefined) {
-        return table.players[idx]
+        return array[idx]
       }
-      return table.players[table.forehandIdx]
+      return array[0]
     },
   }
 

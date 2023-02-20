@@ -37,9 +37,10 @@ export function MatchTable(matchSessionId: string, ownerSession: string, teamSiz
       return EMatchTableState.UNREADY
     },
     isSessionPlaying(session) {
-      const { lobby } = matchTable
-      const search = lobby.players.find((player) => player && player.session === session)
-      return search || null
+      const {
+        lobby: { players },
+      } = matchTable
+      return players.find((player) => player && player.session === session) || null
     },
     getPublicMatchInfo() {
       const {
@@ -105,14 +106,11 @@ export function MatchTable(matchSessionId: string, ownerSession: string, teamSiz
         (player) => player && player.session === userSession
       )
 
-      const me = players[currentPlayerIdx]
+      const me = currentPlayerIdx !== -1 ? players[currentPlayerIdx] : null
 
-      const cut = players.slice(currentPlayerIdx, players.length)
-      const end = players.slice(0, currentPlayerIdx)
-
-      const publicPlayers = cut
-        .concat(end)
-        .map((player) => (player?.session === userSession ? player : player.getPublicPlayer()))
+      const publicPlayers = (
+        lobby.table ? lobby.table.getPlayersForehandFirst(me ? currentPlayerIdx : 0) : players
+      ).map((player) => (player?.session === userSession ? player : player.getPublicPlayer()))
 
       const teams = lobby.gameLoop?.teams || lobby.teams
       const publicTeams = teams.map((team) => team.getPublicTeam(userSession))

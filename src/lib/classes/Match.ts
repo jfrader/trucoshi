@@ -11,6 +11,7 @@ export interface IMatch {
   winner: ITeam | null
   prevHand: IHand | null
   currentHand: IHand | null
+  matchPoint: number
   table: ITable
   play(): IPlayInstance | null
   addPoints(points: IHandPoints): [ITeam, ITeam]
@@ -76,6 +77,7 @@ export function Match(table: ITable, teams: Array<ITeam> = [], matchPoint: numbe
 
   const match: IMatch = {
     winner: null,
+    matchPoint,
     teams: teams as [ITeam, ITeam],
     hands: [],
     table,

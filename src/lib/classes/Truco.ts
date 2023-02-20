@@ -1,6 +1,12 @@
-import { ESayCommand } from "../../types"
+import { EAnswerCommand, ECommand, ESayCommand, ETrucoCommand } from "../../types"
 import { IPlayer } from "./Player"
 import { ITeam } from "./Team"
+
+interface IPlayerCurrentCommands {
+  player: IPlayer
+  add: Array<ECommand>
+  del: Array<ECommand>
+}
 
 export interface ITruco {
   state: 1 | 2 | 3 | 4
@@ -10,12 +16,14 @@ export interface ITruco {
   turn: number
   teams: [ITeam, ITeam]
   players: Array<IPlayer>
+  currentCommands: Array<IPlayerCurrentCommands>
   currentPlayer: IPlayer | null
   generator: Generator<ITruco, void, unknown>
-  sayTruco(player: IPlayer, callback: () => void): ITruco
-  sayAnswer(player: IPlayer, answer: boolean | null, callback: () => void): ITruco
+  sayTruco(player: IPlayer): ITruco
+  sayAnswer(player: IPlayer, answer: boolean | null): ITruco
   setTurn(turn: number): number
   setTeam(idx: 0 | 1): 0 | 1
+  getNextTrucoCommand(): ETrucoCommand | null
   setCurrentPlayer(player: IPlayer | null): IPlayer | null
   getNextPlayer(): IteratorResult<ITruco, ITruco | void>
   reset(): void
@@ -31,6 +39,13 @@ const EMPTY_TRUCO: Pick<
   waitingAnswer: false,
   currentPlayer: null,
   players: [],
+}
+
+const TRUCO_STATE_MAP = {
+  1: ETrucoCommand.TRUCO,
+  2: ETrucoCommand.RE_TRUCO,
+  3: ETrucoCommand.VALE_CUATRO,
+  4: null,
 }
 
 export function Truco(teams: [ITeam, ITeam]) {
@@ -60,21 +75,19 @@ export function Truco(teams: [ITeam, ITeam]) {
     ...EMPTY_TRUCO,
     state: 1,
     teams,
+    currentCommands: [],
     generator: trucoAnswerGeneratorSequence(),
+    getNextTrucoCommand() {
+      return TRUCO_STATE_MAP[truco.state]
+    },
     reset() {
-      teams.forEach((team) =>
-        team.players.forEach((player) => {
-          player._commands.delete(ESayCommand.TRUCO)
-          player._commands.delete(ESayCommand.QUIERO)
-          player._commands.delete(ESayCommand.NO_QUIERO)
-        })
-      )
       Object.assign(truco, EMPTY_TRUCO)
     },
-    sayTruco(player, callback) {
+    sayTruco(player) {
       if (truco.state === 4) {
         return truco
       }
+      truco.turn = 0
       const playerTeamIdx = player.teamIdx as 0 | 1
       const teamIdx = truco.teamIdx
       if (teamIdx === null || teamIdx !== playerTeamIdx) {
@@ -86,59 +99,24 @@ export function Truco(teams: [ITeam, ITeam]) {
         truco.players = teams[opponentIdx].players
         truco.generator = trucoAnswerGeneratorSequence()
 
-        teams[playerTeamIdx].players.forEach((player) => {
-          player._commands.delete(ESayCommand.TRUCO)
-          player._commands.delete(ESayCommand.QUIERO)
-          player._commands.delete(ESayCommand.NO_QUIERO)
-        })
-        teams[opponentIdx].players.forEach((player) => {
-          if (truco.state < 4) {
-            player._commands.add(ESayCommand.TRUCO)
-          } else {
-            player._commands.delete(ESayCommand.TRUCO)
-          }
-          player._commands.add(ESayCommand.QUIERO)
-          player._commands.add(ESayCommand.NO_QUIERO)
-        })
-
-        callback()
         return truco
       }
       return truco
     },
-    sayAnswer(player, answer, callback) {
+    sayAnswer(player, answer) {
       const opponentIdx = Number(!player.teamIdx) as 0 | 1
       if (player.teamIdx === truco.teamIdx) {
         return truco
       }
-      if (answer) {
-        teams[player.teamIdx].players.forEach((player) => {
-          player._commands.add(ESayCommand.TRUCO)
-          player._commands.delete(ESayCommand.NO_QUIERO)
-          player._commands.delete(ESayCommand.QUIERO)
-          if (truco.state > 3) {
-            player._commands.delete(ESayCommand.TRUCO)
-          }
-        })
-        teams[opponentIdx].players.forEach((player) => {
-          player._commands.delete(ESayCommand.TRUCO)
-        })
-      }
-      if (answer === false) {
-        truco.state--
-        const playerTeam = teams[player.teamIdx]
-        playerTeam.players.forEach((player) => playerTeam.disable(player))
-        teams[player.teamIdx].players.forEach((player) => {
-          player._commands.delete(ESayCommand.QUIERO)
-          player._commands.delete(ESayCommand.TRUCO)
-          player._commands.delete(ESayCommand.NO_QUIERO)
-        })
-      }
       if (answer !== null) {
+        truco.currentCommands = []
+        if (answer === false) {
+          truco.state--
+          const playerTeam = teams[player.teamIdx]
+          playerTeam.players.forEach((player) => playerTeam.disable(player))
+        }
         truco.waitingAnswer = false
-        truco.teamIdx = Number(!player.teamIdx) as 0 | 1
         truco.answer = answer
-        callback()
       }
       return truco
     },
@@ -159,10 +137,5 @@ export function Truco(teams: [ITeam, ITeam]) {
     },
   }
 
-  teams.forEach((team) =>
-    team.players.forEach((player) => {
-      player._commands.add(ESayCommand.TRUCO)
-    })
-  )
   return truco
 }
