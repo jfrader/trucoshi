@@ -1,10 +1,4 @@
-import {
-  EAnswerCommand,
-  ECommand,
-  EEnvidoAnswerCommand,
-  EEnvidoCommand,
-  ESayCommand,
-} from "../../types"
+import { EAnswerCommand, ECommand, EEnvidoCommand } from "../../types"
 import { GAME_ERROR, IEnvidoCalculator } from "../types"
 import { getMaxNumberIndex } from "../utils"
 import { IPlayer } from "./Player"
@@ -70,16 +64,6 @@ export const EnvidoCalculator: IEnvidoCalculator = {
       next: args.stake < 2 ? [EEnvidoCommand.ENVIDO, ...next] : next,
     }
   },
-  [EEnvidoCommand.ENVIDO_ENVIDO]: () => ({
-    accept: 4,
-    decline: 2,
-    next: [
-      EEnvidoCommand.REAL_ENVIDO,
-      EEnvidoCommand.FALTA_ENVIDO,
-      EAnswerCommand.QUIERO,
-      EAnswerCommand.NO_QUIERO,
-    ],
-  }),
   [EEnvidoCommand.REAL_ENVIDO]: () => ({
     accept: 3,
     decline: 1,
@@ -142,8 +126,6 @@ export function Envido(teams: [ITeam, ITeam], matchPoint: number, table: ITable)
     teams,
     generator: envidoAnswerGeneratorSequence(),
     sayEnvido(command, player) {
-      console.log({ command, id: player.id })
-
       const playerTeamIdx = player.teamIdx as 0 | 1
       if (envido.teamIdx !== playerTeamIdx && envido.possibleAnswerCommands.includes(command)) {
         const opponentIdx = Number(!playerTeamIdx) as 0 | 1
@@ -175,9 +157,6 @@ export function Envido(teams: [ITeam, ITeam], matchPoint: number, table: ITable)
     sayPoints(player, points) {
       if (!envido.accepted) {
         throw new Error(GAME_ERROR.ENVIDO_NOT_ACCEPTED)
-      }
-      if (!player.envido.includes(points) && points !== 0) {
-        throw new Error(GAME_ERROR.INVALID_ENVIDO_POINTS)
       }
       if (!envido.winningPlayer || !envido.winningPointsAnswer) {
         envido.winningPlayer = player

@@ -1,4 +1,5 @@
 import { ECommand, EHandState, ESayCommand } from "../../types"
+import { GAME_ERROR } from "../types"
 import { ICard } from "./Deck"
 import { IEnvido } from "./Envido"
 import { IHand } from "./Hand"
@@ -39,8 +40,14 @@ export function PlayInstance(hand: IHand, prevHand: IHand | null, teams: [ITeam,
       try {
         const fn = hand.say[command as ECommand]
         if (fn) {
+          if (!player.commands.includes(command as ECommand)) {
+            throw new Error(GAME_ERROR.INVALID_COMAND)
+          }
           fn(player)
         } else {
+          if (!player.envido.includes(command as number)) {
+            throw new Error(GAME_ERROR.INVALID_ENVIDO_POINTS)
+          }
           hand.sayEnvidoPoints(player, command as number)
         }
         return command

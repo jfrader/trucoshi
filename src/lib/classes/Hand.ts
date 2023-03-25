@@ -178,7 +178,11 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
         if (hand.envido.accepted && !hand.envido.finished && hand.envido.winningPointsAnswer) {
           hand.currentPlayer?._commands.add(EEnvidoAnswerCommand.SON_BUENAS)
         }
-        if (hand.currentPlayer && !hand.envido.started && hand.truco.state < 2) {
+        if (
+          hand.currentPlayer &&
+          !hand.envido.started &&
+          (hand.truco.state < 2 || (hand.truco.state === 2 && hand.truco.answer === null))
+        ) {
           for (const key in EEnvidoCommand) {
             hand.currentPlayer._commands.add(key as EEnvidoCommand)
           }
@@ -197,7 +201,10 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
         } else {
           match.table.players.forEach((player) => {
             if (hand.truco.teamIdx !== player.teamIdx) {
-              player._commands.add(ETrucoCommand.TRUCO)
+              const nextCommand = hand.truco.getNextTrucoCommand()
+              if (nextCommand) {
+                player._commands.add(nextCommand)
+              }
             }
             player._commands.add(ESayCommand.MAZO)
           })
@@ -263,10 +270,6 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
       [ETrucoCommand.VALE_CUATRO]: trucoCommand,
       [EEnvidoCommand.ENVIDO]: (player: IPlayer) => {
         hand.envido.sayEnvido(EEnvidoCommand.ENVIDO, player)
-        hand.setState(EHandState.WAITING_ENVIDO_ANSWER)
-      },
-      [EEnvidoCommand.ENVIDO_ENVIDO]: (player: IPlayer) => {
-        hand.envido.sayEnvido(EEnvidoCommand.ENVIDO_ENVIDO, player)
         hand.setState(EHandState.WAITING_ENVIDO_ANSWER)
       },
       [EEnvidoCommand.REAL_ENVIDO]: (player: IPlayer) => {

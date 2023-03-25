@@ -81,7 +81,6 @@ export enum EEnvidoAnswerCommand {
 
 export enum EEnvidoCommand {
   ENVIDO = "ENVIDO",
-  ENVIDO_ENVIDO = "ENVIDO_ENVIDO",
   REAL_ENVIDO = "REAL_ENVIDO",
   FALTA_ENVIDO = "FALTA_ENVIDO",
 }

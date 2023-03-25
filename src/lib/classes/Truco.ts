@@ -104,7 +104,6 @@ export function Truco(teams: [ITeam, ITeam]) {
       return truco
     },
     sayAnswer(player, answer) {
-      const opponentIdx = Number(!player.teamIdx) as 0 | 1
       if (player.teamIdx === truco.teamIdx) {
         return truco
       }
