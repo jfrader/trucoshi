@@ -202,6 +202,7 @@ export function Envido(teams: [ITeam, ITeam], matchPoint: number, table: ITable)
         envido.finished = true
         const opponentTeam = teams[opponentIdx]
         opponentTeam.addPoints(matchPoint, envido.declineStake)
+        envido.winner = opponentTeam
       }
       envido.answered = true
       envido.teamIdx = opponentIdx

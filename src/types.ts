@@ -1,5 +1,10 @@
 import { ICard, IHandPoints, IPlayedCard, IPlayer, IPublicPlayer, IPublicTeam, ITeam } from "./lib"
 
+export interface ISaidCommand {
+  player: IPlayer | IPublicPlayer
+  command: ECommand | number
+}
+
 export interface IMatchPreviousHand {
   rounds: IPlayedCard[][]
   points: IHandPoints
@@ -13,6 +18,7 @@ export interface IPublicMatch {
   teams: Array<IPublicTeam>
   players: Array<IPublicPlayer>
   me: IPublicPlayer | null
+  isNewHand: boolean
   rounds: IPlayedCard[][]
 }
 
@@ -128,6 +134,17 @@ export type IEnvidoCalculator = {
   [key in EEnvidoCommand]: (args?: IEnvidoCalculatorArgs) => IEnvidoCalculatorResult
 }
 
+export enum EServerEvent {
+  PONG = "PONG",
+  PREVIOUS_HAND = "PREVIOUS_HAND",
+  UPDATE_MATCH = "UPDATE_MATCH",
+  WAITING_PLAY = "WAITING_PLAY",
+  PLAYER_USED_CARD = "PLAYER_USED_CARD",
+  PLAYER_SAID_COMMAND = "PLAYER_SAID_COMMAND",
+  WAITING_POSSIBLE_SAY = "WAITING_POSSIBLE_SAY",
+  UPDATE_CHAT = "UPDAET_CHAT",
+}
+
 export enum EClientEvent {
   PING = "PING",
   SAY = "SAY",
@@ -161,6 +178,10 @@ export interface ServerToClientEvents {
   [EServerEvent.UPDATE_CHAT]: (room: IPublicChatRoom) => void
 
   [EServerEvent.UPDATE_MATCH]: (match: IPublicMatch) => void
+
+  [EServerEvent.PLAYER_USED_CARD]: (match: IPublicMatch, card: IPlayedCard) => void
+
+  [EServerEvent.PLAYER_SAID_COMMAND]: (match: IPublicMatch, command: ISaidCommand) => void
 
   [EServerEvent.WAITING_PLAY]: (
     match: IPublicMatch,
@@ -207,15 +228,6 @@ export interface ClientToServerEvents {
     teamIdx: 0 | 1 | undefined,
     callback: IEventCallback<{ match?: IPublicMatch }>
   ) => void
-}
-
-export enum EServerEvent {
-  PONG = "PONG",
-  PREVIOUS_HAND = "PREVIOUS_HAND",
-  UPDATE_MATCH = "UPDATE_MATCH",
-  WAITING_PLAY = "WAITING_PLAY",
-  WAITING_POSSIBLE_SAY = "WAITING_POSSIBLE_SAY",
-  UPDATE_CHAT = "UPDAET_CHAT",
 }
 
 export enum ETrucoshiMatchState {

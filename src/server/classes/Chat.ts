@@ -61,7 +61,7 @@ const ChatRoom = (io: TrucoshiServer, id: string) => {
     command(team, command) {
       room.messages.push(
         ChatMessage({
-          user: ChatUser(EChatSystem[team]),
+          user: ChatUser(team.toString()),
           content: String(command),
           command: true,
         })

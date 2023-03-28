@@ -9,7 +9,7 @@ export interface IMatchTable {
   isSessionPlaying(session: string): IPlayer | null
   getPreviousHand(hand: IHand): IMatchPreviousHand
   getHandRounds(hand: IHand): IPlayedCard[][]
-  getPublicMatch(session?: string): IPublicMatch
+  getPublicMatch(session?: string, isNewHand?: boolean): IPublicMatch
   getPublicMatchInfo(): IPublicMatchInfo
   waitPlayerReconnection(
     player: IPlayer,
@@ -91,7 +91,7 @@ export function MatchTable(matchSessionId: string, ownerSession: string, teamSiz
         matchSessionId: matchTable.matchSessionId,
       }
     },
-    getPublicMatch(userSession) {
+    getPublicMatch(userSession, isNewHand = false) {
       const { lobby } = matchTable
 
       const winner = lobby.gameLoop?.winner || null
@@ -122,6 +122,7 @@ export function MatchTable(matchSessionId: string, ownerSession: string, teamSiz
         state: matchTable.state(),
         teams: publicTeams,
         players: publicPlayers,
+        isNewHand,
         rounds,
       }
     },

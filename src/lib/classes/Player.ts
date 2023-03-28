@@ -3,8 +3,6 @@ import {
   ECommand,
   EEnvidoAnswerCommand,
   EEnvidoCommand,
-  ESayCommand,
-  ETrucoCommand,
 } from "../../types"
 import { ICard } from "./Deck"
 

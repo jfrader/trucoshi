@@ -102,7 +102,11 @@ export const GameLoop = (match: IMatch) => {
         if (play.state === EHandState.WAITING_PLAY) {
           try {
             play.player.setTurn(true)
-            const newHandJustStarted = gameloop.lastCheckedHand !== play.prevHand?.idx
+
+            const newHandJustStarted =
+              gameloop.lastCheckedHand !== play.prevHand?.idx &&
+              gameloop.currentHand?.rounds[0].cards.length === 0
+
             gameloop.lastCheckedHand = play.prevHand ? play.prevHand.idx : null
             await gameloop._onTurn(play, newHandJustStarted)
             play.player.setTurn(false)

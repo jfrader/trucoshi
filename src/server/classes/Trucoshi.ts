@@ -1,7 +1,15 @@
 import { randomUUID } from "crypto"
 import { createServer, Server as HttpServer } from "http"
 import { Server, Socket } from "socket.io"
-import { IPlayer, IPlayInstance, IPublicPlayer, ITeam } from "../../lib"
+import {
+  IMatch,
+  IPlayedCard,
+  IPlayer,
+  IPlayInstance,
+  IPublicPlayer,
+  ITeam,
+  PlayedCard,
+} from "../../lib"
 import {
   ClientToServerEvents,
   ECommand,
@@ -12,12 +20,12 @@ import {
   IEventCallback,
   IPublicMatch,
   IPublicMatchInfo,
+  ISaidCommand,
   IWaitingPlayData,
   ServerToClientEvents,
   TMap,
 } from "../../types"
 import { PREVIOUS_HAND_ACK_TIMEOUT } from "../constants"
-import { trucoshiEvents } from "../middlewares"
 import { Chat, IChat } from "./Chat"
 import { IMatchTable } from "./MatchTable"
 import { IUser, User } from "./User"
@@ -84,8 +92,14 @@ export interface ITrucoshi {
     }>
   ): Promise<IUser>
   leaveMatch(matchId: string, socketId: string, mayReconnect?: boolean): Promise<void>
-  emitWaitingPossibleSay(play: IPlayInstance, table: IMatchTable): Promise<ECommand | number>
-  emitWaitingForPlay(play: IPlayInstance, table: IMatchTable): Promise<void>
+  emitWaitingPossibleSay(
+    play: IPlayInstance,
+    table: IMatchTable,
+    isNewHand?: boolean
+  ): Promise<ECommand | number>
+  emitPlayerUsedCard(table: IMatchTable, card: IPlayedCard): Promise<void>
+  emitPlayerSaidCommand(table: IMatchTable, command: ISaidCommand): Promise<void>
+  emitWaitingForPlay(play: IPlayInstance, table: IMatchTable, isNewHand?: boolean): Promise<void>
   emitMatchUpdate(table: IMatchTable, skipSocketIds?: Array<string>): Promise<void>
   emitPreviousHand(play: IPlayInstance, table: IMatchTable): Promise<void>
   emitSocketMatch(socket: TrucoshiSocket, currentMatchId: string | null): IPublicMatch | null
@@ -181,6 +195,30 @@ export const Trucoshi = (port: number, origin?: string | Array<string>) => {
         resolve({ sockets, players })
       })
     },
+    async emitPlayerUsedCard(table, card) {
+      await server.getTableSockets(table, async (playerSocket: TrucoshiSocket) => {
+        if (!playerSocket.data.user) {
+          return
+        }
+        playerSocket.emit(
+          EServerEvent.PLAYER_USED_CARD,
+          table.getPublicMatch(playerSocket.data.user.session as string),
+          card
+        )
+      })
+    },
+    async emitPlayerSaidCommand(table, command) {
+      await server.getTableSockets(table, async (playerSocket: TrucoshiSocket) => {
+        if (!playerSocket.data.user) {
+          return
+        }
+        playerSocket.emit(
+          EServerEvent.PLAYER_SAID_COMMAND,
+          table.getPublicMatch(playerSocket.data.user.session as string),
+          command
+        )
+      })
+    },
     async emitMatchUpdate(table, skipSocketIds = []) {
       await server.getTableSockets(table, async (playerSocket: TrucoshiSocket) => {
         if (skipSocketIds.includes(playerSocket.id) || !playerSocket.data.user) {
@@ -192,7 +230,7 @@ export const Trucoshi = (port: number, origin?: string | Array<string>) => {
         )
       })
     },
-    async emitWaitingPossibleSay(play, table) {
+    async emitWaitingPossibleSay(play, table, isNewHand = false) {
       let someoneSaidSomething = false
       return new Promise<ECommand | number>((resolve, reject) => {
         return server.getTableSockets(table, async (playerSocket, player) => {
@@ -201,7 +239,7 @@ export const Trucoshi = (port: number, origin?: string | Array<string>) => {
           }
           playerSocket.emit(
             EServerEvent.WAITING_POSSIBLE_SAY,
-            table.getPublicMatch(player.session),
+            table.getPublicMatch(player.session, isNewHand),
             (data) => {
               if (!data) {
                 return
@@ -218,7 +256,17 @@ export const Trucoshi = (port: number, origin?: string | Array<string>) => {
                     server.chat.rooms
                       .getOrThrow(table.matchSessionId)
                       .command(player.teamIdx as 0 | 1, saidCommand)
-                    return resolve(saidCommand)
+
+                    return server
+                      .emitPlayerSaidCommand(table, {
+                        player: player.getPublicPlayer(),
+                        command,
+                      })
+                      .then(() => resolve(saidCommand))
+                      .catch((e) => {
+                        resolve(saidCommand)
+                        console.error(e)
+                      })
                   }
                 }
               } catch (e) {
@@ -229,10 +277,10 @@ export const Trucoshi = (port: number, origin?: string | Array<string>) => {
         })
       })
     },
-    async emitWaitingForPlay(play, table) {
+    async emitWaitingForPlay(play, table, isNewHand) {
       return new Promise<void>((resolve, reject) => {
         server
-          .emitWaitingPossibleSay(play, table)
+          .emitWaitingPossibleSay(play, table, isNewHand)
           .then(() => resolve())
           .catch(console.error)
         return server.getTableSockets(table, async (playerSocket, player) => {
@@ -251,7 +299,13 @@ export const Trucoshi = (port: number, origin?: string | Array<string>) => {
                 if (cardIdx !== undefined && card) {
                   const playedCard = play.use(cardIdx, card)
                   if (playedCard) {
-                    return resolve()
+                    return server
+                      .emitPlayerUsedCard(table, PlayedCard(player.getPublicPlayer(), playedCard))
+                      .then(() => resolve())
+                      .catch((e) => {
+                        resolve()
+                        console.error(e)
+                      })
                   }
                   return reject(new Error("Invalid Card"))
                 }
@@ -306,7 +360,7 @@ export const Trucoshi = (port: number, origin?: string | Array<string>) => {
             await server.emitPreviousHand(play, table)
           }
 
-          await server.emitWaitingForPlay(play, table)
+          await server.emitWaitingForPlay(play, table, newHandJustStarted)
 
           return resolve()
         } catch (e) {
@@ -329,7 +383,7 @@ export const Trucoshi = (port: number, origin?: string | Array<string>) => {
         }
       })
     },
-    onEnvido(table, play, isPointsRound) {
+    onEnvido(table, play) {
       return new Promise<void>(async (resolve, reject) => {
         server.turns.set(table.matchSessionId, {
           play,

@@ -36,7 +36,7 @@ export function Round(): IRound {
       if (value > round.highest) {
         round.tie = false
         round.highest = value
-        round.winner = player
+        round.winner = player as IPlayer
       }
       round.cards.push(PlayedCard(player, card))
       return card

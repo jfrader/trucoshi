@@ -14,7 +14,7 @@ export type ICard = keyof typeof CARDS
 
 export interface IPlayedCard {
   get key(): string
-  player: IPlayer & IPublicPlayer
+  player: IPlayer | IPublicPlayer
   card: ICard
 }
 
@@ -43,7 +43,7 @@ export function Deck(): IDeck {
   return deck
 }
 
-export function PlayedCard(player: IPlayer, card: ICard): IPlayedCard {
+export function PlayedCard(player: IPlayer | IPublicPlayer, card: ICard): IPlayedCard {
   const pc: IPlayedCard = {
     player,
     card,
