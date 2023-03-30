@@ -1,4 +1,4 @@
-import { EChatSystem, EClientEvent, EServerEvent, IChatMessage, IChatRoom, TMap } from "../../types"
+import { EClientEvent, EServerEvent, IChatMessage, IChatRoom, TMap } from "../../types"
 import { TrucoshiServer } from "./Trucoshi"
 
 const SYSTEM_ID = "system"
@@ -20,18 +20,15 @@ const ChatMessage = ({
   system,
   command,
   content,
-}: {
-  user: IChatMessage["user"]
-  content: string
-  system?: boolean
-  command?: boolean
-}) => {
+  card,
+}: Partial<IChatMessage> & Pick<IChatMessage, "user">): IChatMessage => {
   return {
     date: Date.now() / 1000,
     user,
-    content,
+    content: content || "",
     system: system || false,
     command: command || false,
+    card: card || false,
   }
 }
 
@@ -40,36 +37,46 @@ const ChatRoom = (io: TrucoshiServer, id: string) => {
     id,
     messages: [],
     send(user, content) {
-      room.messages.push(
-        ChatMessage({
-          user,
-          content,
-        })
-      )
-      room.emit()
+      const message = ChatMessage({
+        user,
+        content,
+      })
+      room.messages.push(message)
+      room.emit(message)
     },
     system(content) {
-      room.messages.push(
-        ChatMessage({
-          user: ChatUser(SYSTEM_ID),
-          content,
-          system: true,
-        })
-      )
-      room.emit()
+      const message = ChatMessage({
+        user: ChatUser(SYSTEM_ID),
+        content,
+        system: true,
+      })
+      room.messages.push(message)
+      room.emit(message)
     },
     command(team, command) {
-      room.messages.push(
-        ChatMessage({
-          user: ChatUser(team.toString()),
-          content: String(command),
-          command: true,
-        })
-      )
-      room.emit()
+      const message = ChatMessage({
+        user: ChatUser(team.toString()),
+        content: String(command),
+        command: true,
+      })
+      room.messages.push(message)
+      room.emit(message)
     },
-    emit() {
-      io.to(room.id).emit(EServerEvent.UPDATE_CHAT, { id: room.id, messages: room.messages })
+    card(user, card) {
+      const message = ChatMessage({
+        user,
+        content: String(card),
+        card: true,
+      })
+      room.messages.push(message)
+      room.emit(message)
+    },
+    emit(message) {
+      io.to(room.id).emit(
+        EServerEvent.UPDATE_CHAT,
+        { id: room.id, messages: room.messages },
+        message
+      )
     },
   }
 

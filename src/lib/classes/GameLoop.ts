@@ -6,8 +6,9 @@ import { IPlayer } from "./Player"
 import { ITeam } from "./Team"
 
 export type IWinnerCallback = (winner: ITeam, teams: [ITeam, ITeam]) => Promise<void>
-export type ITurnCallback = (play: IPlayInstance, newHandJustStarted: boolean) => Promise<void>
+export type ITurnCallback = (play: IPlayInstance) => Promise<void>
 export type ITrucoCallback = (play: IPlayInstance) => Promise<void>
+export type IHandFinishedCallback = (hand: IHand | null) => Promise<void>
 export type IEnvidoCallback = (play: IPlayInstance, pointsRound: boolean) => Promise<void>
 
 export interface IGameLoop {
@@ -15,15 +16,16 @@ export interface IGameLoop {
   _onTurn: ITurnCallback
   _onWinner: IWinnerCallback
   _onEnvido: IEnvidoCallback
+  _onHandFinished: IHandFinishedCallback
   currentPlayer: IPlayer | null
   currentHand: IHand | null
-  lastCheckedHand: number | null
   teams: Array<ITeam>
   winner: ITeam | null
   onTurn: (callback: ITurnCallback) => IGameLoop
   onWinner: (callback: IWinnerCallback) => IGameLoop
   onTruco: (callback: ITrucoCallback) => IGameLoop
   onEnvido: (callback: IEnvidoCallback) => IGameLoop
+  onHandFinished: (callback: IHandFinishedCallback) => IGameLoop
   begin: () => Promise<void>
 }
 
@@ -33,11 +35,15 @@ export const GameLoop = (match: IMatch) => {
     _onTruco: () => Promise.resolve(),
     _onTurn: () => Promise.resolve(),
     _onWinner: () => Promise.resolve(),
+    _onHandFinished: () => Promise.resolve(),
     teams: [],
     winner: null,
     currentPlayer: null,
     currentHand: null,
-    lastCheckedHand: null,
+    onHandFinished: (callback) => {
+      gameloop._onHandFinished = callback
+      return gameloop
+    },
     onTruco: (callback) => {
       gameloop._onTruco = callback
       return gameloop
@@ -62,7 +68,16 @@ export const GameLoop = (match: IMatch) => {
 
         gameloop.currentHand = match.currentHand
 
-        if (!play || !play.player) {
+        if (!play) {
+          try {
+            await gameloop._onHandFinished(match.prevHand)
+          } catch (e) {
+            console.error("GAME LOOP ERROR - ON HAND FINISHED")
+          }
+          continue
+        }
+
+        if (!play.player) {
           continue
         }
 
@@ -102,13 +117,7 @@ export const GameLoop = (match: IMatch) => {
         if (play.state === EHandState.WAITING_PLAY) {
           try {
             play.player.setTurn(true)
-
-            const newHandJustStarted =
-              gameloop.lastCheckedHand !== play.prevHand?.idx &&
-              gameloop.currentHand?.rounds[0].cards.length === 0
-
-            gameloop.lastCheckedHand = play.prevHand ? play.prevHand.idx : null
-            await gameloop._onTurn(play, newHandJustStarted)
+            await gameloop._onTurn(play)
             play.player.setTurn(false)
           } catch (e) {
             console.error("GAME LOOP ERROR - WAITING PLAY", e)

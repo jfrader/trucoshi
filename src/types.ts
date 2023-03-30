@@ -36,6 +36,7 @@ export interface IChatMessage {
   user: { id: string; key: string }
   system?: boolean
   command?: boolean
+  card?: boolean
   content: string
 }
 
@@ -43,9 +44,10 @@ export interface IChatRoom {
   id: string
   messages: Array<IChatMessage>
   send(user: IChatMessage["user"], message: string): void
-  system(message: string): void
+  card(user: IChatMessage["user"], command: ICard): void
   command(team: 0 | 1, command: ECommand | number): void
-  emit(): void
+  system(message: string): void
+  emit(message?: IChatMessage): void
 }
 
 export enum EChatSystem {
@@ -175,7 +177,7 @@ export interface ServerToClientEvents {
 
   [EServerEvent.PREVIOUS_HAND]: (value: IMatchPreviousHand, callback: () => void) => void
 
-  [EServerEvent.UPDATE_CHAT]: (room: IPublicChatRoom) => void
+  [EServerEvent.UPDATE_CHAT]: (room: IPublicChatRoom, message?: IChatMessage) => void
 
   [EServerEvent.UPDATE_MATCH]: (match: IPublicMatch) => void
 

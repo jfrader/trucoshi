@@ -46,9 +46,15 @@ export function Match(table: ITable, teams: Array<ITeam> = [], matchPoint: numbe
       }
 
       deck.shuffle()
-      const hand = match.setCurrentHand(Hand(match, deck, match.hands.length + 1)) as IHand
+
       match.setPrevHand(match.hands.at(-1) || null)
+      match.setCurrentHand(null)
+
+      yield match
+
+      const hand = match.setCurrentHand(Hand(match, deck, match.hands.length + 1)) as IHand
       match.pushHand(hand)
+
       while (!hand.finished()) {
         const { value } = hand.getNextPlayer()
         if (value && value.finished()) {

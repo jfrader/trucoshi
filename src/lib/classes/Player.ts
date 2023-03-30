@@ -1,9 +1,4 @@
-import {
-  EAnswerCommand,
-  ECommand,
-  EEnvidoAnswerCommand,
-  EEnvidoCommand,
-} from "../../types"
+import { EAnswerCommand, ECommand, EEnvidoAnswerCommand, EEnvidoCommand } from "../../types"
 import { ICard } from "./Deck"
 
 export interface IPlayer {
@@ -55,15 +50,6 @@ export type IPublicPlayer = Pick<
 > & {
   commands: Array<ECommand>
 }
-
-const filterEnvidoCommands = (command: any) =>
-  Object.values(EEnvidoCommand).includes(command) ||
-  Object.values(EAnswerCommand).includes(command) ||
-  Object.values(EEnvidoAnswerCommand).includes(command)
-
-const filterNotEnvidoCommands = (command: any) =>
-  !Object.values(EEnvidoCommand).includes(command) &&
-  !Object.values(EEnvidoAnswerCommand).includes(command)
 
 export function Player(key: string, id: string, teamIdx: number, isOwner: boolean = false) {
   const player: IPlayer = {
@@ -147,14 +133,8 @@ export function Player(key: string, id: string, teamIdx: number, isOwner: boolea
       const hand = player.hand.map((c) => {
         let num = c.charAt(0)
         const palo = c.charAt(1)
-        if (num === "p") {
+        if (num === "p" || num === "c" || num === "r") {
           num = "10"
-        }
-        if (num === "c") {
-          num = "11"
-        }
-        if (num === "r") {
-          num = "12"
         }
 
         if (flor === null || flor === palo) {
@@ -170,6 +150,7 @@ export function Player(key: string, id: string, teamIdx: number, isOwner: boolea
 
       const possibles = hand.flatMap((v, i) => hand.slice(i + 1).map((w) => [v, w]))
       const actual = possibles.filter((couple) => couple[0][1] === couple[1][1])
+
       player.envido = actual.map((couple) => {
         const n1 = couple[0][0].at(-1)
         const n2 = couple[1][0].at(-1)
