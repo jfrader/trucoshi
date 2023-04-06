@@ -106,10 +106,14 @@ const sayPoints = (play: IPlayInstance) =>
 ;(async () => {
   const trucoshi = Lobby()
 
-  trucoshi.addPlayer("lukini", "lukini", "lukini").setReady(true)
-  trucoshi.addPlayer("denoph", "denoph", "denoph").setReady(true)
-  trucoshi.addPlayer("guada", "guada", "guada").setReady(true)
-  trucoshi.addPlayer("juli", "juli", "juli").setReady(true)
+  const promises = [
+    trucoshi.addPlayer("lukini", "lukini", "lukini").then((player) => player.setReady(true)),
+    trucoshi.addPlayer("denoph", "denoph", "denoph").then((player) => player.setReady(true)),
+    trucoshi.addPlayer("guada", "guada", "guada").then((player) => player.setReady(true)),
+    trucoshi.addPlayer("juli", "juli", "juli").then((player) => player.setReady(true)),
+  ]
+
+  await Promise.allSettled(promises)
 
   trucoshi
     .startMatch()
