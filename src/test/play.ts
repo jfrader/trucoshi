@@ -1,6 +1,5 @@
 import * as readline from "readline"
 import { ICard, IPlayer, IPlayInstance, IRound, ITeam, Lobby } from "../lib"
-import { ESayCommand } from "../types"
 
 const command = (
   title: string,
