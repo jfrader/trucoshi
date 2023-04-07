@@ -172,7 +172,7 @@ describe("Socket Server", () => {
     await Promise.all(setReady)
 
     await new Promise<void>((res) => {
-      clientSocket0.emit(EClientEvent.START_MATCH, ({ success, matchSessionId }) => {
+      clientSocket0.emit(EClientEvent.START_MATCH, matchId as string, ({ success, matchSessionId }) => {
         expect(success).to.equal(true)
         expect(matchSessionId).to.equal(matchId)
         res()
