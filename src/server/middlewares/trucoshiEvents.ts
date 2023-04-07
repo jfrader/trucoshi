@@ -29,18 +29,15 @@ export const trucoshiEvents =
           throw new Error("Session not found")
         }
         const user = server.users.getOrThrow(socket.data.user.session)
-        const existingTable = user.ownedMatchId && server.tables.get(user.ownedMatchId)
-        if (existingTable) {
-          return callback({
-            success: false,
-            match: existingTable.getPublicMatch(socket.data.user.session),
-          })
+
+        if (!user) {
+          return callback({ success: false })
         }
 
         const matchId = randomUUID()
         const table = MatchTable(matchId, socket.data.user.session)
 
-        user.ownedMatchId = matchId
+        user.ownedMatches.add(matchId)
 
         const player = await table.lobby.addPlayer(
           user.key,
@@ -66,11 +63,10 @@ export const trucoshiEvents =
     /**
      * Start Match
      */
-    socket.on(EClientEvent.START_MATCH, (callback) => {
+    socket.on(EClientEvent.START_MATCH, (matchId, callback) => {
       try {
         const user = server.users.getOrThrow(socket.data.user?.session)
-        const matchId = user.ownedMatchId
-        if (matchId) {
+        if (matchId && user.ownedMatches.has(matchId)) {
           server.startMatch(matchId)
           return callback({ success: true, matchSessionId: matchId })
         }
@@ -94,7 +90,7 @@ export const trucoshiEvents =
             user.id,
             user.session,
             teamIdx,
-            user.ownedMatchId === matchSessionId
+            user.ownedMatches.has(matchSessionId)
           )
           if (player) {
             socket.join(table.matchSessionId)

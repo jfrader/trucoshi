@@ -242,9 +242,9 @@ export const Trucoshi = (port: number, origin?: string | Array<string>) => {
               }
               const { command } = data
               try {
-                if (command) {
+                if (command || command === 0) {
                   const saidCommand = play.say(command, player)
-                  if (saidCommand) {
+                  if (saidCommand || saidCommand === 0) {
                     someoneSaidSomething = true
 
                     server.chat.rooms
@@ -448,7 +448,6 @@ export const Trucoshi = (port: number, origin?: string | Array<string>) => {
             playResolve()
             abandon()
           } catch (e) {
-            console.error(e)
             abandon()
           }
         }
@@ -458,9 +457,23 @@ export const Trucoshi = (port: number, origin?: string | Array<string>) => {
         }
         const { player, table, user } = playingMatch
 
-        if (table.state() === EMatchTableState.FINISHED && table.lobby.gameLoop?.winner) {
+        const isLastPlayer =
+          table.lobby.players.length === 1 &&
+          (table.lobby.players.at(0) as IPlayer).key === player.key
+
+        if (isLastPlayer) {
           server.cleanupMatchTable(table)
           return resolve()
+        }
+
+        if (player.isOwner) {
+          const otherPlayer = table.lobby.players.find((p) => p.key !== player.key)
+          if (otherPlayer) {
+            user.ownedMatches.delete(table.matchSessionId)
+            player.setIsOwner(false)
+            server.users.getOrThrow(otherPlayer.session).ownedMatches.add(table.matchSessionId)
+            otherPlayer.setIsOwner(true)
+          }
         }
 
         if (!mayReconnect) {
@@ -496,13 +509,14 @@ export const Trucoshi = (port: number, origin?: string | Array<string>) => {
         for (const player of table.lobby.players) {
           const user = server.users.getOrThrow(player.session)
           user.reconnect(table.matchSessionId) // resolve promises and timeouts
-          server.tables.delete(table.matchSessionId)
           if (player.isOwner) {
-            user.setOwnedMatch(null)
+            user.ownedMatches.delete(table.matchSessionId)
           }
         }
       } catch (e) {
         console.error(e)
+      } finally {
+        server.tables.delete(table.matchSessionId)
       }
     },
   }

@@ -38,6 +38,9 @@ export function PlayInstance(hand: IHand, prevHand: IHand | null, teams: [ITeam,
     },
     say(command, player) {
       try {
+        if (player.disabled) {
+          return null
+        }
         const fn = hand.say[command as ECommand]
         if (fn) {
           if (!player.commands.includes(command as ECommand)) {

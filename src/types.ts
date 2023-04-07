@@ -200,7 +200,10 @@ export interface ClientToServerEvents {
 
   [EClientEvent.CREATE_MATCH]: (callback: IEventCallback<{ match?: IPublicMatch }>) => void
 
-  [EClientEvent.START_MATCH]: (callback: IEventCallback<{ matchSessionId?: string }>) => void
+  [EClientEvent.START_MATCH]: (
+    matchId: string,
+    callback: IEventCallback<{ matchSessionId?: string }>
+  ) => void
 
   [EClientEvent.FETCH_MATCH]: (
     session: string | null,

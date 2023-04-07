@@ -24,6 +24,7 @@ export interface IPlayer {
   setEnvidoTurn(turn: boolean): void
   getPublicPlayer(): IPublicPlayer
   setSession(session: string): void
+  setIsOwner(isOwner: boolean): void
   enable(): void
   disable(): void
   setReady(ready: boolean): void
@@ -76,6 +77,9 @@ export function Player(key: string, id: string, teamIdx: number, isOwner: boolea
     },
     setTurn(turn) {
       player.isTurn = turn
+    },
+    setIsOwner(isOwner) {
+      player.isOwner = isOwner
     },
     setEnvidoTurn(turn) {
       player.isTurn = turn

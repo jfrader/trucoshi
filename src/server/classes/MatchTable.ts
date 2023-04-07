@@ -57,11 +57,9 @@ export function MatchTable(matchSessionId: string, ownerSession: string, teamSiz
       }
     },
     async waitPlayerReconnection(player, callback, update) {
-      player.setReady(false)
-
-      update()
-
       try {
+        player.setReady(false)
+        update()
         await new Promise<void>(callback)
         player.setReady(true)
       } catch (e) {
@@ -74,9 +72,9 @@ export function MatchTable(matchSessionId: string, ownerSession: string, teamSiz
         } else {
           player.setReady(true)
         }
+      } finally {
+        update()
       }
-
-      update()
     },
     getHandRounds(hand) {
       if (!hand) {

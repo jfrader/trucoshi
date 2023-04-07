@@ -5,11 +5,10 @@ export interface IUser {
   id: string
   session: string
   online: boolean
-  ownedMatchId: string | null
+  ownedMatches: Set<string>
   waitingTimeouts: Map<string, NodeJS.Timeout | null>
   waitingPromises: Map<string, () => void> // room (matchId), resolver promise
   waitReconnection(room: string, reconnect: () => void, abandon: () => void): void
-  setOwnedMatch(id: string | null): void
   connect(): void
   disconnect(): void
   reconnect(room: string): void
@@ -22,7 +21,7 @@ export function User(key: string, id: string, session: string) {
     key,
     session,
     online: true,
-    ownedMatchId: null,
+    ownedMatches: new Set(),
     waitingTimeouts: new Map(),
     waitingPromises: new Map(),
     waitReconnection(room, reconnect, abandon) {
@@ -47,9 +46,6 @@ export function User(key: string, id: string, session: string) {
         clearTimeout(timeout)
         user.waitingTimeouts.delete(room)
       }
-    },
-    setOwnedMatch(id) {
-      user.ownedMatchId = id
     },
     connect() {
       user.online = true
