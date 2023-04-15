@@ -254,6 +254,7 @@ export const Trucoshi = (port: number, origin?: string | Array<string>) => {
                     return resolve(saidCommand)
                   }
                 }
+                reject()
               } catch (e) {
                 reject(e)
               }
