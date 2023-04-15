@@ -32,6 +32,7 @@ export interface IPublicMatchInfo {
 
 export type IPublicChatRoom = Pick<IChatRoom, "id" | "messages">
 export interface IChatMessage {
+  id: string
   date: number
   user: { id: string; key: string }
   system?: boolean

@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto"
 import { EClientEvent, EServerEvent, IChatMessage, IChatRoom, TMap } from "../../types"
 import { TrucoshiServer } from "./Trucoshi"
 
@@ -23,7 +24,8 @@ const ChatMessage = ({
   card,
 }: Partial<IChatMessage> & Pick<IChatMessage, "user">): IChatMessage => {
   return {
-    date: Date.now() / 1000,
+    id: randomUUID(),
+    date: Math.floor(Date.now() / 1000),
     user,
     content: content || "",
     system: system || false,
