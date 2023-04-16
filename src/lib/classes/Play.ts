@@ -1,6 +1,5 @@
-import { ECommand, EHandState, ESayCommand } from "../../types"
-import { GAME_ERROR } from "../types"
-import { ICard } from "./Deck"
+import logger from "../../etc/logger"
+import { ECommand, EHandState, GAME_ERROR, ICard } from "../../types"
 import { IEnvido } from "./Envido"
 import { IHand } from "./Hand"
 import { IPlayer } from "./Player"
@@ -55,7 +54,7 @@ export function PlayInstance(hand: IHand, prevHand: IHand | null, teams: [ITeam,
         }
         return command
       } catch (e) {
-        console.error(e)
+        logger.error(e)
         return null
       }
     },

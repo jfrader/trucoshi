@@ -5,10 +5,10 @@ import {
   ClientToServerEvents,
   EClientEvent,
   EServerEvent,
+  ICard,
   IPublicMatch,
   ServerToClientEvents,
 } from "../src/types"
-import { ICard } from "../src/lib"
 import { ITrucoshi, Trucoshi, TrucoshiSocket } from "../src/server/classes"
 
 describe("Socket Server", () => {
@@ -172,11 +172,15 @@ describe("Socket Server", () => {
     await Promise.all(setReady)
 
     await new Promise<void>((res) => {
-      clientSocket0.emit(EClientEvent.START_MATCH, matchId as string, ({ success, matchSessionId }) => {
-        expect(success).to.equal(true)
-        expect(matchSessionId).to.equal(matchId)
-        res()
-      })
+      clientSocket0.emit(
+        EClientEvent.START_MATCH,
+        matchId as string,
+        ({ success, matchSessionId }) => {
+          expect(success).to.equal(true)
+          expect(matchSessionId).to.equal(matchId)
+          res()
+        }
+      )
     })
 
     await WinnerPromise

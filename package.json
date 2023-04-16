@@ -1,11 +1,11 @@
 {
   "name": "trucoshi",
-  "version": "0.3.54",
-  "main": "dist/index.js",
+  "version": "0.4.0",
+  "main": "dist/types.js",
   "license": "GPL-3.0",
   "scripts": {
-    "dev": "nodemon",
-    "start": "node ./bin/trucoshi-server",
+    "start": "nodemon",
+    "profiler": "yarn build && node --prof ./bin/trucoshi-server",
     "build": "yarn run rimraf ./dist && yarn run tsc --project .",
     "prepublishOnly": "yarn test && yarn build",
     "test": "yarn run ts-mocha --exit ./test/**/*.ts",
@@ -24,13 +24,13 @@
     "ts-mocha": "^10.0.0"
   },
   "files": [
-    "dist/index.js",
-    "dist/index.d.ts",
     "dist/types.js",
-    "dist/types.d.ts",
-    "dist/lib/**/*"
+    "dist/types.d.ts"
   ],
   "dependencies": {
+    "@types/pino": "^7.0.5",
+    "pino": "^8.11.0",
+    "pino-pretty": "^10.0.0",
     "rimraf": "^4.1.1",
     "socket.io": "^4.5.4",
     "ts-node": "^10.9.1",

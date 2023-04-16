@@ -1,3 +1,4 @@
+import logger from "../../etc/logger"
 import { EHandState } from "../../types"
 import { IHand } from "./Hand"
 import { IMatch } from "./Match"
@@ -68,16 +69,17 @@ export const GameLoop = (match: IMatch) => {
 
         gameloop.currentHand = match.currentHand
 
-        if (!play) {
+        if (!play && match.prevHand) {
           try {
             await gameloop._onHandFinished(match.prevHand)
           } catch (e) {
-            console.error("GAME LOOP ERROR - ON HAND FINISHED")
+            logger.error(e, "GAME LOOP ERROR - ON HAND FINISHED")
+            break
           }
           continue
         }
 
-        if (!play.player) {
+        if (!play || !play.player) {
           continue
         }
 
@@ -89,7 +91,8 @@ export const GameLoop = (match: IMatch) => {
             await gameloop._onEnvido(play, false)
             play.player.setTurn(false)
           } catch (e) {
-            console.error("GAME LOOP ERROR - WAITING ENVIDO ANSWER", e)
+            logger.error(e, "GAME LOOP ERROR - WAITING ENVIDO ANSWER")
+            break
           }
           continue
         }
@@ -100,7 +103,8 @@ export const GameLoop = (match: IMatch) => {
             await gameloop._onEnvido(play, true)
             play.player.setEnvidoTurn(false)
           } catch (e) {
-            console.error("GAME LOOP ERROR - WAITING ENVIDO POINTS ANSWER", e)
+            logger.error(e, "GAME LOOP ERROR - WAITING ENVIDO POINTS ANSWER")
+            break
           }
           continue
         }
@@ -109,7 +113,8 @@ export const GameLoop = (match: IMatch) => {
           try {
             await gameloop._onTruco(play)
           } catch (e) {
-            console.error("GAME LOOP ERROR - WAITING TRUCO ANSWER", e)
+            logger.error(e, "GAME LOOP ERROR - WAITING TRUCO ANSWER")
+            break
           }
           continue
         }
@@ -120,16 +125,26 @@ export const GameLoop = (match: IMatch) => {
             await gameloop._onTurn(play)
             play.player.setTurn(false)
           } catch (e) {
-            console.error("GAME LOOP ERROR - WAITING PLAY", e)
+            logger.error(e, "GAME LOOP ERROR - WAITING PLAY")
+            break
           }
           continue
         }
       }
 
+      if (!match.winner) {
+        logger.error(new Error("Something went very wrong in the game loop"))
+        return
+      }
+
       gameloop.winner = match.winner
       gameloop.currentPlayer = null
 
-      await gameloop._onWinner(match.winner, match.teams)
+      try {
+        await gameloop._onWinner(match.winner, match.teams)
+      } catch (e) {
+        logger.error(e, "GAME LOOP ERROR - ON WINNER")
+      }
     },
   }
 

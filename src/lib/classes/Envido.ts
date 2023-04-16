@@ -1,8 +1,13 @@
-import { EAnswerCommand, ECommand, EEnvidoCommand } from "../../types"
-import { GAME_ERROR, IEnvidoCalculator } from "../types"
+import {
+  EAnswerCommand,
+  ECommand,
+  EEnvidoCommand,
+  GAME_ERROR,
+  IEnvidoCalculator,
+} from "../../types"
 import { getMaxNumberIndex } from "../utils"
 import { IPlayer } from "./Player"
-import { ITable, Table } from "./Table"
+import { ITable } from "./Table"
 import { ITeam } from "./Team"
 
 export interface IEnvido {

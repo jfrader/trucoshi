@@ -6,6 +6,7 @@ import { IPlayer, Player } from "./Player"
 import { ITable, Table } from "./Table"
 import { ITeam, Team } from "./Team"
 import { IQueue, Queue } from "./Queue"
+import logger from "../../etc/logger"
 
 export interface IPrivateLobby {
   gameLoop?: IGameLoop
@@ -88,21 +89,37 @@ export function Lobby(teamSize?: 1 | 2 | 3): ILobby {
       return lobby.queue.queue(() => lobby._addPlayer(...params))
     },
     _addPlayer(key, id, session, teamIdx, isOwner) {
+      const playerParams = { id, key, teamIdx, isOwner }
+      logger.trace(playerParams, "Adding player to match started")
       const exists = lobby.players.find((player) => player.session === session)
       const hasMovedSlots = Boolean(exists)
       if (exists) {
         if (exists.teamIdx === teamIdx) {
+          logger.trace(
+            playerParams,
+            "Adding player to match: Player already exists on the same team"
+          )
           return exists
         }
         isOwner = exists.isOwner
+
+        logger.trace(
+          playerParams,
+          "Adding player to match: Player already exists on a different team, removing player"
+        )
         lobby.removePlayer(exists.session as string)
       }
 
       if (lobby.started) {
+        logger.trace(
+          playerParams,
+          "Adding player to match: Match already started! Cannot add player"
+        )
         throw new Error(GAME_ERROR.MATCH_ALREADY_STARTED)
       }
 
       if (lobby.full) {
+        logger.trace(playerParams, "Adding player to match: Lobby is full. Cannot add player")
         throw new Error(GAME_ERROR.LOBBY_IS_FULL)
       }
 
@@ -111,6 +128,7 @@ export function Lobby(teamSize?: 1 | 2 | 3): ILobby {
         lobby.full ||
         lobby.players.filter((player) => player.teamIdx === teamIdx).length > maxSize
       ) {
+        logger.trace(playerParams, "Adding player to match: Team is full. Cannot add player")
         throw new Error(GAME_ERROR.TEAM_IS_FULL)
       }
       const player = Player(
@@ -119,6 +137,7 @@ export function Lobby(teamSize?: 1 | 2 | 3): ILobby {
         teamIdx !== undefined ? teamIdx : Number(!lobby.lastTeamIdx),
         isOwner
       )
+
       player.setSession(session)
       lobby.lastTeamIdx = player.teamIdx as 0 | 1
 
@@ -154,6 +173,9 @@ export function Lobby(teamSize?: 1 | 2 | 3): ILobby {
 
       lobby.calculateFull()
       lobby.calculateReady()
+
+      logger.trace({ playerParams, player: player.getPublicPlayer() }, "Added player to match")
+
       return player
     },
     removePlayer(session) {

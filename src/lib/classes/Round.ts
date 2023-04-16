@@ -1,5 +1,6 @@
+import { ICard, IPlayedCard } from "../../types"
 import { getCardValue } from "../utils"
-import { ICard, IPlayedCard, PlayedCard } from "./Deck"
+import { PlayedCard } from "./Deck"
 import { IPlayer } from "./Player"
 
 export interface IRound {

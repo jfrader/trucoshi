@@ -1,5 +1,6 @@
+import { IHandPoints } from "../../types"
 import { Deck } from "./Deck"
-import { Hand, IHand, IHandPoints } from "./Hand"
+import { Hand, IHand } from "./Hand"
 import { IPlayInstance } from "./Play"
 import { IPlayer } from "./Player"
 import { ITable } from "./Table"

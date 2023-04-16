@@ -1,4 +1,5 @@
-import { IPlayer, IPublicPlayer } from "./Player"
+import { IPublicTeam } from "../../types"
+import { IPlayer } from "./Player"
 
 export interface ITeam {
   _players: Map<string, IPlayer>
@@ -10,8 +11,6 @@ export interface ITeam {
   enable(player?: IPlayer): boolean
   addPoints(matchPoint: number, points: number): ITeamPoints
 }
-
-export type IPublicTeam = Pick<ITeam, "points"> & { players: Array<IPublicPlayer> }
 
 export interface ITeamPoints {
   buenas: number

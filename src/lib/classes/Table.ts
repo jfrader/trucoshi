@@ -1,4 +1,4 @@
-import { IPlayedCard } from "./Deck"
+import { IPlayedCard } from "../../types"
 import { IPlayer } from "./Player"
 
 export interface ITable {

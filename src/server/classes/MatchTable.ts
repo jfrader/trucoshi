@@ -1,5 +1,5 @@
-import { IHand, IHandPoints, ILobby, IPlayedCard, IPlayer, Lobby } from "../../lib"
-import { EMatchTableState, IMatchPreviousHand, IPublicMatch, IPublicMatchInfo } from "../../types"
+import { IHand, ILobby, IPlayer, Lobby } from "../../lib"
+import { EMatchTableState, IMatchPreviousHand, IPlayedCard, IPublicMatch, IPublicMatchInfo } from "../../types"
 
 export interface IMatchTable {
   ownerSession: string

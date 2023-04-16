@@ -6,21 +6,19 @@ import {
   EHandState,
   ESayCommand,
   ETrucoCommand,
+  ICard,
+  IDeck,
   IHandCommands,
+  IHandPoints,
 } from "../../types"
 import { checkHandWinner } from "../utils"
-import { ICard, IDeck, PlayedCard } from "./Deck"
+import { PlayedCard } from "./Deck"
 import { Envido, IEnvido } from "./Envido"
 import { IMatch } from "./Match"
 import { IPlayInstance, PlayInstance } from "./Play"
 import { IPlayer } from "./Player"
 import { IRound, Round } from "./Round"
 import { ITruco, Truco } from "./Truco"
-
-export interface IHandPoints {
-  0: number
-  1: number
-}
 
 export interface IHand {
   idx: number

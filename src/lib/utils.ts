@@ -1,4 +1,5 @@
-import { ICard, IRound, IRoundPoints } from "./classes"
+import { ICard } from "../types"
+import { IRound, IRoundPoints } from "./classes"
 import { CARDS } from "./constants"
 
 export function getMaxNumberIndex<T = number>(array: Array<T>) {

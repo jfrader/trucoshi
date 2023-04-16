@@ -1,5 +1,4 @@
-import { EAnswerCommand, ECommand, EEnvidoAnswerCommand, EEnvidoCommand } from "../../types"
-import { ICard } from "./Deck"
+import { ECommand, ICard, IPublicPlayer } from "../../types"
 
 export interface IPlayer {
   teamIdx: number
@@ -32,25 +31,6 @@ export interface IPlayer {
   useCard(idx: number, card: ICard): ICard | null
 }
 
-export type IPublicPlayer = Pick<
-  IPlayer,
-  | "id"
-  | "key"
-  | "disabled"
-  | "ready"
-  | "hand"
-  | "envido"
-  | "usedHand"
-  | "prevHand"
-  | "teamIdx"
-  | "session"
-  | "hasFlor"
-  | "isTurn"
-  | "isEnvidoTurn"
-  | "isOwner"
-> & {
-  commands: Array<ECommand>
-}
 
 export function Player(key: string, id: string, teamIdx: number, isOwner: boolean = false) {
   const player: IPlayer = {
@@ -134,7 +114,7 @@ export function Player(key: string, id: string, teamIdx: number, isOwner: boolea
     calculateEnvido() {
       let flor: string | null = null
 
-      const hand = player.hand.map((c) => {
+      const hand = [...player.hand, ...player.usedHand].map((c) => {
         let num = c.charAt(0)
         const palo = c.charAt(1)
         if (num === "p" || num === "c" || num === "r") {

@@ -1,4 +1,4 @@
-import { ICard, IHandPoints, IPlayedCard, IPlayer, IPublicPlayer, IPublicTeam, ITeam } from "./lib"
+import { CARDS, IPlayer, ITeam } from "./lib"
 
 export interface ISaidCommand {
   player: IPlayer | IPublicPlayer
@@ -45,7 +45,7 @@ export interface IChatRoom {
   id: string
   messages: Array<IChatMessage>
   send(user: IChatMessage["user"], message: string): void
-  card(user: IChatMessage["user"], command: ICard): void
+  card(user: IChatMessage["user"], card: ICard): void
   command(team: 0 | 1, command: ECommand | number): void
   system(message: string): void
   emit(message?: IChatMessage): void
@@ -110,31 +110,8 @@ export type ECommand =
   | ETrucoCommand
   | EFlorCommand
 
-export enum GAME_ERROR {
-  MATCH_ALREADY_STARTED = "MATCH_ALREADY_STARTED",
-  LOBBY_IS_FULL = "LOBBY_IS_FULL",
-  UNEXPECTED_TEAM_SIZE = "UNEXPECTED_TEAM_SIZE",
-  TEAM_NOT_READY = "TEAM_NOT_READY",
-  TEAM_IS_FULL = "TEAM_IS_FULL",
-}
-
 export type IHandCommands = {
   [key in ECommand]: (player: IPlayer) => void
-}
-
-export type IEnvidoCalculatorResult = {
-  accept: number
-  decline: number
-  next: Array<ECommand>
-}
-
-export type IEnvidoCalculatorArgs = {
-  teams: [ITeam, ITeam]
-  matchPoint: number
-}
-
-export type IEnvidoCalculator = {
-  [key in EEnvidoCommand]: (args?: IEnvidoCalculatorArgs) => IEnvidoCalculatorResult
 }
 
 export enum EServerEvent {
@@ -281,3 +258,84 @@ export class TMap<K, V> extends Map<K, V> {
     return result
   }
 }
+
+export enum GAME_ERROR {
+  MATCH_ALREADY_STARTED = "MATCH_ALREADY_STARTED",
+  LOBBY_IS_FULL = "LOBBY_IS_FULL",
+  UNEXPECTED_TEAM_SIZE = "UNEXPECTED_TEAM_SIZE",
+  TEAM_NOT_READY = "TEAM_NOT_READY",
+  TEAM_IS_FULL = "TEAM_IS_FULL",
+  INVALID_ENVIDO_POINTS = "INVALID_ENVIDO_POINTS",
+  ENVIDO_NOT_ACCEPTED = "ENVIDO_NOT_ACCEPTED",
+  INVALID_COMAND = "INVALID_COMAND",
+}
+
+export interface EnvidoState {
+  accept: number
+  decline: number
+  teamIdx: 0 | 1 | null
+}
+
+export type IEnvidoCalculatorResult = {
+  accept: number
+  decline: number
+  replace?: number
+  next: Array<ECommand>
+}
+
+export type IFaltaEnvidoCalculatorArgs = {
+  teams: [ITeam, ITeam]
+  matchPoint: number
+}
+
+export type IEnvidoCalculatorArgs = {
+  stake: number
+  declineStake: number
+} & (IFaltaEnvidoCalculatorArgs | never)
+
+export type IEnvidoCalculator = {
+  [key in EEnvidoCommand]: (args?: IEnvidoCalculatorArgs) => IEnvidoCalculatorResult
+}
+
+export interface IDeck {
+  cards: Array<ICard>
+  usedCards: Array<ICard>
+  takeCard(): ICard
+  takeThree(): [ICard, ICard, ICard]
+  shuffle(): IDeck
+}
+
+export type ICard = keyof typeof CARDS
+
+export interface IPlayedCard {
+  get key(): string
+  player: IPlayer | IPublicPlayer
+  card: ICard
+}
+
+export interface IHandPoints {
+  0: number
+  1: number
+}
+
+export type IPublicPlayer = Pick<
+  IPlayer,
+  | "id"
+  | "key"
+  | "disabled"
+  | "ready"
+  | "hand"
+  | "envido"
+  | "usedHand"
+  | "prevHand"
+  | "teamIdx"
+  | "session"
+  | "hasFlor"
+  | "isTurn"
+  | "isEnvidoTurn"
+  | "isOwner"
+> & {
+  commands: Array<ECommand>
+}
+
+export type IPublicTeam = Pick<ITeam, "points"> & { players: Array<IPublicPlayer> }
