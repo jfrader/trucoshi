@@ -86,7 +86,18 @@ export function Lobby(teamSize?: 1 | 2 | 3): ILobby {
       return lobby.full
     },
     async addPlayer(...params) {
-      return lobby.queue.queue(() => lobby._addPlayer(...params))
+      let player: IPlayer | null = null
+      await lobby.queue.queue(() => {
+        try {
+          player = lobby._addPlayer(...params)
+        } catch (e) {
+          logger.error(e, "Error adding player to match")
+        }
+      })
+      if (player) {
+        return player
+      }
+      throw new Error("Couldn't add player to match")
     },
     _addPlayer(key, id, session, teamIdx, isOwner) {
       const playerParams = { id, key, teamIdx, isOwner }

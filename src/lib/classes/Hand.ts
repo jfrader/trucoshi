@@ -306,6 +306,10 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
         return null
       }
 
+      if (hand.state !== EHandState.WAITING_PLAY) {
+        return null
+      }
+
       const playerCard = player.useCard(idx, card)
       if (playerCard) {
         const card = round.use(PlayedCard(player, playerCard))

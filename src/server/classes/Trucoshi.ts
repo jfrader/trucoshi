@@ -239,7 +239,7 @@ export const Trucoshi = (port: number, origin?: string | Array<string>) => {
                 return
               }
               if (someoneSaidSomething) {
-                logger.debug(
+                logger.trace(
                   { match: table.getPublicMatchInfo(), player: player.getPublicPlayer() },
                   "Tried to say something but someone said something already"
                 )
@@ -273,10 +273,14 @@ export const Trucoshi = (port: number, origin?: string | Array<string>) => {
       })
     },
     async emitWaitingForPlay(play, table, isNewHand) {
+      let someoneSaidSomething = false
       return new Promise<void>((resolve, reject) => {
         server
           .emitWaitingPossibleSay(play, table, isNewHand)
-          .then(() => resolve())
+          .then(() => {
+            someoneSaidSomething = true
+            resolve()
+          })
           .catch(logger.error)
         return server.getTableSockets(table, async (playerSocket, player) => {
           if (!player) {
@@ -303,6 +307,13 @@ export const Trucoshi = (port: number, origin?: string | Array<string>) => {
               (data: IWaitingPlayData) => {
                 if (!data) {
                   return reject(new Error(EServerEvent.WAITING_PLAY + " callback returned empty"))
+                }
+                if (someoneSaidSomething) {
+                  logger.trace(
+                    { match: table.getPublicMatchInfo(), player: player.getPublicPlayer() },
+                    "Tried to play a card but someone said something first"
+                  )
+                  return
                 }
                 const { cardIdx, card } = data
                 if (cardIdx !== undefined && card) {
