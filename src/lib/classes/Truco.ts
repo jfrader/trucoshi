@@ -1,6 +1,4 @@
-import { EAnswerCommand, ECommand, ESayCommand, ETrucoCommand } from "../../types"
-import { IPlayer } from "./Player"
-import { ITeam } from "./Team"
+import { ECommand, ETrucoCommand, IPlayer, ITeam } from "../../types"
 
 interface IPlayerCurrentCommands {
   player: IPlayer

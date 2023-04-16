@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto"
 import { createServer, Server as HttpServer } from "http"
 import { Server, Socket } from "socket.io"
-import { IHand, IPlayer, IPlayInstance, ITeam } from "../../lib"
+import { IHand, IPlayInstance } from "../../lib"
 import {
   ClientToServerEvents,
   ECommand,
@@ -11,10 +11,12 @@ import {
   EServerEvent,
   IEventCallback,
   IPlayedCard,
+  IPlayer,
   IPublicMatch,
   IPublicMatchInfo,
   IPublicPlayer,
   ISaidCommand,
+  ITeam,
   IWaitingPlayData,
   ServerToClientEvents,
   TMap,

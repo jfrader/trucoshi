@@ -1,5 +1,4 @@
-import { IPlayedCard } from "../../types"
-import { IPlayer } from "./Player"
+import { IPlayedCard, IPlayer } from "../../types"
 
 export interface ITable {
   forehandIdx: number

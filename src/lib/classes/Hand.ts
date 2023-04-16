@@ -10,13 +10,13 @@ import {
   IDeck,
   IHandCommands,
   IHandPoints,
+  IPlayer,
 } from "../../types"
 import { checkHandWinner } from "../utils"
 import { PlayedCard } from "./Deck"
 import { Envido, IEnvido } from "./Envido"
 import { IMatch } from "./Match"
 import { IPlayInstance, PlayInstance } from "./Play"
-import { IPlayer } from "./Player"
 import { IRound, Round } from "./Round"
 import { ITruco, Truco } from "./Truco"
 

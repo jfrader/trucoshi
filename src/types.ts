@@ -1,4 +1,4 @@
-import { CARDS, IPlayer, ITeam } from "./lib"
+import { CARDS } from "./lib/constants"
 
 export interface ISaidCommand {
   player: IPlayer | IPublicPlayer
@@ -339,3 +339,51 @@ export type IPublicPlayer = Pick<
 }
 
 export type IPublicTeam = Pick<ITeam, "points"> & { players: Array<IPublicPlayer> }
+
+export interface IPlayer {
+  teamIdx: number
+  id: string
+  key: string
+  session?: string
+  hand: Array<ICard>
+  envido: Array<number>
+  _commands: Set<ECommand>
+  get commands(): Array<ECommand>
+  usedHand: Array<ICard>
+  prevHand: Array<ICard>
+  isTurn: boolean
+  hasFlor: boolean
+  isEnvidoTurn: boolean
+  isOwner: boolean
+  disabled: boolean
+  ready: boolean
+  resetCommands(): void
+  calculateEnvido(): Array<number>
+  setTurn(turn: boolean): void
+  setEnvidoTurn(turn: boolean): void
+  getPublicPlayer(): IPublicPlayer
+  setSession(session: string): void
+  setIsOwner(isOwner: boolean): void
+  enable(): void
+  disable(): void
+  setReady(ready: boolean): void
+  setHand(hand: Array<ICard>): Array<ICard>
+  useCard(idx: number, card: ICard): ICard | null
+}
+
+export interface ITeam {
+  _players: Map<string, IPlayer>
+  players: Array<IPlayer>
+  points: ITeamPoints
+  getPublicTeam(playerSession?: string): IPublicTeam
+  isTeamDisabled(): boolean
+  disable(player: IPlayer): boolean
+  enable(player?: IPlayer): boolean
+  addPoints(matchPoint: number, points: number): ITeamPoints
+}
+
+export interface ITeamPoints {
+  buenas: number
+  malas: number
+  winner: boolean
+}

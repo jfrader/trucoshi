@@ -1,6 +1,6 @@
 {
   "name": "trucoshi",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "main": "dist/types.js",
   "license": "GPL-3.0",
   "scripts": {
@@ -24,6 +24,8 @@
     "ts-mocha": "^10.0.0"
   },
   "files": [
+    "dist/lib/constants.js",
+    "dist/lib/constants.d.ts",
     "dist/types.js",
     "dist/types.d.ts"
   ],

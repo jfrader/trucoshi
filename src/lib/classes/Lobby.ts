@@ -1,10 +1,10 @@
 import { TEAM_SIZE_VALUES } from "../constants"
-import { GAME_ERROR } from "../../types"
+import { GAME_ERROR, IPlayer, ITeam } from "../../types"
 import { GameLoop, IGameLoop } from "./GameLoop"
 import { Match } from "./Match"
-import { IPlayer, Player } from "./Player"
+import { Player } from "./Player"
 import { ITable, Table } from "./Table"
-import { ITeam, Team } from "./Team"
+import { Team } from "./Team"
 import { IQueue, Queue } from "./Queue"
 import logger from "../../etc/logger"
 

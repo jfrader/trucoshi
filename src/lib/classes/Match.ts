@@ -1,10 +1,8 @@
-import { IHandPoints } from "../../types"
+import { IHandPoints, IPlayer, ITeam } from "../../types"
 import { Deck } from "./Deck"
 import { Hand, IHand } from "./Hand"
 import { IPlayInstance } from "./Play"
-import { IPlayer } from "./Player"
 import { ITable } from "./Table"
-import { ITeam } from "./Team"
 
 export interface IMatch {
   teams: [ITeam, ITeam]

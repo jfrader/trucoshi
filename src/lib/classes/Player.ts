@@ -1,36 +1,4 @@
-import { ECommand, ICard, IPublicPlayer } from "../../types"
-
-export interface IPlayer {
-  teamIdx: number
-  id: string
-  key: string
-  session?: string
-  hand: Array<ICard>
-  envido: Array<number>
-  _commands: Set<ECommand>
-  get commands(): Array<ECommand>
-  usedHand: Array<ICard>
-  prevHand: Array<ICard>
-  isTurn: boolean
-  hasFlor: boolean
-  isEnvidoTurn: boolean
-  isOwner: boolean
-  disabled: boolean
-  ready: boolean
-  resetCommands(): void
-  calculateEnvido(): Array<number>
-  setTurn(turn: boolean): void
-  setEnvidoTurn(turn: boolean): void
-  getPublicPlayer(): IPublicPlayer
-  setSession(session: string): void
-  setIsOwner(isOwner: boolean): void
-  enable(): void
-  disable(): void
-  setReady(ready: boolean): void
-  setHand(hand: Array<ICard>): Array<ICard>
-  useCard(idx: number, card: ICard): ICard | null
-}
-
+import { ICard, IPlayer } from "../../types"
 
 export function Player(key: string, id: string, teamIdx: number, isOwner: boolean = false) {
   const player: IPlayer = {

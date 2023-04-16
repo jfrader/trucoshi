@@ -1,22 +1,4 @@
-import { IPublicTeam } from "../../types"
-import { IPlayer } from "./Player"
-
-export interface ITeam {
-  _players: Map<string, IPlayer>
-  players: Array<IPlayer>
-  points: ITeamPoints
-  getPublicTeam(playerSession?: string): IPublicTeam
-  isTeamDisabled(): boolean
-  disable(player: IPlayer): boolean
-  enable(player?: IPlayer): boolean
-  addPoints(matchPoint: number, points: number): ITeamPoints
-}
-
-export interface ITeamPoints {
-  buenas: number
-  malas: number
-  winner: boolean
-}
+import { IPlayer, ITeam } from "../../types"
 
 export function Team(players: Array<IPlayer>) {
   const team: ITeam = {

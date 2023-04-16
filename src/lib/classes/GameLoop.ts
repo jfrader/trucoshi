@@ -1,10 +1,8 @@
 import logger from "../../etc/logger"
-import { EHandState } from "../../types"
+import { EHandState, IPlayer, ITeam } from "../../types"
 import { IHand } from "./Hand"
 import { IMatch } from "./Match"
 import { IPlayInstance } from "./Play"
-import { IPlayer } from "./Player"
-import { ITeam } from "./Team"
 
 export type IWinnerCallback = (winner: ITeam, teams: [ITeam, ITeam]) => Promise<void>
 export type ITurnCallback = (play: IPlayInstance) => Promise<void>

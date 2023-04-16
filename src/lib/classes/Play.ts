@@ -1,10 +1,8 @@
 import logger from "../../etc/logger"
-import { ECommand, EHandState, GAME_ERROR, ICard } from "../../types"
+import { ECommand, EHandState, GAME_ERROR, ICard, IPlayer, ITeam } from "../../types"
 import { IEnvido } from "./Envido"
 import { IHand } from "./Hand"
-import { IPlayer } from "./Player"
 import { IRound } from "./Round"
-import { ITeam } from "./Team"
 import { ITruco } from "./Truco"
 
 export interface IPlayInstance {

@@ -4,11 +4,11 @@ import {
   EEnvidoCommand,
   GAME_ERROR,
   IEnvidoCalculator,
+  IPlayer,
+  ITeam,
 } from "../../types"
 import { getMaxNumberIndex } from "../utils"
-import { IPlayer } from "./Player"
 import { ITable } from "./Table"
-import { ITeam } from "./Team"
 
 export interface IEnvido {
   started: boolean

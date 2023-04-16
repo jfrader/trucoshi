@@ -1,7 +1,6 @@
-import { ICard, IPlayedCard } from "../../types"
+import { ICard, IPlayedCard, IPlayer } from "../../types"
 import { getCardValue } from "../utils"
 import { PlayedCard } from "./Deck"
-import { IPlayer } from "./Player"
 
 export interface IRound {
   tie: boolean
