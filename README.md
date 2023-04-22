@@ -20,6 +20,10 @@ Proba la demo actual en [Trucoshi](https://trucoshi.com)
 
 Right now there's only a local CLI way of playing as there is no socket server implementation and its just the game logic.
 
+# Client
+
+[Trucoshi React Client](https://github.com/jfrader/trucoshi-client)
+
 ### Installation
 
 `yarn`
@@ -41,10 +45,10 @@ Right now there's only a local CLI way of playing as there is no socket server i
     [x] Logica de turnos, rondas y battalla de cartas
     [x] Irse al mazo
     [x] Cantar truco
-    [] Cantar envido
+    [x] Cantar envido
     [] Cantar flor
     [x] Socket server
-    [-] Unit tests
+    [x] Unit tests
     [] Bitcoin Lightning integration
 
 # Donations
