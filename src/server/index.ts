@@ -19,7 +19,7 @@ export default () => {
   })
 
   try {
-    const data = readFileSync("package.json", "utf8")
+    const data = readFileSync(__dirname + "/../../package.json", "utf8")
     const pkg = JSON.parse(data)
     version = pkg.version
   } catch (e) {
