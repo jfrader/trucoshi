@@ -21,7 +21,7 @@ describe("Socket Server", () => {
   let server: ITrucoshi
 
   before((done) => {
-    server = Trucoshi(9999)
+    server = Trucoshi({ port: 9999, serverVersion: "1" })
 
     server.listen((io) => {
       io.use(trucoshiEvents(server))
