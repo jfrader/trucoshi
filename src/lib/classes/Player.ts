@@ -33,38 +33,41 @@ export function Player(key: string, id: string, teamIdx: number, isOwner: boolea
       player.isTurn = turn
       player.isEnvidoTurn = turn
     },
-    getPublicPlayer() {
+    getPublicPlayer(userSession) {
       const {
         id,
         key,
-        commands,
         disabled,
         ready,
         usedHand,
         prevHand,
         teamIdx,
-        hasFlor,
         isTurn,
         isEnvidoTurn,
         isOwner,
-        envido,
+        ...privateProps
       } = player
+
+      const { session, commands, hasFlor, envido, hand } = privateProps
+
+      const isMe = Boolean(userSession && session === userSession)
+
+      const meProps = isMe
+        ? { isMe, commands, hasFlor, envido, hand }
+        : { isMe, hand: hand.map(() => "xx" as ICard) }
+
       return {
         id,
         key,
-        commands,
         disabled,
         ready,
-        envido,
         usedHand,
         prevHand,
         teamIdx,
-        hasFlor,
         isTurn,
         isEnvidoTurn,
         isOwner,
-        hand: player.hand.map(() => "xx" as ICard),
-        session: undefined,
+        ...meProps,
       }
     },
     setSession(session: string) {

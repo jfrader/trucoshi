@@ -1,4 +1,6 @@
-import { CARDS } from "./lib/constants"
+import { CARDS, CARDS_HUMAN_READABLE } from "./lib/constants"
+
+export { CARDS, CARDS_HUMAN_READABLE }
 
 export interface ISaidCommand {
   player: IPlayer | IPublicPlayer
@@ -325,18 +327,27 @@ export type IPublicPlayer = Pick<
   | "disabled"
   | "ready"
   | "hand"
-  | "envido"
   | "usedHand"
   | "prevHand"
   | "teamIdx"
-  | "session"
-  | "hasFlor"
   | "isTurn"
   | "isEnvidoTurn"
   | "isOwner"
-> & {
-  commands: Array<ECommand>
-}
+> &
+  (
+    | {
+        isMe?: true
+        commands: IPlayer["commands"]
+        hasFlor: IPlayer["hasFlor"]
+        envido: IPlayer["envido"]
+      }
+    | {
+        isMe?: false
+        commands?: undefined
+        hasFlor?: undefined
+        envido?: undefined
+      }
+  )
 
 export type IPublicTeam = Pick<ITeam, "points"> & { players: Array<IPublicPlayer> }
 
@@ -361,7 +372,7 @@ export interface IPlayer {
   calculateEnvido(): Array<number>
   setTurn(turn: boolean): void
   setEnvidoTurn(turn: boolean): void
-  getPublicPlayer(): IPublicPlayer
+  getPublicPlayer(session?: string): IPublicPlayer
   setSession(session: string): void
   setIsOwner(isOwner: boolean): void
   enable(): void

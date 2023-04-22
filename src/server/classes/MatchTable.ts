@@ -1,5 +1,12 @@
 import { IHand, ILobby, Lobby } from "../../lib"
-import { EMatchTableState, IMatchPreviousHand, IPlayedCard, IPlayer, IPublicMatch, IPublicMatchInfo } from "../../types"
+import {
+  EMatchTableState,
+  IMatchPreviousHand,
+  IPlayedCard,
+  IPlayer,
+  IPublicMatch,
+  IPublicMatchInfo,
+} from "../../types"
 
 export interface IMatchTable {
   ownerSession: string
@@ -61,7 +68,9 @@ export function MatchTable(matchSessionId: string, ownerSession: string, teamSiz
         player.setReady(false)
         update()
         await new Promise<void>(callback)
-        player.setReady(true)
+        if (matchTable.state() === EMatchTableState.STARTED) {
+          player.setReady(true)
+        }
       } catch (e) {
         if (
           matchTable.state() !== EMatchTableState.STARTED &&
@@ -108,7 +117,7 @@ export function MatchTable(matchSessionId: string, ownerSession: string, teamSiz
 
       const publicPlayers = (
         lobby.table ? lobby.table.getPlayersForehandFirst(me ? currentPlayerIdx : 0) : players
-      ).map((player) => (player?.session === userSession ? player : player.getPublicPlayer()))
+      ).map((player) => player.getPublicPlayer(userSession))
 
       const teams = lobby.gameLoop?.teams || lobby.teams
       const publicTeams = teams.map((team) => team.getPublicTeam(userSession))

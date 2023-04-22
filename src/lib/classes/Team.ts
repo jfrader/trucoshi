@@ -14,9 +14,7 @@ export function Team(players: Array<IPlayer>) {
     getPublicTeam(playerSession) {
       return {
         points: team.points,
-        players: team.players.map((player) =>
-          player.session === playerSession ? player : player.getPublicPlayer()
-        ),
+        players: team.players.map((player) => player.getPublicPlayer(playerSession)),
       }
     },
     isTeamDisabled() {

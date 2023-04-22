@@ -186,7 +186,7 @@ export const Trucoshi = (port: number, origin?: string | Array<string>) => {
         const player = table.isSessionPlaying(playerSocket.data.user.session)
 
         if (player) {
-          players.push(player)
+          players.push(player.getPublicPlayer(playerSocket.data.user.session))
         }
 
         if (callback) {
