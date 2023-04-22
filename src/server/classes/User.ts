@@ -17,6 +17,9 @@ export interface IUser {
   setId(id: string): void
 }
 
+const WAIT_RECONNECTION_DEBUG_MSG = `User disconnected from match, waiting for ${PLAYER_ABANDON_TIMEOUT}ms to reconnect`
+const WAIT_RECONNECTION_ABANDON_DEBUG_MSG = `User disconnected from match and timed out with no reconnection, abandoning match...`
+
 export interface ISocketMatchState {
   isWaitingForPlay: boolean
   isWaitingForSay: boolean
@@ -36,18 +39,12 @@ export function User(key: string, id: string, session: string) {
       return rest
     },
     waitReconnection(room, reconnect, abandon) {
-      logger.debug(
-        user.getPublicUser(),
-        `User disconnected from match, waiting for ${PLAYER_ABANDON_TIMEOUT}ms to reconnect`
-      )
+      logger.debug(user.getPublicUser(), WAIT_RECONNECTION_DEBUG_MSG)
 
       user.reconnectTimeouts.set(
         room,
         setTimeout(() => {
-          logger.debug(
-            user.getPublicUser(),
-            `User disconnected from match and timed out with no reconnection, abandoning match...`
-          )
+          logger.debug(user.getPublicUser(), WAIT_RECONNECTION_ABANDON_DEBUG_MSG)
           abandon()
           user.reconnectPromises.delete(room)
         }, PLAYER_ABANDON_TIMEOUT)
@@ -70,6 +67,7 @@ export function User(key: string, id: string, session: string) {
     connect() {
       user.online = true
     },
+    // @TODO Disconect when all sockets disconnect
     disconnect() {
       user.online = false
     },

@@ -121,6 +121,7 @@ export enum EServerEvent {
   PREVIOUS_HAND = "PREVIOUS_HAND",
   UPDATE_MATCH = "UPDATE_MATCH",
   WAITING_PLAY = "WAITING_PLAY",
+  UPDATE_ACTIVE_MATCHES = "UPDATE_ACTIVE_MATCHES",
   PLAYER_USED_CARD = "PLAYER_USED_CARD",
   PLAYER_SAID_COMMAND = "PLAYER_SAID_COMMAND",
   WAITING_POSSIBLE_SAY = "WAITING_POSSIBLE_SAY",
@@ -158,6 +159,8 @@ export interface ServerToClientEvents {
   [EServerEvent.PREVIOUS_HAND]: (value: IMatchPreviousHand, callback: () => void) => void
 
   [EServerEvent.UPDATE_CHAT]: (room: IPublicChatRoom, message?: IChatMessage) => void
+
+  [EServerEvent.UPDATE_ACTIVE_MATCHES]: (activeMatches: IPublicMatchInfo[]) => void
 
   [EServerEvent.UPDATE_MATCH]: (match: IPublicMatch) => void
 
@@ -205,7 +208,11 @@ export interface ClientToServerEvents {
   [EClientEvent.SET_SESSION]: (
     id: string | null,
     session: string | null,
-    callback?: IEventCallback<{ session?: string; activeMatches: Array<IPublicMatchInfo> }>
+    callback?: IEventCallback<{
+      session?: string
+      serverVersion: string
+      activeMatches: Array<IPublicMatchInfo>
+    }>
   ) => void
 
   [EClientEvent.JOIN_MATCH]: (
