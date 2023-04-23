@@ -1,6 +1,6 @@
 import { io as Client, Socket } from "socket.io-client"
 import { assert, expect } from "chai"
-import { trucoshiEvents } from "../src/server/middlewares/trucoshiEvents"
+import { trucoshi } from "../src/server/middlewares/trucoshi"
 import {
   ClientToServerEvents,
   EClientEvent,
@@ -24,7 +24,7 @@ describe("Socket Server", () => {
     server = Trucoshi({ port: 9999, serverVersion: "1" })
 
     server.listen((io) => {
-      io.use(trucoshiEvents(server))
+      io.use(trucoshi(server))
 
       clientSocket0 = Client(`http://localhost:9999`)
       clientSocket1 = Client(`http://localhost:9999`)
