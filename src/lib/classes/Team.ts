@@ -1,11 +1,13 @@
 import { IPlayer, ITeam } from "../../types"
 
-export function Team(players: Array<IPlayer>) {
+export function Team(id: 0 | 1, players: Array<IPlayer>, name?: string) {
   const team: ITeam = {
     _players: new Map<string, IPlayer>(),
     get players() {
       return Array.from(team._players.values())
     },
+    id,
+    name: name || (id ? "Ellos" : "Nosotros"),
     points: {
       buenas: 0,
       malas: 0,
@@ -13,6 +15,8 @@ export function Team(players: Array<IPlayer>) {
     },
     getPublicTeam(playerSession) {
       return {
+        id: team.id,
+        name: team.name,
         points: team.points,
         players: team.players.map((player) => player.getPublicPlayer(playerSession)),
       }
@@ -34,19 +38,24 @@ export function Team(players: Array<IPlayer>) {
       team._players.get(player.session as string)?.disable()
       return team.isTeamDisabled()
     },
-    addPoints(matchPoint, points) {
-      const malas = team.points.malas + points
+    addPoints(matchPoint, points, simulate = false) {
+      const current = { ...team.points }
+      const malas = current.malas + points
       const diff = malas - matchPoint
       if (diff > 0) {
-        team.points.malas = matchPoint
-        team.points.buenas += diff
-        if (team.points.buenas >= matchPoint) {
-          team.points.winner = true
+        current.malas = matchPoint
+        current.buenas += diff
+        if (current.buenas >= matchPoint) {
+          current.winner = true
         }
       } else {
-        team.points.malas = malas
+        current.malas = malas
       }
 
+      if (simulate) {
+        return current
+      }
+      team.points = current
       return team.points
     },
   }

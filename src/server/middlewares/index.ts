@@ -1,1 +1,1 @@
-export * from "./trucoshiEvents"
+export * from "./trucoshi"

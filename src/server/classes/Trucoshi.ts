@@ -153,7 +153,12 @@ export const Trucoshi = ({
         return []
       }
       return server.tables
-        .findAll((table) => Boolean(table.isSessionPlaying(session)))
+        .findAll((table) => {
+          if (table.state() === EMatchTableState.FINISHED) {
+            return false
+          }
+          return Boolean(table.isSessionPlaying(session))
+        })
         .map((match) => match.getPublicMatchInfo())
     },
     async setOrGetSession(socket, id, session, callback = () => {}) {
@@ -216,7 +221,7 @@ export const Trucoshi = ({
       return { sockets: playerSockets, spectators: spectatorSockets, players }
     },
     async emitMatchUpdate(table, skipSocketIds = []) {
-      logger.trace(table.getPublicMatchInfo(), "Emitting match update to players")
+      logger.trace(table.getPublicMatchInfo(), "Emitting match update to all sockets")
       await server.getTableSockets(table, async (playerSocket, player) => {
         if (skipSocketIds.includes(playerSocket.id) || !playerSocket.data.user) {
           return
@@ -369,6 +374,8 @@ export const Trucoshi = ({
     async emitPreviousHand(hand, table) {
       logger.debug(table.getPublicMatchInfo(), "Emitting previous hand to players")
 
+      const previousHand = table.getPreviousHand(hand)
+
       const promises: Array<PromiseLike<void>> = []
       await server.getTableSockets(table, async (playerSocket, player) => {
         promises.push(
@@ -378,12 +385,16 @@ export const Trucoshi = ({
             }
             playerSocket.emit(
               EServerEvent.PREVIOUS_HAND,
-              table.getPreviousHand(hand),
+              previousHand,
               resolvePlayer
             )
             setTimeout(rejectPlayer, PREVIOUS_HAND_ACK_TIMEOUT)
-          })
+          }).catch(console.error)
         )
+      })
+
+      table.lobby.teams.map(team => {
+        server.chat.rooms.getOrThrow(table.matchSessionId).system(`${team.name}: +${previousHand.points[team.id]}`)
       })
 
       logger.trace(
@@ -397,9 +408,11 @@ export const Trucoshi = ({
         logger.warn(new Error("Hand finished but there's no previous hand!"))
         return Promise.resolve()
       }
+
+      logger.trace(`Table hand finished - Table State: ${table.state()}`)
+
       return new Promise<void>((resolve, reject) => {
         try {
-          server.chat.rooms.getOrThrow(table.matchSessionId).system("Nueva Mano")
           server.emitPreviousHand(hand, table).then(resolve).catch(reject)
         } catch (e) {
           reject(e)
@@ -463,7 +476,17 @@ export const Trucoshi = ({
     async onWinner(table, _winner) {
       logger.debug(table.getPublicMatchInfo(), "Match has finished with a winner")
       await server.emitMatchUpdate(table)
-      await server.chat.rooms.getOrThrow(table.matchSessionId).emit()
+      await server
+        .getTableSockets(table, async (playerSocket, player) => {
+          if (player) {
+            const activeMatches = server.getSessionActiveMatches(player.session)
+            logger.trace({ activeMatches }, "Match finished, updating active matches")
+            playerSocket.emit(
+              EServerEvent.UPDATE_ACTIVE_MATCHES,
+              activeMatches
+            )
+          }
+        })
     },
     async startMatch(matchSessionId) {
       try {

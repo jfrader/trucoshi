@@ -4,7 +4,7 @@ import { EClientEvent, EServerEvent } from "../../types"
 import { ITrucoshi, MatchTable, TrucoshiSocket } from "../classes"
 import logger from "../../etc/logger"
 
-export const trucoshiEvents =
+export const trucoshi =
   (server: ITrucoshi) => (socket: TrucoshiSocket, next: (err?: ExtendedError) => void) => {
     socket.on("disconnect", (reason) => {
       logger.info("Socket disconnected, reason?: %s", reason)

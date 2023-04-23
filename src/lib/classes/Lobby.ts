@@ -211,8 +211,8 @@ export function Lobby(teamSize?: 1 | 2 | 3): ILobby {
       }
 
       lobby.teams = [
-        Team(lobby.players.filter((player) => player.teamIdx === 0)),
-        Team(lobby.players.filter((player) => player.teamIdx === 1)),
+        Team(0, lobby.players.filter((player) => player.teamIdx === 0)),
+        Team(1, lobby.players.filter((player) => player.teamIdx === 1)),
       ]
 
       if (

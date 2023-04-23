@@ -29,6 +29,7 @@ export interface IEnvido {
   players: Array<IPlayer>
   currentPlayer: IPlayer | null
   generator: Generator<IEnvido, void, unknown>
+  getPointsToGive(): number
   sayPoints(player: IPlayer, points: number): IEnvido
   sayEnvido(command: EEnvidoCommand, player: IPlayer): IEnvido
   sayAnswer(player: IPlayer, answer: boolean | null): IEnvido
@@ -82,7 +83,10 @@ export const EnvidoCalculator: IEnvidoCalculator = {
     const totals = teams.map((team) => team.points.malas + team.points.buenas)
     const higher = getMaxNumberIndex(totals)
     const points = teams[higher].points
-    const accept = points.buenas > 0 ? matchPoint - points.buenas : matchPoint - points.malas
+    const accept =
+      points.buenas > 0 || points.malas === matchPoint
+        ? matchPoint - points.buenas
+        : matchPoint - points.malas
     return {
       accept: 0,
       decline: 2,
@@ -130,6 +134,9 @@ export function Envido(teams: [ITeam, ITeam], matchPoint: number, table: ITable)
     stake: 0,
     teams,
     generator: envidoAnswerGeneratorSequence(),
+    getPointsToGive() {
+      return envido.answer === false ? envido.declineStake : envido.stake
+    },
     sayEnvido(command, player) {
       const playerTeamIdx = player.teamIdx as 0 | 1
       if (envido.teamIdx !== playerTeamIdx && envido.possibleAnswerCommands.includes(command)) {

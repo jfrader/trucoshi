@@ -108,6 +108,18 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
           break
         }
 
+        if (hand.envido.winner) {
+          const simulatedPoints = hand.envido.winner.addPoints(
+            match.matchPoint,
+            hand.envido.getPointsToGive(),
+            true
+          )
+          if (simulatedPoints.winner) {
+            hand.setState(EHandState.FINISHED)
+            break
+          }
+        }
+
         const player = match.table.getPlayer(hand.turn)
         hand.setCurrentPlayer(player)
 
@@ -131,13 +143,13 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
       if (winnerTeamIdx !== null) {
         hand.addPoints(winnerTeamIdx, hand.truco.state)
         hand.setState(EHandState.FINISHED)
+      }
 
-        if (hand.envido.winner && hand.envido.winningPlayer) {
-          hand.addPoints(
-            hand.envido.winningPlayer.teamIdx as 0 | 1,
-            hand.envido.answer === false ? hand.envido.declineStake : hand.envido.stake
-          )
-        }
+      if (hand.envido.winner && hand.envido.winningPlayer) {
+        hand.addPoints(
+          hand.envido.winner.id,
+          hand.envido.getPointsToGive()
+        )
       }
 
       currentRoundIdx++

@@ -1,6 +1,6 @@
 import logger from "../etc/logger"
 import { Trucoshi } from "./classes"
-import { trucoshiEvents } from "./middlewares"
+import { trucoshi } from "./middlewares"
 import { readFileSync } from "fs"
 
 export * from "./classes"
@@ -37,7 +37,7 @@ export default () => {
   server.listen((io) => {
     logger.info(`Listening on port ${PORT} accepting origin ${ORIGIN}`)
 
-    io.use(trucoshiEvents(server))
+    io.use(trucoshi(server))
 
     io.on("connection", (socket) => {
       logger.debug("New socket connection %s", socket.id)

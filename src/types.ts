@@ -356,7 +356,7 @@ export type IPublicPlayer = Pick<
       }
   )
 
-export type IPublicTeam = Pick<ITeam, "points"> & { players: Array<IPublicPlayer> }
+export type IPublicTeam = Pick<ITeam, "points" | "id" | "name"> & { players: Array<IPublicPlayer> }
 
 export interface IPlayer {
   teamIdx: number
@@ -391,13 +391,15 @@ export interface IPlayer {
 
 export interface ITeam {
   _players: Map<string, IPlayer>
+  id: 0 | 1;
+  name: string;
   players: Array<IPlayer>
   points: ITeamPoints
   getPublicTeam(playerSession?: string): IPublicTeam
   isTeamDisabled(): boolean
   disable(player: IPlayer): boolean
   enable(player?: IPlayer): boolean
-  addPoints(matchPoint: number, points: number): ITeamPoints
+  addPoints(matchPoint: number, points: number, simulate?: boolean): ITeamPoints
 }
 
 export interface ITeamPoints {
