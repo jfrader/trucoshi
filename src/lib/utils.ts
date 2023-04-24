@@ -48,8 +48,12 @@ export function checkHandWinner(rounds: Array<IRound>, forehandTeamIdx: 0 | 1): 
     }
   }
 
-  if ((roundsWon[0] > 2 && roundsWon[1] > 2) || (rounds.length > 2 && roundsWon.ties > 0)) {
+  if (roundsWon[0] > 2 && roundsWon[1] > 2) {
     return forehandTeamIdx
+  }
+
+  if (rounds.length > 2 && roundsWon.ties > 0 && rounds[0]?.winner) {
+    return rounds[0].winner.teamIdx as 0 | 1
   }
 
   if (roundsWon[0] >= 2 && roundsWon[1] < 2) {
