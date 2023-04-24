@@ -145,7 +145,7 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
         hand.setState(EHandState.FINISHED)
       }
 
-      if (hand.envido.winner && hand.envido.winningPlayer) {
+      if (hand.envido.winner) {
         hand.addPoints(
           hand.envido.winner.id,
           hand.envido.getPointsToGive()
