@@ -2,6 +2,12 @@ import { CARDS, CARDS_HUMAN_READABLE } from "./lib/constants"
 
 export { CARDS, CARDS_HUMAN_READABLE }
 
+export {
+  PREVIOUS_HAND_ACK_TIMEOUT,
+  PLAYER_ABANDON_TIMEOUT,
+  PLAYER_TURN_TIMEOUT,
+} from "./server/constants"
+
 export interface ISaidCommand {
   player: IPlayer | IPublicPlayer
   command: ECommand | number
@@ -338,6 +344,8 @@ export type IPublicPlayer = Pick<
   | "prevHand"
   | "teamIdx"
   | "isTurn"
+  | "turnExpiresAt"
+  | "turnExtensionExpiresAt"
   | "isEnvidoTurn"
   | "isOwner"
 > &
@@ -370,6 +378,8 @@ export interface IPlayer {
   usedHand: Array<ICard>
   prevHand: Array<ICard>
   isTurn: boolean
+  turnExpiresAt: number | null // unix timestamp
+  turnExtensionExpiresAt: number | null // unix timestamp
   hasFlor: boolean
   isEnvidoTurn: boolean
   isOwner: boolean
@@ -378,6 +388,7 @@ export interface IPlayer {
   resetCommands(): void
   calculateEnvido(): Array<number>
   setTurn(turn: boolean): void
+  setTurnExpiration(expiresAt: number | null, extensionExpiresAt: number | null): void
   setEnvidoTurn(turn: boolean): void
   getPublicPlayer(session?: string): IPublicPlayer
   setSession(session: string): void
@@ -391,8 +402,8 @@ export interface IPlayer {
 
 export interface ITeam {
   _players: Map<string, IPlayer>
-  id: 0 | 1;
-  name: string;
+  id: 0 | 1
+  name: string
   players: Array<IPlayer>
   points: ITeamPoints
   getPublicTeam(playerSession?: string): IPublicTeam

@@ -76,10 +76,7 @@ export function MatchTable(matchSessionId: string, ownerSession: string, teamSiz
           matchTable.state() !== EMatchTableState.STARTED &&
           matchTable.state() !== EMatchTableState.FINISHED
         ) {
-          player.setReady(false)
           matchTable.lobby.removePlayer(player.session as string)
-        } else {
-          player.setReady(true)
         }
       } finally {
         update()

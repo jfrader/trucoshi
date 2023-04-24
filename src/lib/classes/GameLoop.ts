@@ -1,5 +1,5 @@
 import logger from "../../etc/logger"
-import { EHandState, IPlayer, ITeam } from "../../types"
+import { EAnswerCommand, EEnvidoAnswerCommand, EHandState, ESayCommand, IPlayer, ITeam } from "../../types"
 import { IHand } from "./Hand"
 import { IMatch } from "./Match"
 import { IPlayInstance } from "./Play"
@@ -68,12 +68,7 @@ export const GameLoop = (match: IMatch) => {
         gameloop.currentHand = match.currentHand
 
         if (!play && match.prevHand) {
-          try {
-            await gameloop._onHandFinished(match.prevHand)
-          } catch (e) {
-            logger.error(e, "GAME LOOP ERROR - ON HAND FINISHED")
-            break
-          }
+          await gameloop._onHandFinished(match.prevHand)
           continue
         }
 
@@ -89,8 +84,7 @@ export const GameLoop = (match: IMatch) => {
             await gameloop._onEnvido(play, false)
             play.player.setTurn(false)
           } catch (e) {
-            logger.error(e, "GAME LOOP ERROR - WAITING ENVIDO ANSWER")
-            break
+            play.say(EAnswerCommand.NO_QUIERO, play.player)
           }
           continue
         }
@@ -101,8 +95,7 @@ export const GameLoop = (match: IMatch) => {
             await gameloop._onEnvido(play, true)
             play.player.setEnvidoTurn(false)
           } catch (e) {
-            logger.error(e, "GAME LOOP ERROR - WAITING ENVIDO POINTS ANSWER")
-            break
+            play.say(EEnvidoAnswerCommand.SON_BUENAS, play.player)
           }
           continue
         }
@@ -111,8 +104,7 @@ export const GameLoop = (match: IMatch) => {
           try {
             await gameloop._onTruco(play)
           } catch (e) {
-            logger.error(e, "GAME LOOP ERROR - WAITING TRUCO ANSWER")
-            break
+            play.say(EAnswerCommand.NO_QUIERO, play.player)
           }
           continue
         }
@@ -123,8 +115,7 @@ export const GameLoop = (match: IMatch) => {
             await gameloop._onTurn(play)
             play.player.setTurn(false)
           } catch (e) {
-            logger.error(e, "GAME LOOP ERROR - WAITING PLAY")
-            break
+            play.say(ESayCommand.MAZO, play.player)
           }
           continue
         }
@@ -138,11 +129,7 @@ export const GameLoop = (match: IMatch) => {
       gameloop.winner = match.winner
       gameloop.currentPlayer = null
 
-      try {
-        await gameloop._onWinner(match.winner, match.teams)
-      } catch (e) {
-        logger.error(e, "GAME LOOP ERROR - ON WINNER")
-      }
+      await gameloop._onWinner(match.winner, match.teams)
     },
   }
 
