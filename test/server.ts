@@ -108,12 +108,24 @@ describe("Socket Server", () => {
 
     clientSocket0.on(EServerEvent.WAITING_PLAY, (match, callback) => {
       match0 = match
-      callback({ card: match.me?.hand.at(0) as ICard, cardIdx: 0 })
+      const data = { card: match.me?.hand.at(0) as ICard, cardIdx: 0 }
+      if (!data.card || data.cardIdx === undefined) {
+        console.error("WTF")
+        console.log(data)
+        process.exit(1)
+      }
+      callback(data)
     })
 
     clientSocket1.on(EServerEvent.WAITING_PLAY, (match, callback) => {
       match1 = match
-      callback({ card: match.me?.hand.at(0) as ICard, cardIdx: 0 })
+      const data = { card: match.me?.hand.at(0) as ICard, cardIdx: 0 }
+      if (!data.card || data.cardIdx === undefined) {
+        console.error("WTF")
+        console.log(data)
+        process.exit(1)
+      }
+      callback(data)
     })
 
     clientSocket0.on(EServerEvent.PREVIOUS_HAND, (match, callback) => {

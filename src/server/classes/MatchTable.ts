@@ -18,27 +18,25 @@ export interface IMatchTable {
   getHandRounds(hand: IHand): IPlayedCard[][]
   getPublicMatch(session?: string, isNewHand?: boolean): IPublicMatch
   getPublicMatchInfo(): IPublicMatchInfo
-  waitPlayerReconnection(
-    player: IPlayer,
-    callback: (onReconnect: () => void, onAbandon: () => void) => void,
-    update: () => void
-  ): Promise<void>
+  playerDisconnected(player: IPlayer): void
+  playerReconnected(player: IPlayer): void
+  playerAbandoned(player: IPlayer): void
 }
 
 export function MatchTable(matchSessionId: string, ownerSession: string, teamSize?: 1 | 2 | 3) {
-  const matchTable: IMatchTable = {
+  const table: IMatchTable = {
     ownerSession,
     matchSessionId,
     lobby: Lobby(teamSize),
     state() {
-      matchTable.lobby.calculateReady()
-      if (matchTable.lobby.gameLoop?.winner) {
+      table.lobby.calculateReady()
+      if (table.lobby.gameLoop?.winner) {
         return EMatchTableState.FINISHED
       }
-      if (matchTable.lobby.started) {
+      if (table.lobby.started) {
         return EMatchTableState.STARTED
       }
-      if (matchTable.lobby.ready) {
+      if (table.lobby.ready) {
         return EMatchTableState.READY
       }
       return EMatchTableState.UNREADY
@@ -46,43 +44,42 @@ export function MatchTable(matchSessionId: string, ownerSession: string, teamSiz
     isSessionPlaying(session) {
       const {
         lobby: { players },
-      } = matchTable
+      } = table
       return players.find((player) => player && player.session === session) || null
+    },
+    playerDisconnected(player) {
+      player.setReady(false)
+    },
+    playerReconnected(player) {
+      if (player.abandoned) {
+        return
+      }
+      if (table.state() === EMatchTableState.STARTED) {
+        player.setReady(true)
+      }
+    },
+    playerAbandoned(player) {
+      if (
+        table.state() !== EMatchTableState.STARTED &&
+        table.state() !== EMatchTableState.FINISHED
+      ) {
+        table.lobby.removePlayer(player.session as string)
+      }
+
+      player.abandon()
     },
     getPublicMatchInfo() {
       const {
         matchSessionId,
         state,
         lobby: { players, maxPlayers },
-      } = matchTable
+      } = table
       return {
         ownerId: players.find((player) => player.isOwner)?.id as string,
         matchSessionId,
         maxPlayers,
         players: players.length,
         state: state(),
-      }
-    },
-    async waitPlayerReconnection(player, callback, update) {
-      try {
-        player.setReady(false)
-        update()
-        await new Promise<void>(callback)
-        if (matchTable.state() === EMatchTableState.STARTED) {
-          player.setReady(true)
-        }
-      } catch (e) {
-        if (
-          matchTable.state() !== EMatchTableState.STARTED &&
-          matchTable.state() !== EMatchTableState.FINISHED
-        ) {
-          player.setReady(false)
-          matchTable.lobby.removePlayer(player.session as string)
-        } else {
-          player.setReady(true)
-        }
-      } finally {
-        update()
       }
     },
     getHandRounds(hand) {
@@ -93,18 +90,18 @@ export function MatchTable(matchSessionId: string, ownerSession: string, teamSiz
     },
     getPreviousHand(hand) {
       return {
-        rounds: matchTable.getHandRounds(hand),
+        rounds: table.getHandRounds(hand),
         points: hand.points,
-        matchSessionId: matchTable.matchSessionId,
+        matchSessionId: table.matchSessionId,
       }
     },
     getPublicMatch(userSession, isNewHand = false) {
-      const { lobby } = matchTable
+      const { lobby } = table
 
       const winner = lobby.gameLoop?.winner || null
 
       const rounds = lobby.gameLoop?.currentHand
-        ? matchTable.getHandRounds(lobby.gameLoop?.currentHand)
+        ? table.getHandRounds(lobby.gameLoop?.currentHand)
         : []
 
       const players = lobby.players.filter((player) => Boolean(player)) as IPlayer[]
@@ -125,8 +122,8 @@ export function MatchTable(matchSessionId: string, ownerSession: string, teamSiz
       return {
         me,
         winner,
-        matchSessionId: matchTable.matchSessionId,
-        state: matchTable.state(),
+        matchSessionId: table.matchSessionId,
+        state: table.state(),
         teams: publicTeams,
         players: publicPlayers,
         isNewHand,
@@ -135,5 +132,5 @@ export function MatchTable(matchSessionId: string, ownerSession: string, teamSiz
     },
   }
 
-  return matchTable
+  return table
 }
