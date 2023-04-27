@@ -1,5 +1,6 @@
+import { randomUUID } from "crypto"
 import { ICard, IDeck, IPlayedCard, IPlayer, IPublicPlayer } from "../../types"
-import { CARDS } from "../constants"
+import { BURNT_CARD, CARDS } from "../constants"
 import { shuffleArray } from "../utils"
 
 export function Deck(): IDeck {
@@ -27,13 +28,17 @@ export function Deck(): IDeck {
   return deck
 }
 
-export function PlayedCard(player: IPlayer | IPublicPlayer, card: ICard): IPlayedCard {
+export function PlayedCard(player: IPlayer | IPublicPlayer, card: ICard, burn?: boolean): IPlayedCard {
   const pc: IPlayedCard = {
     player,
     card,
-    get key() {
-      return card + player.key
-    },
+    key: card + player.key
   }
+
+  if (burn) {
+    pc.card = BURNT_CARD
+    pc.key = randomUUID().substring(0, 12)
+  }
+
   return pc
 }

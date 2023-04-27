@@ -56,8 +56,17 @@ export function Match(table: ITable, teams: Array<ITeam> = [], matchPoint: numbe
 
       while (!hand.finished()) {
         const { value } = hand.getNextPlayer()
-        if (value && value.finished()) {
-          continue
+        if (value) {
+          if (
+            value.currentPlayer &&
+            (value.currentPlayer.disabled || value.currentPlayer.abandoned)
+          ) {
+            value.nextTurn()
+            continue
+          }
+          if (value.finished()) {
+            continue
+          }
         }
         match.setCurrentHand(value as IHand)
         yield match

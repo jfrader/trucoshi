@@ -1,3 +1,4 @@
+import logger from "../etc/logger"
 import { ICard } from "../types"
 import { IRound, IRoundPoints } from "./classes"
 import { CARDS } from "./constants"
@@ -9,7 +10,7 @@ export function getMaxNumberIndex<T = number>(array: Array<T>) {
 }
 
 export function getCardValue(card: ICard) {
-  return CARDS[card] || -1
+  return CARDS[card] !== undefined ? CARDS[card] : -2
 }
 
 export function shuffleArray<T = unknown>(array: Array<T>) {
