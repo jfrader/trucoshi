@@ -726,8 +726,8 @@ export const Trucoshi = ({
       return null
     },
     leaveMatch(matchId, socketId) {
-      logger.debug({ matchId, socketId }, "Socket just left a match")
       return new Promise((resolve) => {
+        logger.debug({ matchId, socketId }, "Socket just left a match")
         const playingMatch = _getPossiblePlayingMatch(matchId, socketId)
 
         if (!playingMatch) {
@@ -739,7 +739,7 @@ export const Trucoshi = ({
           return resolve()
         }
 
-        const { player, table, user } = playingMatch
+        const { table } = playingMatch
 
         if (table.state() === EMatchTableState.FINISHED) {
           logger.debug(
@@ -749,37 +749,6 @@ export const Trucoshi = ({
           server.cleanupMatchTable(table)
           return resolve()
         }
-
-        server.getTableSockets(table).then(({ players }) => {
-          const find = players.find((p) => p.key === player.key)
-
-          if (find) {
-            logger.debug(
-              { matchId, socketId },
-              "Socket left a match but there's another socket for the same player, doing nothing..."
-            )
-            return resolve()
-          }
-
-          logger.debug({ matchId, socketId }, "Socket left a match, waiting for reconnection...")
-
-          const update = () => server.emitMatchUpdate(table, []).catch(console.error)
-
-          table.playerDisconnected(player)
-          update()
-
-          user
-            .waitReconnection(table.matchSessionId)
-            .then(() => {
-              table.playerReconnected(player)
-            })
-            .catch(() => {
-              table.playerAbandoned(player)
-            })
-            .finally(update)
-
-          resolve()
-        })
       })
     },
     cleanupMatchTable(table) {
