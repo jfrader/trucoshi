@@ -86,7 +86,6 @@ export const GameLoop = (match: IMatch) => {
             logger.debug(play, "Player failed to answer an envido call")
           } finally {
             play.player.setTurn(false)
-            play.player.setTurnExpiration(null, null)
           }
           continue
         }
@@ -101,7 +100,6 @@ export const GameLoop = (match: IMatch) => {
           } finally {
             play.player.setEnvidoTurn(false)
             play.player.setTurn(false)
-            play.player.setTurnExpiration(null, null)
           }
           continue
         }
@@ -114,7 +112,6 @@ export const GameLoop = (match: IMatch) => {
             logger.debug(play, "Player failed to answer a truco call")
           } finally {
             play.player.setTurn(false)
-            play.player.setTurnExpiration(null, null)
           }
           continue
         }
@@ -127,7 +124,6 @@ export const GameLoop = (match: IMatch) => {
             logger.debug(play, "Player failed to play their turn")
           } finally {
             play.player.setTurn(false)
-            play.player.setTurnExpiration(null, null)
           }
           continue
         }
