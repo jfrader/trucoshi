@@ -1,6 +1,6 @@
 {
   "name": "trucoshi",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "main": "dist/types.js",
   "license": "GPL-3.0",
   "scripts": {
@@ -27,7 +27,9 @@
     "dist/lib/constants.js",
     "dist/lib/constants.d.ts",
     "dist/types.js",
-    "dist/types.d.ts"
+    "dist/types.d.ts",
+    "dist/server/constants.js",
+    "dist/server/constants.d.ts"
   ],
   "dependencies": {
     "@types/pino": "^7.0.5",
