@@ -22,7 +22,7 @@ export function Player(key: string, id: string, teamIdx: number, isOwner: boolea
     ready: false,
     abandoned: false,
     get commands() {
-      return player.abandoned ? [] : Array.from(player._commands.values())
+      return Array.from(player._commands.values())
     },
     resetCommands() {
       player._commands = new Set()
