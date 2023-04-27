@@ -40,7 +40,7 @@ export interface IHand {
   nextTurn(): void
   endEnvido(): void
   sayEnvidoPoints(player: IPlayer, points: number): IEnvido
-  use(idx: number, card: ICard): ICard | null
+  use(idx: number, card: ICard, burn?: boolean): ICard | null
   pushRound(round: IRound): IRound
   setTurn(turn: number): IPlayer
   addPoints(team: 0 | 1, points: number): void
@@ -54,6 +54,9 @@ export interface IHand {
 export function Hand(match: IMatch, deck: IDeck, idx: number) {
   for (const team of match.teams) {
     for (const player of team.players) {
+      if (player.abandoned) {
+        continue
+      }
       player.enable()
       player.setHand(deck.takeThree())
       player.resetCommands()
@@ -146,10 +149,7 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
       }
 
       if (hand.envido.winner) {
-        hand.addPoints(
-          hand.envido.winner.id,
-          hand.envido.getPointsToGive()
-        )
+        hand.addPoints(hand.envido.winner.id, hand.envido.getPointsToGive())
       }
 
       currentRoundIdx++
@@ -239,9 +239,6 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
         player = hand.truco.currentPlayer
       }
 
-      if (player && player.disabled) {
-        return null
-      }
       return player
     },
     say: {
@@ -310,7 +307,7 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
         hand.setState(EHandState.WAITING_PLAY)
       }
     },
-    use(idx: number, card: ICard) {
+    use(idx, card, burn) {
       hand.started = true
       const player = hand.currentPlayer
       const round = hand.currentRound
@@ -324,7 +321,7 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
 
       const playerCard = player.useCard(idx, card)
       if (playerCard) {
-        const card = round.use(PlayedCard(player, playerCard))
+        const card = round.use(PlayedCard(player, playerCard, burn))
         hand.nextTurn()
         return card
       }

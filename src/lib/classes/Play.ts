@@ -15,6 +15,8 @@ export interface IPlayInstance {
   player: IPlayer | null
   rounds: Array<IRound> | null
   prevHand: IHand | null
+  waitingPlay: boolean
+  setWaiting(waiting: boolean): void
   use(idx: number, card: ICard): ICard | null
   say(command: ECommand | number, player: IPlayer): ECommand | number | null
 }
@@ -23,6 +25,7 @@ export function PlayInstance(hand: IHand, prevHand: IHand | null, teams: [ITeam,
   const instance: IPlayInstance = {
     state: hand.state,
     teams,
+    waitingPlay: Boolean(hand.currentPlayer),
     truco: hand.truco,
     envido: hand.envido,
     handIdx: hand.idx,
@@ -30,6 +33,9 @@ export function PlayInstance(hand: IHand, prevHand: IHand | null, teams: [ITeam,
     player: hand.currentPlayer,
     rounds: hand.rounds,
     prevHand: prevHand && !hand.started && !hand.truco.waitingAnswer ? prevHand : null,
+    setWaiting(waiting) {
+      instance.waitingPlay = waiting
+    },
     use(idx, card) {
       return hand.use(idx, card)
     },

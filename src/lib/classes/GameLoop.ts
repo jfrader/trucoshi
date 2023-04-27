@@ -82,29 +82,39 @@ export const GameLoop = (match: IMatch) => {
           try {
             play.player.setTurn(true)
             await gameloop._onEnvido(play, false)
-            play.player.setTurn(false)
           } catch (e) {
-            play.say(EAnswerCommand.NO_QUIERO, play.player)
+            logger.debug(play, "Player failed to answer an envido call")
+          } finally {
+            play.player.setTurn(false)
+            play.player.setTurnExpiration(null, null)
           }
           continue
         }
 
         if (play.state === EHandState.WAITING_ENVIDO_POINTS_ANSWER) {
           try {
+            play.player.setTurn(true)
             play.player.setEnvidoTurn(true)
             await gameloop._onEnvido(play, true)
-            play.player.setEnvidoTurn(false)
           } catch (e) {
-            play.say(EEnvidoAnswerCommand.SON_BUENAS, play.player)
+            logger.debug(play, "Player failed to say their envido points")
+          } finally {
+            play.player.setEnvidoTurn(false)
+            play.player.setTurn(false)
+            play.player.setTurnExpiration(null, null)
           }
           continue
         }
 
         if (play.state === EHandState.WAITING_FOR_TRUCO_ANSWER) {
           try {
+            play.player.setTurn(true)
             await gameloop._onTruco(play)
           } catch (e) {
-            play.say(EAnswerCommand.NO_QUIERO, play.player)
+            logger.debug(play, "Player failed to answer a truco call")
+          } finally {
+            play.player.setTurn(false)
+            play.player.setTurnExpiration(null, null)
           }
           continue
         }
@@ -113,9 +123,11 @@ export const GameLoop = (match: IMatch) => {
           try {
             play.player.setTurn(true)
             await gameloop._onTurn(play)
-            play.player.setTurn(false)
           } catch (e) {
-            play.say(ESayCommand.MAZO, play.player)
+            logger.debug(play, "Player failed to play their turn")
+          } finally {
+            play.player.setTurn(false)
+            play.player.setTurnExpiration(null, null)
           }
           continue
         }

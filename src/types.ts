@@ -237,7 +237,7 @@ export enum ETrucoshiMatchState {
 export type IWaitingPlayData = { cardIdx: number; card: ICard }
 export type IWaitingPlayCallback = (data: IWaitingPlayData) => void | null
 
-export type IWaitingSayData = { command: ECommand }
+export type IWaitingSayData = { command: ECommand | number }
 export type IWaitingSayCallback = (data: IWaitingSayData) => void | null
 
 export class TMap<K, V> extends Map<K, V> {
@@ -323,7 +323,7 @@ export interface IDeck {
 export type ICard = keyof typeof CARDS
 
 export interface IPlayedCard {
-  get key(): string
+  key: string
   player: IPlayer | IPublicPlayer
   card: ICard
 }
@@ -338,6 +338,7 @@ export type IPublicPlayer = Pick<
   | "id"
   | "key"
   | "disabled"
+  | "abandoned"
   | "ready"
   | "hand"
   | "usedHand"
@@ -378,23 +379,25 @@ export interface IPlayer {
   usedHand: Array<ICard>
   prevHand: Array<ICard>
   isTurn: boolean
-  turnExpiresAt: number | null // unix timestamp
-  turnExtensionExpiresAt: number | null // unix timestamp
+  turnExpiresAt: number | null // Date.now()
+  turnExtensionExpiresAt: number | null // Date.now()
   hasFlor: boolean
   isEnvidoTurn: boolean
   isOwner: boolean
   disabled: boolean
+  abandoned: boolean
   ready: boolean
   resetCommands(): void
   calculateEnvido(): Array<number>
   setTurn(turn: boolean): void
-  setTurnExpiration(expiresAt: number | null, extensionExpiresAt: number | null): void
+  setTurnExpiration(...args: [number, number | null] | [null, null]): void
   setEnvidoTurn(turn: boolean): void
   getPublicPlayer(session?: string): IPublicPlayer
   setSession(session: string): void
   setIsOwner(isOwner: boolean): void
   enable(): void
   disable(): void
+  abandon(): void
   setReady(ready: boolean): void
   setHand(hand: Array<ICard>): Array<ICard>
   useCard(idx: number, card: ICard): ICard | null

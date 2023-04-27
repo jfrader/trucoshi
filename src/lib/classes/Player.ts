@@ -1,4 +1,5 @@
-import { ICard, IPlayer } from "../../types"
+import { IPlayer } from "../../types"
+import { BURNT_CARD } from "../constants"
 
 export function Player(key: string, id: string, teamIdx: number, isOwner: boolean = false) {
   const player: IPlayer = {
@@ -19,18 +20,35 @@ export function Player(key: string, id: string, teamIdx: number, isOwner: boolea
     isEnvidoTurn: false,
     disabled: false,
     ready: false,
+    abandoned: false,
     get commands() {
-      return Array.from(player._commands.values())
+      return player.abandoned ? [] : Array.from(player._commands.values())
     },
     resetCommands() {
       player._commands = new Set()
     },
     setTurn(turn) {
+      if (!turn) {
+        player.turnExpiresAt = null
+        player.turnExtensionExpiresAt = null
+      }
       player.isTurn = turn
     },
-    setTurnExpiration(expiresAt, extensionExpiresAt) {
-      player.turnExpiresAt = expiresAt
-      player.turnExtensionExpiresAt = extensionExpiresAt
+    setTurnExpiration(expiresInMs, extensionInMs) {
+      if (expiresInMs && player.turnExpiresAt) {
+        return
+      }
+
+      const now = Math.floor(Date.now())
+
+      if (expiresInMs) {
+        player.turnExpiresAt = now + expiresInMs
+        player.turnExtensionExpiresAt = player.turnExpiresAt + (extensionInMs || 0)
+        return
+      }
+
+      player.turnExpiresAt = null
+      player.turnExtensionExpiresAt = null
     },
     setIsOwner(isOwner) {
       player.isOwner = isOwner
@@ -57,6 +75,9 @@ export function Player(key: string, id: string, teamIdx: number, isOwner: boolea
     calculateEnvido() {
       return calculateEnvidoPointsArray(player)
     },
+    abandon() {
+      player.abandoned = true
+    },
     setHand(hand) {
       player.prevHand = [...player.usedHand]
       player.hand = hand
@@ -67,7 +88,6 @@ export function Player(key: string, id: string, teamIdx: number, isOwner: boolea
       if (player.hand[idx] && player.hand[idx] === card) {
         const playedCard = player.hand.splice(idx, 1)[0]
         player.usedHand.push(playedCard)
-        player.isTurn = false
         return playedCard
       }
       return null
@@ -77,10 +97,14 @@ export function Player(key: string, id: string, teamIdx: number, isOwner: boolea
   return player
 }
 
-const getPublicPlayer = (player: IPlayer, userSession?: string): ReturnType<IPlayer['getPublicPlayer']> => {
+const getPublicPlayer = (
+  player: IPlayer,
+  userSession?: string
+): ReturnType<IPlayer["getPublicPlayer"]> => {
   const {
     id,
     key,
+    abandoned,
     disabled,
     ready,
     usedHand,
@@ -100,11 +124,12 @@ const getPublicPlayer = (player: IPlayer, userSession?: string): ReturnType<IPla
 
   const meProps = isMe
     ? { isMe, commands, hasFlor, envido, hand }
-    : { isMe, hand: hand.map(() => "xx" as ICard) }
+    : { isMe, hand: hand.map(() => BURNT_CARD) }
 
   return {
     id,
     key,
+    abandoned,
     teamIdx,
     disabled,
     ready,

@@ -179,7 +179,7 @@ export const trucoshi =
      */
     socket.on(EClientEvent.LEAVE_MATCH, (matchId) => {
       logger.trace({ matchId, socketId: socket.id }, "Client emitted LEAVE_MATCH event")
-      server.leaveMatch(matchId, socket.id, true).then().catch(console.error)
+      server.leaveMatch(matchId, socket.id).then().catch(console.error)
     })
 
     next()

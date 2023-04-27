@@ -1,3 +1,5 @@
+import { ICard } from "../types"
+
 export const CARDS = {
   "1e": 13,
   "1b": 12,
@@ -40,6 +42,8 @@ export const CARDS = {
   "4b": 0,
   "4c": 0,
 }
+
+export const BURNT_CARD = "xx" as ICard
 
 export const CARDS_HUMAN_READABLE = {
   "1e": "1🗡️",
