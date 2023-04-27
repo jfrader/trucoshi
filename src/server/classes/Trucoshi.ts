@@ -750,16 +750,6 @@ export const Trucoshi = ({
           return resolve()
         }
 
-        if (player.isOwner) {
-          const otherPlayer = table.lobby.players.find((p) => p.key !== player.key)
-          if (otherPlayer) {
-            user.ownedMatches.delete(table.matchSessionId)
-            player.setIsOwner(false)
-            server.users.getOrThrow(otherPlayer.session).ownedMatches.add(table.matchSessionId)
-            otherPlayer.setIsOwner(true)
-          }
-        }
-
         server.getTableSockets(table).then(({ players }) => {
           const find = players.find((p) => p.key === player.key)
 
