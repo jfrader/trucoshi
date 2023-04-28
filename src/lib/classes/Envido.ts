@@ -102,7 +102,7 @@ export function Envido(teams: [ITeam, ITeam], matchPoint: number, table: ITable)
     while (i < envido.players.length && (envido.answer === null || envido.winner === null)) {
       const player = envido.players[envido.turn]
       envido.setCurrentPlayer(player)
-      if (player.disabled || !player.ready) {
+      if (player.disabled) {
         envido.setCurrentPlayer(null)
       }
 
@@ -128,7 +128,7 @@ export function Envido(teams: [ITeam, ITeam], matchPoint: number, table: ITable)
     accepted: false,
     possibleAnswerCommands: Object.values(EEnvidoCommand),
     declineStake: 0,
-    winningPointsAnswer: 0,
+    winningPointsAnswer: -1,
     pointAnswersCount: 0,
     winner: null,
     stake: 0,
@@ -170,7 +170,7 @@ export function Envido(teams: [ITeam, ITeam], matchPoint: number, table: ITable)
       if (!envido.accepted) {
         throw new Error(GAME_ERROR.ENVIDO_NOT_ACCEPTED)
       }
-      if (!envido.winningPlayer || !envido.winningPointsAnswer) {
+      if (!envido.winningPlayer || envido.winningPointsAnswer === -1) {
         envido.winningPlayer = player
         envido.winningPointsAnswer = points
       } else {

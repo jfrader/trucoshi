@@ -6,14 +6,12 @@ import {
   ClientToServerEvents,
   EAnswerCommand,
   ECommand,
-  EEnvidoAnswerCommand,
   EHandState,
   EMatchTableState,
   ESayCommand,
   EServerEvent,
   ICard,
   IEventCallback,
-  IPlayedCard,
   IPlayer,
   IPublicMatch,
   IPublicMatchInfo,
@@ -214,8 +212,6 @@ export const Trucoshi = ({
       return newUser
     },
     async getTableSockets(table, callback) {
-      logger.trace(table.getPublicMatchInfo(), "Waiting for match player sockets...")
-
       const allSockets = await server.io.sockets.adapter.fetchSockets({
         rooms: new Set([table.matchSessionId]),
       })
@@ -261,7 +257,10 @@ export const Trucoshi = ({
       })
     },
     async emitWaitingPossibleSay(play, table, isNewHand = false) {
-      logger.debug(table.getPublicMatchInfo(), "Emitting match possible players say")
+      logger.debug(
+        { match: table.getPublicMatchInfo(), handIdx: play.handIdx },
+        "Emitting match possible players say"
+      )
       return new Promise<ECommand | number>((resolve, reject) => {
         return server
           .getTableSockets(table, async (playerSocket, player) => {
@@ -338,7 +337,11 @@ export const Trucoshi = ({
 
             if (player.session === play.player?.session) {
               logger.debug(
-                { match: table.getPublicMatchInfo(), player: player.getPublicPlayer() },
+                {
+                  match: table.getPublicMatchInfo(),
+                  player: player.getPublicPlayer(),
+                  handIdx: play.handIdx,
+                },
                 "Emitting waiting play to a player"
               )
               playerSocket.emit(
@@ -373,6 +376,7 @@ export const Trucoshi = ({
     sayCommand(table, play, player, command) {
       return new Promise<ECommand | number>((resolve, reject) => {
         if (command || command === 0) {
+          logger.trace({ player, command }, "Attempt to say command")
           const saidCommand = play.say(command, player)
           if (saidCommand || saidCommand === 0) {
             clearTimeout(server.turns.getOrThrow(table.matchSessionId).timeout)
@@ -395,6 +399,7 @@ export const Trucoshi = ({
     playCard(table, play, player, cardIdx, card) {
       return new Promise<void>((resolve, reject) => {
         if (cardIdx !== undefined && card) {
+          logger.trace({ player, card, cardIdx }, "Attempt to play card")
           const playedCard = play.use(cardIdx, card)
           if (playedCard) {
             clearTimeout(server.turns.getOrThrow(table.matchSessionId).timeout)
@@ -454,10 +459,12 @@ export const Trucoshi = ({
 
       const update = () => server.emitMatchUpdate(table).catch(logger.error)
 
+      const chat = server.chat.rooms.getOrThrow(table.matchSessionId)
+
       return setTimeout(() => {
         logger.trace(
           { match: table.getPublicMatchInfo(), player: player.getPublicPlayer() },
-          "TURN TIMED OUT!"
+          "Turn timed out, disconnecting"
         )
 
         table.playerDisconnected(player)
@@ -466,19 +473,32 @@ export const Trucoshi = ({
         user
           .waitReconnection(table.matchSessionId)
           .then(() => {
+            logger.trace(
+              { match: table.getPublicMatchInfo(), player: player.getPublicPlayer() },
+              "Player reconnected"
+            )
             table.playerReconnected(player)
             onReconnection()
           })
           .catch(() => {
+            logger.trace(
+              { match: table.getPublicMatchInfo(), player: player.getPublicPlayer() },
+              "Player abandoned"
+            )
             table.playerAbandoned(player)
+            chat.system(`${player.id} se retiro de la partida.`)
             onTimeout()
           })
           .finally(update)
       }, PLAYER_TURN_TIMEOUT + PLAYER_TIMEOUT_GRACE)
     },
     onTurn(table, play) {
+      logger.trace(
+        { match: table.getPublicMatchInfo(), player: play.player, handIdx: play.handIdx },
+        "Turn started"
+      )
       return new Promise<void>((resolve, reject) => {
-        const session = play.player?.session as string
+        const session = play.player?.session
         if (!session || !play || !play.player) {
           throw new Error("No session, play instance or player found")
         }
@@ -486,24 +506,22 @@ export const Trucoshi = ({
         const player = play.player
         const user = server.users.getOrThrow(session)
 
-        server
-          .emitWaitingForPlay(play, table)
-          .then(resolve)
-          .catch((e) => {
-            logger.error(e, "ONTURN CALLBACK ERROR")
-            reject(e)
-          })
+        const turn = () =>
+          server
+            .emitWaitingForPlay(play, table)
+            .then(resolve)
+            .catch((e) => {
+              logger.error(e, "ONTURN CALLBACK ERROR")
+              reject(e)
+            })
 
-        const timeout = server.setTurnTimeout(
-          table,
-          player,
-          user,
-          () => server.onTurn(table, play).then(resolve).catch(reject),
-          () =>
-            server
-              .sayCommand(table, play, player, ESayCommand.MAZO)
-              .catch(logger.error)
-              .finally(reject)
+        turn()
+
+        const timeout = server.setTurnTimeout(table, player, user, turn, () =>
+          server
+            .sayCommand(table, play, player, ESayCommand.MAZO)
+            .catch(logger.error)
+            .finally(reject)
         )
 
         server.turns.set(table.matchSessionId, {
@@ -514,33 +532,35 @@ export const Trucoshi = ({
       })
     },
     onTruco(table, play) {
+      logger.trace(
+        { match: table.getPublicMatchInfo(), player: play.player, handIdx: play.handIdx },
+        "Truco answer turn started"
+      )
       return new Promise<void>((resolve, reject) => {
-        const session = play.player?.session as string
+        const session = play.player?.session
         if (!session || !play || !play.player) {
           throw new Error("No session, play instance or player found")
         }
 
-        server
-          .emitWaitingPossibleSay(play, table)
-          .then(() => resolve())
-          .catch((e) => {
-            logger.error(e, "ONTRUCO CALLBACK ERROR")
-            reject(e)
-          })
+        const turn = () =>
+          server
+            .emitWaitingPossibleSay(play, table)
+            .then(() => resolve())
+            .catch((e) => {
+              logger.error(e, "ONTRUCO CALLBACK ERROR")
+              reject(e)
+            })
+
+        turn()
 
         const player = play.player
         const user = server.users.getOrThrow(session)
 
-        const timeout = server.setTurnTimeout(
-          table,
-          player,
-          user,
-          () => server.onTruco(table, play).then(resolve).catch(reject),
-          () =>
-            server
-              .sayCommand(table, play, player, EAnswerCommand.NO_QUIERO)
-              .catch(logger.error)
-              .finally(reject)
+        const timeout = server.setTurnTimeout(table, player, user, turn, () =>
+          server
+            .sayCommand(table, play, player, EAnswerCommand.NO_QUIERO)
+            .catch(logger.error)
+            .finally(reject)
         )
 
         server.turns.set(table.matchSessionId, {
@@ -551,41 +571,44 @@ export const Trucoshi = ({
       })
     },
     onEnvido(table, play, isPointsRound) {
+      logger.trace(
+        {
+          match: table.getPublicMatchInfo(),
+          player: play.player,
+          handIdx: play.handIdx,
+          isPointsRound,
+        },
+        "Envido answer turn started"
+      )
       return new Promise<void>((resolve, reject) => {
         const session = play.player?.session as string
         if (!session || !play || !play.player) {
           throw new Error("No session, play instance or player found")
         }
 
-        server
-          .emitWaitingPossibleSay(play, table)
-          .then(() => resolve())
-          .catch((e) => {
-            logger.error(e, "ONENVIDO CALLBACK ERROR")
-            reject(e)
-          })
+        const turn = () =>
+          server
+            .emitWaitingPossibleSay(play, table)
+            .then(() => resolve())
+            .catch((e) => {
+              logger.error(e, "ONENVIDO CALLBACK ERROR")
+              reject(e)
+            })
+
+        turn()
 
         const player = play.player
         const user = server.users.getOrThrow(session)
 
-        const timeout = server.setTurnTimeout(
-          table,
-          player,
-          user,
-          () => server.onEnvido(table, play, isPointsRound).then(resolve).catch(reject),
-          () => {
-            if (isPointsRound) {
-              return server
-                .sayCommand(table, play, player, EEnvidoAnswerCommand.SON_BUENAS)
-                .catch(logger.error)
-                .finally(reject)
-            }
-            server
-              .sayCommand(table, play, player, EAnswerCommand.NO_QUIERO)
-              .catch(logger.error)
-              .finally(reject)
+        const timeout = server.setTurnTimeout(table, player, user, turn, () => {
+          if (isPointsRound) {
+            return server.sayCommand(table, play, player, 0).catch(logger.error).finally(reject)
           }
-        )
+          server
+            .sayCommand(table, play, player, EAnswerCommand.NO_QUIERO)
+            .catch(logger.error)
+            .finally(reject)
+        })
 
         server.turns.set(table.matchSessionId, {
           play,
@@ -767,7 +790,6 @@ export const Trucoshi = ({
       }
     },
   }
-
   const _getPossiblePlayingMatch = (
     room: any,
     socketId: any

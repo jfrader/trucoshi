@@ -41,17 +41,24 @@ export function PlayInstance(hand: IHand, prevHand: IHand | null, teams: [ITeam,
     },
     say(command, player) {
       try {
+        if (command === 0) {
+          hand.sayEnvidoPoints(player, command)
+          return command
+        }
+
         if (player.disabled) {
           return null
         }
+
         const fn = hand.say[command as ECommand]
+
         if (fn) {
           if (!player.commands.includes(command as ECommand)) {
             throw new Error(GAME_ERROR.INVALID_COMAND)
           }
           fn(player)
         } else {
-          if (!player.envido.includes(command as number)) {
+          if (command !== 0 && !player.envido.includes(command as number)) {
             throw new Error(GAME_ERROR.INVALID_ENVIDO_POINTS)
           }
           hand.sayEnvidoPoints(player, command as number)

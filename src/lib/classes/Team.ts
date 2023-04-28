@@ -22,7 +22,7 @@ export function Team(id: 0 | 1, players: Array<IPlayer>, name?: string) {
       }
     },
     isTeamDisabled() {
-      return team.players.reduce((prev, curr) => prev && curr.disabled, true)
+      return team.players.reduce((prev, curr) => prev && (curr.disabled || curr.abandoned), true)
     },
     enable(player) {
       if (player) {

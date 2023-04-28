@@ -5,7 +5,7 @@ export function Player(key: string, id: string, teamIdx: number, isOwner: boolea
   const player: IPlayer = {
     key,
     id,
-    session: undefined,
+    session: '',
     teamIdx,
     hand: [],
     _commands: new Set(),
