@@ -65,6 +65,8 @@ export const GameLoop = (match: IMatch) => {
       while (!match.winner) {
         const play = match.play()
 
+        logger.trace({ winner: match.winner }, "Game tick started")
+
         gameloop.currentHand = match.currentHand
 
         if (!play && match.prevHand) {
@@ -127,6 +129,8 @@ export const GameLoop = (match: IMatch) => {
           }
           continue
         }
+
+        break
       }
 
       if (!match.winner) {

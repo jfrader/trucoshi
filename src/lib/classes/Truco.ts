@@ -52,7 +52,7 @@ export function Truco(teams: [ITeam, ITeam]) {
     while (i < truco.players.length && truco.answer === null) {
       const player = truco.players[truco.turn]
       truco.setCurrentPlayer(player)
-      if (player.disabled || !player.ready) {
+      if (player.disabled) {
         truco.setCurrentPlayer(null)
       }
 

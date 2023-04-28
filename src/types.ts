@@ -155,7 +155,7 @@ export type IEventCallback<T = {}> = (
 ) => void
 
 export interface ServerToClientEvents {
-  [EServerEvent.PONG]: (msg: string) => void
+  [EServerEvent.PONG]: (serverTime: number, clientTime: number) => void
 
   [EServerEvent.WAITING_POSSIBLE_SAY]: (
     match: IPublicMatch,
@@ -181,7 +181,7 @@ export interface ServerToClientEvents {
 }
 
 export interface ClientToServerEvents {
-  [EClientEvent.PING]: (msg: string) => void
+  [EClientEvent.PING]: (clientTime: number) => void
 
   [EClientEvent.CHAT]: (matchId: string, msg: string, callback: () => void) => void
 
@@ -371,7 +371,7 @@ export interface IPlayer {
   teamIdx: number
   id: string
   key: string
-  session?: string
+  session: string
   hand: Array<ICard>
   envido: Array<number>
   _commands: Set<ECommand>

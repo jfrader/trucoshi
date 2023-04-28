@@ -18,8 +18,8 @@ export const trucoshi =
       }
     })
 
-    socket.on(EClientEvent.PING, (msg) => {
-      socket.emit(EServerEvent.PONG, msg)
+    socket.on(EClientEvent.PING, (clientTime) => {
+      socket.emit(EServerEvent.PONG, Date.now(), clientTime)
     })
 
     /**

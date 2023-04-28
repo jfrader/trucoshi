@@ -1,3 +1,4 @@
+import logger from "../../etc/logger"
 import { IHandPoints, IPlayer, ITeam } from "../../types"
 import { Deck } from "./Deck"
 import { Hand, IHand } from "./Hand"
@@ -21,7 +22,7 @@ export interface IMatch {
   getNextTurn(): IteratorResult<IMatch | null, IMatch | null | void>
 }
 
-const playerIsNotReady = (player: IPlayer) => !player.ready
+const playerAbandoned = (player: IPlayer) => player.abandoned
 
 export function Match(table: ITable, teams: Array<ITeam> = [], matchPoint: number = 9): IMatch {
   const deck = Deck().shuffle()
@@ -34,12 +35,12 @@ export function Match(table: ITable, teams: Array<ITeam> = [], matchPoint: numbe
 
   function* handsGeneratorSequence() {
     while (!match.winner) {
-      if (match.teams[0].players.every(playerIsNotReady)) {
+      if (match.teams[0].players.every(playerAbandoned)) {
         match.setWinner(match.teams[1])
         break
       }
 
-      if (match.teams[1].players.every(playerIsNotReady)) {
+      if (match.teams[1].players.every(playerAbandoned)) {
         match.setWinner(match.teams[0])
         break
       }
@@ -98,6 +99,7 @@ export function Match(table: ITable, teams: Array<ITeam> = [], matchPoint: numbe
     prevHand: null,
     currentHand: null,
     play() {
+      logger.trace({ players: table.players.map(p => p.getPublicPlayer()) }, "Attempting to get match next turn")
       match.getNextTurn()
       if (!match.currentHand) {
         return null
