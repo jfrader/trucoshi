@@ -762,7 +762,7 @@ export const Trucoshi = ({
           return resolve()
         }
 
-        const { table } = playingMatch
+        const { table, player, user } = playingMatch
 
         if (table.state() === EMatchTableState.FINISHED) {
           logger.debug(
@@ -771,6 +771,25 @@ export const Trucoshi = ({
           )
           server.cleanupMatchTable(table)
           return resolve()
+        }
+
+        if (player && table.state() !== EMatchTableState.STARTED) {
+          const update = () => server.emitMatchUpdate(table).catch(logger.error)
+          table.playerDisconnected(player)
+          update()
+
+          user
+            .waitReconnection(table.matchSessionId)
+            .then(() => {
+              table.playerReconnected(player)
+            })
+            .catch(() => {
+              table.playerAbandoned(player)
+              if (table.lobby.players.length === 1) {
+                server.cleanupMatchTable(table)
+              }
+            })
+            .finally(update)
         }
       })
     },
