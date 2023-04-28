@@ -52,11 +52,11 @@ describe("Socket Server", () => {
   })
 
   it("should work", (done) => {
-    clientSocket0.on(EServerEvent.PONG, (arg) => {
-      assert.equal(arg, "hello world")
+    clientSocket0.on(EServerEvent.PONG, (_a, b) => {
+      assert.equal(b, 123)
       done()
     })
-    clientSocket0.emit(EClientEvent.PING, "hello world")
+    clientSocket0.emit(EClientEvent.PING, 123)
   })
 
   it("should play an entire match", async () => {
