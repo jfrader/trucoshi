@@ -23,6 +23,7 @@ import {
 } from "../../types"
 import {
   PLAYER_ABANDON_TIMEOUT,
+  PLAYER_LOBBY_TIMEOUT,
   PLAYER_TIMEOUT_GRACE,
   PLAYER_TURN_TIMEOUT,
   PREVIOUS_HAND_ACK_TIMEOUT,
@@ -779,13 +780,14 @@ export const Trucoshi = ({
           update()
 
           user
-            .waitReconnection(table.matchSessionId)
+            .waitReconnection(table.matchSessionId, PLAYER_LOBBY_TIMEOUT)
             .then(() => {
               table.playerReconnected(player)
             })
             .catch(() => {
               table.playerAbandoned(player)
-              if (table.lobby.players.length === 1) {
+              const lobby = table.lobby.removePlayer(player.session as string)
+              if (!lobby.players.length) {
                 server.cleanupMatchTable(table)
               }
             })

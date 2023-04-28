@@ -59,13 +59,6 @@ export function MatchTable(matchSessionId: string, ownerSession: string, teamSiz
       }
     },
     playerAbandoned(player) {
-      if (
-        table.state() !== EMatchTableState.STARTED &&
-        table.state() !== EMatchTableState.FINISHED
-      ) {
-        table.lobby.removePlayer(player.session as string)
-      }
-
       player.abandon()
     },
     getPublicMatchInfo() {

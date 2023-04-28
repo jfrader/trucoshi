@@ -10,7 +10,7 @@ export interface IUser {
   reconnectTimeouts: Map<string, NodeJS.Timeout | null>
   reconnectPromises: Map<string, () => void> // room (matchId), resolver promise
   getPublicUser(): Omit<IUser, "session">
-  waitReconnection(room: string): Promise<void>
+  waitReconnection(room: string, timeout?: number): Promise<void>
   resolveWaitingPromises(room: string): void
   connect(): void
   disconnect(): void
@@ -18,7 +18,6 @@ export interface IUser {
   setId(id: string): void
 }
 
-const WAIT_RECONNECTION_DEBUG_MSG = `User disconnected or is inactive, waiting for ${PLAYER_ABANDON_TIMEOUT}ms to reconnect`
 const WAIT_RECONNECTION_ABANDON_DEBUG_MSG = `User disconnected from match or was inactive and timed out with no reconnection`
 
 export interface ISocketMatchState {
@@ -39,17 +38,17 @@ export function User(key: string, id: string, session: string) {
       const { session: _session, ...rest } = user
       return rest
     },
-    waitReconnection(room) {
+    waitReconnection(room, timeout = PLAYER_ABANDON_TIMEOUT) {
       return new Promise<void>((resolve, reject) => {
         user.resolveWaitingPromises(room)
-        logger.debug(user.getPublicUser(), WAIT_RECONNECTION_DEBUG_MSG)
+        logger.debug(user.getPublicUser(),  `User disconnected or left, waiting for ${timeout}ms to reconnect`)
         user.reconnectTimeouts.set(
           room,
           setTimeout(() => {
             logger.debug(user.getPublicUser(), WAIT_RECONNECTION_ABANDON_DEBUG_MSG)
             reject()
             user.reconnectPromises.delete(room)
-          }, PLAYER_ABANDON_TIMEOUT + PLAYER_TIMEOUT_GRACE)
+          }, timeout + PLAYER_TIMEOUT_GRACE)
         )
         user.reconnectPromises.set(room, resolve)
       })
