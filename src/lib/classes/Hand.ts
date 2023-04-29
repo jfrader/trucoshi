@@ -298,7 +298,6 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
       match.teams[player.teamIdx].disable(player)
     },
     addPoints(team, points) {
-      logger.fatal({ team, points }, "Adding hand points")
       hand.points[team] = hand.points[team] + points
     },
     pushRound(round) {
