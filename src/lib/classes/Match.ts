@@ -1,17 +1,18 @@
 import logger from "../../etc/logger"
-import { IHandPoints, IPlayer, ITeam } from "../../types"
+import { IDeck, IHandPoints, ILobbyOptions, IPlayer, ITeam } from "../../types"
 import { Deck } from "./Deck"
 import { Hand, IHand } from "./Hand"
 import { IPlayInstance } from "./Play"
 import { ITable } from "./Table"
 
 export interface IMatch {
+  readonly options: ILobbyOptions
   teams: [ITeam, ITeam]
   hands: Array<IHand>
   winner: ITeam | null
   prevHand: IHand | null
   currentHand: IHand | null
-  matchPoint: number
+  deck: IDeck
   table: ITable
   play(): IPlayInstance | null
   addPoints(points: IHandPoints): [ITeam, ITeam]
@@ -24,75 +25,72 @@ export interface IMatch {
 
 const playerAbandoned = (player: IPlayer) => player.abandoned
 
-export function Match(table: ITable, teams: Array<ITeam> = [], matchPoint: number = 9): IMatch {
-  const deck = Deck().shuffle()
+function* matchTurnGeneratorSequence(match: IMatch) {
+  while (!match.winner) {
+    if (match.teams[0].players.every(playerAbandoned)) {
+      match.setWinner(match.teams[1])
+      break
+    }
 
+    if (match.teams[1].players.every(playerAbandoned)) {
+      match.setWinner(match.teams[0])
+      break
+    }
+
+    match.deck.shuffle()
+
+    match.setPrevHand(match.hands.at(-1) || null)
+    match.setCurrentHand(null)
+
+    yield match
+
+    const hand = match.setCurrentHand(Hand(match, match.deck, match.hands.length + 1)) as IHand
+    match.pushHand(hand)
+
+    while (!hand.finished()) {
+      const { value } = hand.getNextTurn()
+      if (value) {
+        if (
+          value.currentPlayer &&
+          (value.currentPlayer.disabled || value.currentPlayer.abandoned)
+        ) {
+          value.nextTurn()
+          continue
+        }
+        if (value.finished()) {
+          continue
+        }
+      }
+      match.setCurrentHand(value as IHand)
+      yield match
+    }
+
+    match.setCurrentHand(null)
+
+    const teams = match.addPoints(hand.points)
+    const winner = teams.find((team) => team.points.winner)
+
+    if (winner) {
+      match.setWinner(winner)
+      match.setCurrentHand(null)
+      break
+    }
+    match.table.nextTurn()
+  }
+  yield match
+}
+
+export function Match(table: ITable, teams: Array<ITeam> = [], options: ILobbyOptions): IMatch {
   const size = teams[0].players.length
 
   if (size !== teams[1].players.length) {
     throw new Error("Team size mismatch")
   }
 
-  function* handsGeneratorSequence() {
-    while (!match.winner) {
-      if (match.teams[0].players.every(playerAbandoned)) {
-        match.setWinner(match.teams[1])
-        break
-      }
-
-      if (match.teams[1].players.every(playerAbandoned)) {
-        match.setWinner(match.teams[0])
-        break
-      }
-
-      deck.shuffle()
-
-      match.setPrevHand(match.hands.at(-1) || null)
-      match.setCurrentHand(null)
-
-      yield match
-
-      const hand = match.setCurrentHand(Hand(match, deck, match.hands.length + 1)) as IHand
-      match.pushHand(hand)
-
-      while (!hand.finished()) {
-        const { value } = hand.getNextPlayer()
-        if (value) {
-          if (
-            value.currentPlayer &&
-            (value.currentPlayer.disabled || value.currentPlayer.abandoned)
-          ) {
-            value.nextTurn()
-            continue
-          }
-          if (value.finished()) {
-            continue
-          }
-        }
-        match.setCurrentHand(value as IHand)
-        yield match
-      }
-
-      match.setCurrentHand(null)
-
-      const teams = match.addPoints(hand.points)
-      const winner = teams.find((team) => team.points.winner)
-
-      if (winner) {
-        match.setWinner(winner)
-        match.setCurrentHand(null)
-        break
-      }
-      match.table.nextTurn()
-    }
-    yield match
-  }
-
-  const handsGenerator = handsGeneratorSequence()
-
   const match: IMatch = {
     winner: null,
-    matchPoint,
+    deck: Deck().shuffle(),
+    options: structuredClone(options),
     teams: teams as [ITeam, ITeam],
     hands: [],
     table,
@@ -107,8 +105,8 @@ export function Match(table: ITable, teams: Array<ITeam> = [], matchPoint: numbe
       return match.currentHand.play(match.prevHand)
     },
     addPoints(points) {
-      match.teams[0].addPoints(matchPoint, points[0])
-      match.teams[1].addPoints(matchPoint, points[1])
+      match.teams[0].addPoints(match.options.matchPoint, points[0])
+      match.teams[1].addPoints(match.options.matchPoint, points[1])
       return match.teams
     },
     pushHand(hand) {
@@ -126,9 +124,11 @@ export function Match(table: ITable, teams: Array<ITeam> = [], matchPoint: numbe
       match.winner = winner
     },
     getNextTurn() {
-      return handsGenerator.next()
+      return turnGenerator.next()
     },
   }
+
+  const turnGenerator = matchTurnGeneratorSequence(match)
 
   return match
 }

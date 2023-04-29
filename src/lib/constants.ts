@@ -1,4 +1,12 @@
-import { ICard } from "../types"
+import { ICard, ILobbyOptions, PLAYER_TURN_TIMEOUT } from "../types"
+
+export const DEFAULT_LOBBY_OPTIONS: ILobbyOptions = {
+  faltaEnvido: 2,
+  flor: false,
+  matchPoint: 9,
+  maxPlayers: 6,
+  turnTime: PLAYER_TURN_TIMEOUT,
+}
 
 export const CARDS = {
   "1e": 13,

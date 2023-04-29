@@ -4,6 +4,7 @@ import {
   EEnvidoCommand,
   GAME_ERROR,
   IEnvidoCalculator,
+  ILobbyOptions,
   IPlayer,
   ITeam,
 } from "../../types"
@@ -28,7 +29,6 @@ export interface IEnvido {
   teams: [ITeam, ITeam]
   players: Array<IPlayer>
   currentPlayer: IPlayer | null
-  generator: Generator<IEnvido, void, unknown>
   getPointsToGive(): number
   sayPoints(player: IPlayer, points: number): IEnvido
   sayEnvido(command: EEnvidoCommand, player: IPlayer): IEnvido
@@ -76,10 +76,13 @@ export const EnvidoCalculator: IEnvidoCalculator = {
     next: [EEnvidoCommand.FALTA_ENVIDO, EAnswerCommand.QUIERO, EAnswerCommand.NO_QUIERO],
   }),
   [EEnvidoCommand.FALTA_ENVIDO]: (args) => {
-    if (!args || !args.teams || !args.matchPoint) {
+    if (!args || !args.teams || !args.options) {
       throw new Error("Envido calculator arguments are undefined")
     }
-    const { teams, matchPoint } = args
+    const {
+      teams,
+      options: { matchPoint },
+    } = args
     const totals = teams.map((team) => team.points.malas + team.points.buenas)
     const higher = getMaxNumberIndex(totals)
     const points = teams[higher].points
@@ -96,30 +99,30 @@ export const EnvidoCalculator: IEnvidoCalculator = {
   },
 }
 
-export function Envido(teams: [ITeam, ITeam], matchPoint: number, table: ITable) {
-  function* envidoAnswerGeneratorSequence() {
-    let i = 0
-    while (i < envido.players.length && (envido.answer === null || envido.winner === null)) {
-      const player = envido.players[envido.turn]
-      envido.setCurrentPlayer(player)
-      if (player.disabled) {
-        envido.setCurrentPlayer(null)
-      }
-
-      if (envido.turn >= envido.players.length - 1) {
-        envido.setTurn(0)
-      } else {
-        envido.setTurn(envido.turn + 1)
-      }
-
-      i++
-
-      yield envido
+function* envidoTurnGeneratorSequence(envido: IEnvido) {
+  let i = 0
+  while (i < envido.players.length && (envido.answer === null || envido.winner === null)) {
+    const player = envido.players[envido.turn]
+    envido.setCurrentPlayer(player)
+    if (player.disabled) {
+      envido.setCurrentPlayer(null)
     }
-    envido.setCurrentPlayer(null)
+
+    if (envido.turn >= envido.players.length - 1) {
+      envido.setTurn(0)
+    } else {
+      envido.setTurn(envido.turn + 1)
+    }
+
+    i++
+
     yield envido
   }
+  envido.setCurrentPlayer(null)
+  yield envido
+}
 
+export function Envido(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITable) {
   const envido: IEnvido = {
     ...EMPTY_ENVIDO,
     started: false,
@@ -133,9 +136,20 @@ export function Envido(teams: [ITeam, ITeam], matchPoint: number, table: ITable)
     winner: null,
     stake: 0,
     teams,
-    generator: envidoAnswerGeneratorSequence(),
     getPointsToGive() {
-      return envido.answer === false ? envido.declineStake : envido.stake
+      if (!envido.winner) {
+        return 0
+      }
+
+      if (envido.answer === false) {
+        return envido.declineStake
+      }
+
+      if (options.faltaEnvido === 1) {
+        return envido.winner.pointsToWin(options.matchPoint)
+      }
+
+      return envido.stake
     },
     sayEnvido(command, player) {
       const playerTeamIdx = player.teamIdx as 0 | 1
@@ -146,16 +160,17 @@ export function Envido(teams: [ITeam, ITeam], matchPoint: number, table: ITable)
           stake: envido.stake,
           declineStake: envido.declineStake,
           teams,
-          matchPoint,
+          options,
         })
 
         envido.teamIdx = playerTeamIdx
         envido.stake += accept
         envido.declineStake += decline
-        envido.generator = envidoAnswerGeneratorSequence()
         envido.players = teams[opponentIdx].players
         envido.started = true
         envido.answered = false
+
+        turnGenerator = envidoTurnGeneratorSequence(envido)
 
         if (replace) {
           envido.stake = replace
@@ -205,10 +220,11 @@ export function Envido(teams: [ITeam, ITeam], matchPoint: number, table: ITable)
       }
       if (answer) {
         envido.accepted = true
-        envido.generator = envidoAnswerGeneratorSequence()
         envido.turn = 0
         table.players.forEach((player) => player.calculateEnvido())
         envido.players = table.getPlayersForehandFirst()
+
+        turnGenerator = envidoTurnGeneratorSequence(envido)
       }
       if (answer === false) {
         envido.finished = true
@@ -234,8 +250,11 @@ export function Envido(teams: [ITeam, ITeam], matchPoint: number, table: ITable)
       return envido.currentPlayer
     },
     getNextPlayer() {
-      return envido.generator.next()
+      return turnGenerator.next()
     },
   }
+
+  let turnGenerator = envidoTurnGeneratorSequence(envido)
+
   return envido
 }

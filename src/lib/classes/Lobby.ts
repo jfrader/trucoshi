@@ -1,5 +1,5 @@
-import { TEAM_SIZE_VALUES } from "../constants"
-import { GAME_ERROR, IPlayer, ITeam } from "../../types"
+import { DEFAULT_LOBBY_OPTIONS, TEAM_SIZE_VALUES } from "../constants"
+import { GAME_ERROR, ILobbyOptions, IPlayer, ITeam } from "../../types"
 import { GameLoop, IGameLoop } from "./GameLoop"
 import { Match } from "./Match"
 import { Player } from "./Player"
@@ -9,18 +9,17 @@ import { IQueue, Queue } from "./Queue"
 import logger from "../../etc/logger"
 
 export interface IPrivateLobby {
+  options: ILobbyOptions
   gameLoop?: IGameLoop
   lastTeamIdx: 0 | 1
   _players: Array<IPlayer | { id?: undefined; session?: undefined; teamIdx?: undefined }>
   get players(): Array<IPlayer>
   teams: Array<ITeam>
-  maxPlayers: number
   table: ITable | null
   queue: IQueue
   full: boolean
   ready: boolean
   started: boolean
-  _addPlayer(key: string, id: string, session: string, teamIdx?: 0 | 1, isOwner?: boolean): IPlayer
   addPlayer(
     key: string,
     id: string,
@@ -31,15 +30,20 @@ export interface IPrivateLobby {
   removePlayer(session: string): ILobby
   calculateReady(): boolean
   calculateFull(): boolean
+  setOptions(options: Partial<ILobbyOptions>): void
+  isEmpty(): boolean
   startMatch(matchPoint?: 9 | 12 | 15): IGameLoop
 }
 
 export interface ILobby
   extends Pick<
     IPrivateLobby,
+    | "setOptions"
     | "addPlayer"
     | "removePlayer"
     | "startMatch"
+    | "isEmpty"
+    | "options"
     | "ready"
     | "full"
     | "started"
@@ -47,12 +51,12 @@ export interface ILobby
     | "players"
     | "gameLoop"
     | "table"
-    | "maxPlayers"
     | "calculateReady"
   > {}
 
-export function Lobby(teamSize?: 1 | 2 | 3): ILobby {
+export function Lobby(options: Partial<ILobbyOptions> = {}): ILobby {
   const lobby: IPrivateLobby = {
+    options: { ...DEFAULT_LOBBY_OPTIONS, ...options },
     lastTeamIdx: 1,
     _players: [],
     get players() {
@@ -61,35 +65,35 @@ export function Lobby(teamSize?: 1 | 2 | 3): ILobby {
     teams: [],
     queue: Queue(),
     table: null,
-    maxPlayers: teamSize ? teamSize * 2 : 6,
     full: false,
     ready: false,
     started: false,
     gameLoop: undefined,
+    setOptions(value) {
+      lobby.options = { ...lobby.options, ...value }
+    },
+    isEmpty() {
+      return !lobby.players.length
+    },
     calculateReady() {
-      const allPlayersReady = lobby.players.reduce(
-        (prev, curr) => Boolean(prev && curr && curr.ready),
-        true
-      )
-
-      const teamsSameSize =
-        lobby.players.filter((player) => player.teamIdx === 0).length ===
-        lobby.players.filter((player) => player.teamIdx === 1).length
-
-      const allTeamsComplete = lobby.players.length % 2 === 0
-
-      lobby.ready = allPlayersReady && allTeamsComplete && teamsSameSize
-      return lobby.ready
+      return calculateLobbyReadyness(lobby)
     },
     calculateFull() {
-      lobby.full = lobby.players.length >= lobby.maxPlayers
-      return lobby.full
+      return calculateLobbyFullness(lobby)
     },
-    async addPlayer(...params) {
+    async addPlayer(key, id, session, teamIdx, isOwner) {
       let player: IPlayer | null = null
       await lobby.queue.queue(() => {
         try {
-          player = lobby._addPlayer(...params)
+          player = addPlayerToLobby({
+            lobby,
+            id,
+            session,
+            key,
+            isOwner,
+            teamIdx,
+            teamSize: lobby.options.maxPlayers / 2,
+          })
         } catch (e) {
           logger.error(e, "Error adding player to match")
         }
@@ -98,96 +102,6 @@ export function Lobby(teamSize?: 1 | 2 | 3): ILobby {
         return player
       }
       throw new Error("Couldn't add player to match")
-    },
-    _addPlayer(key, id, session, teamIdx, isOwner) {
-      const playerParams = { id, key, teamIdx, isOwner }
-      logger.trace(playerParams, "Adding player to match started")
-      const exists = lobby.players.find((player) => player.session === session)
-      const hasMovedSlots = Boolean(exists)
-      if (exists) {
-        if (exists.teamIdx === teamIdx) {
-          logger.trace(
-            playerParams,
-            "Adding player to match: Player already exists on the same team"
-          )
-          return exists
-        }
-        isOwner = exists.isOwner
-
-        logger.trace(
-          playerParams,
-          "Adding player to match: Player already exists on a different team, removing player"
-        )
-        lobby.removePlayer(exists.session as string)
-      }
-
-      if (lobby.started) {
-        logger.trace(
-          playerParams,
-          "Adding player to match: Match already started! Cannot add player"
-        )
-        throw new Error(GAME_ERROR.MATCH_ALREADY_STARTED)
-      }
-
-      if (lobby.full) {
-        logger.trace(playerParams, "Adding player to match: Lobby is full. Cannot add player")
-        throw new Error(GAME_ERROR.LOBBY_IS_FULL)
-      }
-
-      const maxSize = teamSize ? teamSize : 3
-      if (
-        lobby.full ||
-        lobby.players.filter((player) => player.teamIdx === teamIdx).length > maxSize
-      ) {
-        logger.trace(playerParams, "Adding player to match: Team is full. Cannot add player")
-        throw new Error(GAME_ERROR.TEAM_IS_FULL)
-      }
-      const player = Player(
-        key,
-        id,
-        teamIdx !== undefined ? teamIdx : Number(!lobby.lastTeamIdx),
-        isOwner
-      )
-
-      player.setSession(session)
-      lobby.lastTeamIdx = player.teamIdx as 0 | 1
-
-      // Find team available slot
-      for (let i = 0; i < lobby._players.length; i++) {
-        if (!lobby._players[i].id) {
-          if (player.teamIdx === 0 && i % 2 === 0) {
-            lobby._players[i] = player
-            break
-          }
-          if (player.teamIdx === 1 && i % 2 !== 0) {
-            lobby._players[i] = player
-            break
-          }
-        }
-      }
-
-      if (hasMovedSlots) {
-        // Reorder other players to fit possible empty slot left by this player
-        for (let i = 0; i < lobby._players.length; i++) {
-          if (!lobby._players[i].id) {
-            for (let j = i + 2; j < lobby._players.length; j = j + 2) {
-              if (lobby._players[j].id) {
-                const p = { ...lobby._players[j] }
-                lobby._players[j] = {}
-                lobby._players[i] = p
-                break
-              }
-            }
-          }
-        }
-      }
-
-      lobby.calculateFull()
-      lobby.calculateReady()
-
-      logger.trace({ playerParams, player: player.getPublicPlayer() }, "Added player to match")
-
-      return player
     },
     removePlayer(session) {
       const idx = lobby._players.findIndex((player) => player && player.session === session)
@@ -198,41 +112,172 @@ export function Lobby(teamSize?: 1 | 2 | 3): ILobby {
       }
       return lobby
     },
-    startMatch(matchPoint = 9) {
-      lobby.calculateReady()
-      const actualTeamSize = lobby.players.length / 2
-
-      if (!TEAM_SIZE_VALUES.includes(actualTeamSize)) {
-        throw new Error(GAME_ERROR.UNEXPECTED_TEAM_SIZE)
-      }
-
-      if (!lobby.ready) {
-        throw new Error(GAME_ERROR.TEAM_NOT_READY)
-      }
-
-      lobby.teams = [
-        Team(0, lobby.players.filter((player) => player.teamIdx === 0)),
-        Team(1, lobby.players.filter((player) => player.teamIdx === 1)),
-      ]
-
-      if (
-        lobby.teams[0].players.length !== actualTeamSize ||
-        lobby.teams[1].players.length !== actualTeamSize
-      ) {
-        throw new Error(GAME_ERROR.UNEXPECTED_TEAM_SIZE)
-      }
-
-      lobby.table = Table(lobby.players)
-      lobby.gameLoop = GameLoop(Match(lobby.table, lobby.teams, matchPoint))
-
-      lobby.started = true
-      return lobby.gameLoop
+    startMatch() {
+      return startLobbyMatch(lobby)
     },
   }
 
-  for (let i = 0; i < lobby.maxPlayers; i++) {
+  for (let i = 0; i < lobby.options.maxPlayers; i++) {
     lobby._players.push({})
   }
 
   return lobby
+}
+
+const startLobbyMatch = (lobby: IPrivateLobby) => {
+  lobby.calculateReady()
+  const actualTeamSize = lobby.players.length / 2
+
+  if (!TEAM_SIZE_VALUES.includes(actualTeamSize)) {
+    throw new Error(GAME_ERROR.UNEXPECTED_TEAM_SIZE)
+  }
+
+  if (!lobby.ready) {
+    throw new Error(GAME_ERROR.TEAM_NOT_READY)
+  }
+
+  lobby.teams = [
+    Team(
+      0,
+      lobby.players.filter((player) => player.teamIdx === 0)
+    ),
+    Team(
+      1,
+      lobby.players.filter((player) => player.teamIdx === 1)
+    ),
+  ]
+
+  if (
+    lobby.teams[0].players.length !== actualTeamSize ||
+    lobby.teams[1].players.length !== actualTeamSize
+  ) {
+    throw new Error(GAME_ERROR.UNEXPECTED_TEAM_SIZE)
+  }
+
+  lobby.table = Table(lobby.players)
+  lobby.gameLoop = GameLoop(Match(lobby.table, lobby.teams, lobby.options))
+
+  lobby.started = true
+  return lobby.gameLoop
+}
+
+const calculateLobbyFullness = (lobby: IPrivateLobby) => {
+  lobby.full = lobby.players.length >= lobby.options.maxPlayers
+  return lobby.full
+}
+
+const calculateLobbyReadyness = (lobby: IPrivateLobby) => {
+  const allPlayersReady = lobby.players.reduce(
+    (prev, curr) => Boolean(prev && curr && curr.ready),
+    true
+  )
+
+  const teamsSameSize =
+    lobby.players.filter((player) => player.teamIdx === 0).length ===
+    lobby.players.filter((player) => player.teamIdx === 1).length
+
+  const allTeamsComplete = lobby.players.length % 2 === 0
+
+  lobby.ready = allPlayersReady && allTeamsComplete && teamsSameSize
+  return lobby.ready
+}
+
+const addPlayerToLobby = ({
+  lobby,
+  id,
+  session,
+  key,
+  teamIdx,
+  isOwner,
+  teamSize,
+}: {
+  lobby: IPrivateLobby
+  id: string
+  session: string
+  key: string
+  teamIdx?: 0 | 1
+  isOwner?: boolean
+  teamSize: number
+}) => {
+  const playerParams = { id, key, teamIdx, isOwner }
+  logger.trace(playerParams, "Adding player to match started")
+  const exists = lobby.players.find((player) => player.session === session)
+  const hasMovedSlots = Boolean(exists)
+  if (exists) {
+    if (exists.teamIdx === teamIdx) {
+      logger.trace(playerParams, "Adding player to match: Player already exists on the same team")
+      return exists
+    }
+    isOwner = exists.isOwner
+
+    logger.trace(
+      playerParams,
+      "Adding player to match: Player already exists on a different team, removing player"
+    )
+    lobby.removePlayer(exists.session as string)
+  }
+
+  if (lobby.started) {
+    logger.trace(playerParams, "Adding player to match: Match already started! Cannot add player")
+    throw new Error(GAME_ERROR.MATCH_ALREADY_STARTED)
+  }
+
+  if (lobby.full) {
+    logger.trace(playerParams, "Adding player to match: Lobby is full. Cannot add player")
+    throw new Error(GAME_ERROR.LOBBY_IS_FULL)
+  }
+
+  if (
+    lobby.full ||
+    lobby.players.filter((player) => player.teamIdx === teamIdx).length > teamSize
+  ) {
+    logger.trace(playerParams, "Adding player to match: Team is full. Cannot add player")
+    throw new Error(GAME_ERROR.TEAM_IS_FULL)
+  }
+  const player = Player(
+    key,
+    id,
+    teamIdx !== undefined ? teamIdx : Number(!lobby.lastTeamIdx),
+    isOwner
+  )
+
+  player.setSession(session)
+  lobby.lastTeamIdx = player.teamIdx as 0 | 1
+
+  // Find team available slot
+  for (let i = 0; i < lobby._players.length; i++) {
+    if (!lobby._players[i].id) {
+      if (player.teamIdx === 0 && i % 2 === 0) {
+        lobby._players[i] = player
+        break
+      }
+      if (player.teamIdx === 1 && i % 2 !== 0) {
+        lobby._players[i] = player
+        break
+      }
+    }
+  }
+
+  if (hasMovedSlots) {
+    // Reorder other players to fit possible empty slot left by this player
+    for (let i = 0; i < lobby._players.length; i++) {
+      if (!lobby._players[i].id) {
+        for (let j = i + 2; j < lobby._players.length; j = j + 2) {
+          if (lobby._players[j].id) {
+            const p = { ...lobby._players[j] }
+            lobby._players[j] = {}
+            lobby._players[i] = p
+            break
+          }
+        }
+      }
+    }
+  }
+
+  lobby.calculateFull()
+  lobby.calculateReady()
+
+  logger.trace({ playerParams, player: player.getPublicPlayer() }, "Added player to match")
+
+  return player
 }

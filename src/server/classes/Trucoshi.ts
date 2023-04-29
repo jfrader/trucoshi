@@ -135,6 +135,7 @@ export interface ITrucoshi {
   onTruco(table: IMatchTable, play: IPlayInstance): Promise<void>
   onEnvido(table: IMatchTable, play: IPlayInstance, isPointsRounds: boolean): Promise<void>
   onWinner(table: IMatchTable, winner: ITeam): Promise<void>
+  removePlayerAndCleanup(table: IMatchTable, player: IPlayer): void
   cleanupMatchTable(table: IMatchTable): void
   resetSocketsMatchState(table: IMatchTable): Promise<void>
   listen: (callback: (io: TrucoshiServer) => void) => void
@@ -455,10 +456,8 @@ export const Trucoshi = ({
       await Promise.allSettled(promises)
     },
     setTurnTimeout(table, player, user, onReconnection, onTimeout) {
-      logger.trace({ player, PLAYER_TURN_TIMEOUT, PLAYER_ABANDON_TIMEOUT }, "Setting turn timeout")
-      player.setTurnExpiration(PLAYER_TURN_TIMEOUT, PLAYER_ABANDON_TIMEOUT)
-
-      const update = () => server.emitMatchUpdate(table).catch(logger.error)
+      logger.trace({ player }, "Setting turn timeout")
+      player.setTurnExpiration(table.lobby.options.turnTime, PLAYER_ABANDON_TIMEOUT)
 
       const chat = server.chat.rooms.getOrThrow(table.matchSessionId)
 
@@ -469,7 +468,6 @@ export const Trucoshi = ({
         )
 
         table.playerDisconnected(player)
-        update()
 
         user
           .waitReconnection(table.matchSessionId)
@@ -490,8 +488,8 @@ export const Trucoshi = ({
             chat.system(`${player.id} se retiro de la partida.`)
             onTimeout()
           })
-          .finally(update)
-      }, PLAYER_TURN_TIMEOUT + PLAYER_TIMEOUT_GRACE)
+          .finally(() => server.emitMatchUpdate(table).catch(logger.error))
+      }, table.lobby.options.turnTime + PLAYER_TIMEOUT_GRACE)
     },
     onTurn(table, play) {
       logger.trace(
@@ -660,7 +658,7 @@ export const Trucoshi = ({
       try {
         const table = server.tables.getOrThrow(matchSessionId)
 
-        server.resetSocketsMatchState(table)
+        server.resetSocketsMatchState(table).catch(logger.error)
 
         if (table && !table.lobby.gameLoop) {
           table.lobby
@@ -766,18 +764,12 @@ export const Trucoshi = ({
         const { table, player, user } = playingMatch
 
         if (table.state() === EMatchTableState.FINISHED) {
-          logger.debug(
-            { matchId, socketId },
-            "Socket left a match and match is finished, deleting match table..."
-          )
-          server.cleanupMatchTable(table)
+          server.removePlayerAndCleanup(table, player)
           return resolve()
         }
 
         if (player && table.state() !== EMatchTableState.STARTED) {
-          const update = () => server.emitMatchUpdate(table).catch(logger.error)
           table.playerDisconnected(player)
-          update()
 
           user
             .waitReconnection(table.matchSessionId, PLAYER_LOBBY_TIMEOUT)
@@ -786,14 +778,21 @@ export const Trucoshi = ({
             })
             .catch(() => {
               table.playerAbandoned(player)
-              const lobby = table.lobby.removePlayer(player.session as string)
-              if (!lobby.players.length) {
-                server.cleanupMatchTable(table)
-              }
+              server.removePlayerAndCleanup(table, player)
             })
-            .finally(update)
+            .finally(() => server.emitMatchUpdate(table).catch(logger.error))
         }
       })
+    },
+    removePlayerAndCleanup(table, player) {
+      try {
+        const lobby = table.lobby.removePlayer(player.session as string)
+        if (lobby.isEmpty()) {
+          server.cleanupMatchTable(table)
+        }
+      } catch (e) {
+        logger.error(e)
+      }
     },
     cleanupMatchTable(table) {
       try {
