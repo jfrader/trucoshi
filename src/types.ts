@@ -8,6 +8,14 @@ export {
   PLAYER_TURN_TIMEOUT,
 } from "./server/constants"
 
+export interface ILobbyOptions {
+  maxPlayers: 2 | 4 | 6
+  faltaEnvido: 1 | 2
+  flor: boolean
+  matchPoint: number
+  turnTime: number
+}
+
 export interface ISaidCommand {
   player: IPlayer | IPublicPlayer
   command: ECommand | number
@@ -34,7 +42,7 @@ export interface IPublicMatchInfo {
   ownerId: string
   matchSessionId: string
   players: number
-  maxPlayers: number
+  options: ILobbyOptions
   state: EMatchTableState
 }
 
@@ -300,7 +308,7 @@ export type IEnvidoCalculatorResult = {
 
 export type IFaltaEnvidoCalculatorArgs = {
   teams: [ITeam, ITeam]
-  matchPoint: number
+  options: ILobbyOptions
 }
 
 export type IEnvidoCalculatorArgs = {
@@ -409,6 +417,7 @@ export interface ITeam {
   name: string
   players: Array<IPlayer>
   points: ITeamPoints
+  pointsToWin(matchPoint: number): number
   getPublicTeam(playerSession?: string): IPublicTeam
   isTeamDisabled(): boolean
   disable(player: IPlayer): boolean

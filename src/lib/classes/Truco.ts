@@ -16,7 +16,6 @@ export interface ITruco {
   players: Array<IPlayer>
   currentCommands: Array<IPlayerCurrentCommands>
   currentPlayer: IPlayer | null
-  generator: Generator<ITruco, void, unknown>
   sayTruco(player: IPlayer): ITruco
   sayAnswer(player: IPlayer, answer: boolean | null): ITruco
   setTurn(turn: number): number
@@ -46,35 +45,34 @@ const TRUCO_STATE_MAP = {
   4: null,
 }
 
-export function Truco(teams: [ITeam, ITeam]) {
-  function* trucoAnswerGeneratorSequence() {
-    let i = 0
-    while (i < truco.players.length && truco.answer === null) {
-      const player = truco.players[truco.turn]
-      truco.setCurrentPlayer(player)
-      if (player.disabled) {
-        truco.setCurrentPlayer(null)
-      }
-
-      if (truco.turn >= truco.players.length - 1) {
-        truco.setTurn(0)
-      } else {
-        truco.setTurn(truco.turn + 1)
-      }
-
-      i++
-
-      yield truco
+function* trucoTurnGeneratorSequence(truco: ITruco): Generator<ITruco, void, ITruco> {
+  let i = 0
+  while (i < truco.players.length && truco.answer === null) {
+    const player = truco.players[truco.turn]
+    truco.setCurrentPlayer(player)
+    if (player.disabled) {
+      truco.setCurrentPlayer(null)
     }
+
+    if (truco.turn >= truco.players.length - 1) {
+      truco.setTurn(0)
+    } else {
+      truco.setTurn(truco.turn + 1)
+    }
+
+    i++
+
     yield truco
   }
+  yield truco
+}
 
+export function Truco(teams: [ITeam, ITeam]) {
   const truco: ITruco = {
     ...EMPTY_TRUCO,
     state: 1,
     teams,
     currentCommands: [],
-    generator: trucoAnswerGeneratorSequence(),
     getNextTrucoCommand() {
       return TRUCO_STATE_MAP[truco.state]
     },
@@ -95,7 +93,8 @@ export function Truco(teams: [ITeam, ITeam]) {
         truco.teamIdx = playerTeamIdx
         truco.answer = null
         truco.players = teams[opponentIdx].players
-        truco.generator = trucoAnswerGeneratorSequence()
+
+        turnGenerator = trucoTurnGeneratorSequence(truco)
 
         return truco
       }
@@ -130,9 +129,11 @@ export function Truco(teams: [ITeam, ITeam]) {
       return truco.currentPlayer
     },
     getNextPlayer() {
-      return truco.generator.next()
+      return turnGenerator.next()
     },
   }
+
+  let turnGenerator = trucoTurnGeneratorSequence(truco)
 
   return truco
 }

@@ -1,3 +1,4 @@
+import logger from "../../etc/logger"
 import {
   EAnswerCommand,
   EEnvidoAnswerCommand,
@@ -48,7 +49,100 @@ export interface IHand {
   setCurrentRound(round: IRound | null): IRound | null
   setCurrentPlayer(player: IPlayer | null): IPlayer | null
   setState(state: EHandState): EHandState
-  getNextPlayer(): IteratorResult<IHand, IHand | void>
+  getNextTurn(): IteratorResult<IHand, IHand | void>
+}
+
+function* handTurnGeneratorSequence(match: IMatch, hand: IHand) {
+  let currentRoundIdx = 0
+  let forehandTeamIdx = match.table.getPlayer(hand.turn).teamIdx as 0 | 1
+
+  while (currentRoundIdx < 3 && !hand.finished()) {
+    const round = Round()
+    hand.setCurrentRound(round)
+    hand.pushRound(round)
+
+    let previousRound = hand.rounds[currentRoundIdx - 1]
+
+    // Put previous round winner as forehand
+    if (previousRound && previousRound.winner) {
+      if (previousRound.tie) {
+        hand.setTurn(match.table.forehandIdx)
+      } else {
+        const newTurn = match.table.getPlayerPosition(previousRound.winner.key)
+        if (newTurn !== -1) {
+          hand.setTurn(newTurn)
+        }
+      }
+    }
+
+    while (round.turn < match.table.players.length) {
+      while (
+        hand.state === EHandState.WAITING_ENVIDO_ANSWER ||
+        hand.state === EHandState.WAITING_ENVIDO_POINTS_ANSWER
+      ) {
+        const { value } = hand.envido.getNextPlayer()
+        if (value && value.currentPlayer) {
+          hand.setCurrentPlayer(value.currentPlayer)
+          yield hand
+        }
+      }
+
+      while (hand.state === EHandState.WAITING_FOR_TRUCO_ANSWER) {
+        const { value } = hand.truco.getNextPlayer()
+        if (value && value.currentPlayer) {
+          hand.setCurrentPlayer(value.currentPlayer)
+          yield hand
+        }
+      }
+
+      if (hand.truco.answer === false) {
+        hand.setState(EHandState.FINISHED)
+        break
+      }
+
+      if (hand.envido.winner) {
+        const simulatedPoints = hand.envido.winner.addPoints(
+          match.options.matchPoint,
+          hand.envido.getPointsToGive(),
+          true
+        )
+        if (simulatedPoints.winner) {
+          hand.setState(EHandState.FINISHED)
+          break
+        }
+      }
+
+      const player = match.table.getPlayer(hand.turn)
+      hand.setCurrentPlayer(player)
+
+      if (match.teams.some((team) => team.isTeamDisabled())) {
+        hand.setState(EHandState.FINISHED)
+        break
+      }
+
+      yield hand
+    }
+
+    let winnerTeamIdx = checkHandWinner(hand.rounds, forehandTeamIdx)
+
+    if (match.teams[0].isTeamDisabled()) {
+      winnerTeamIdx = 1
+    }
+    if (match.teams[1].isTeamDisabled()) {
+      winnerTeamIdx = 0
+    }
+
+    if (winnerTeamIdx !== null) {
+      if (hand.envido.winner) {
+        hand.addPoints(hand.envido.winner.id, hand.envido.getPointsToGive())
+      }
+      hand.addPoints(winnerTeamIdx, hand.truco.state)
+      hand.setState(EHandState.FINISHED)
+    }
+
+    currentRoundIdx++
+  }
+  yield hand
 }
 
 export function Hand(match: IMatch, deck: IDeck, idx: number) {
@@ -63,102 +157,6 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
     }
   }
 
-  function* roundsGeneratorSequence() {
-    let currentRoundIdx = 0
-    let forehandTeamIdx = match.table.getPlayer(hand.turn).teamIdx as 0 | 1
-
-    while (currentRoundIdx < 3 && !hand.finished()) {
-      const round = Round()
-      hand.setCurrentRound(round)
-      hand.pushRound(round)
-
-      let previousRound = hand.rounds[currentRoundIdx - 1]
-
-      // Put previous round winner as forehand
-      if (previousRound && previousRound.winner) {
-        if (previousRound.tie) {
-          hand.setTurn(match.table.forehandIdx)
-        } else {
-          const newTurn = match.table.getPlayerPosition(previousRound.winner.key)
-          if (newTurn !== -1) {
-            hand.setTurn(newTurn)
-          }
-        }
-      }
-
-      while (round.turn < match.table.players.length) {
-        while (
-          hand.state === EHandState.WAITING_ENVIDO_ANSWER ||
-          hand.state === EHandState.WAITING_ENVIDO_POINTS_ANSWER
-        ) {
-          const { value } = hand.envido.getNextPlayer()
-          if (value && value.currentPlayer) {
-            hand.setCurrentPlayer(value.currentPlayer)
-            yield hand
-          }
-        }
-
-        while (hand.state === EHandState.WAITING_FOR_TRUCO_ANSWER) {
-          const { value } = hand.truco.getNextPlayer()
-          if (value && value.currentPlayer) {
-            hand.setCurrentPlayer(value.currentPlayer)
-            yield hand
-          }
-        }
-
-        if (hand.truco.answer === false) {
-          hand.setState(EHandState.FINISHED)
-          break
-        }
-
-        if (hand.envido.winner) {
-          const simulatedPoints = hand.envido.winner.addPoints(
-            match.matchPoint,
-            hand.envido.getPointsToGive(),
-            true
-          )
-          if (simulatedPoints.winner) {
-            hand.setState(EHandState.FINISHED)
-            break
-          }
-        }
-
-        const player = match.table.getPlayer(hand.turn)
-        hand.setCurrentPlayer(player)
-
-        if (match.teams.some((team) => team.isTeamDisabled())) {
-          hand.setState(EHandState.FINISHED)
-          break
-        }
-
-        yield hand
-      }
-
-      let winnerTeamIdx = checkHandWinner(hand.rounds, forehandTeamIdx)
-
-      if (match.teams[0].isTeamDisabled()) {
-        winnerTeamIdx = 1
-      }
-      if (match.teams[1].isTeamDisabled()) {
-        winnerTeamIdx = 0
-      }
-
-      if (winnerTeamIdx !== null) {
-        hand.addPoints(winnerTeamIdx, hand.truco.state)
-        hand.setState(EHandState.FINISHED)
-      }
-
-      if (hand.envido.winner) {
-        hand.addPoints(hand.envido.winner.id, hand.envido.getPointsToGive())
-      }
-
-      currentRoundIdx++
-    }
-    yield hand
-  }
-
-  const roundsGenerator = roundsGeneratorSequence()
-
   const trucoCommand = (player: IPlayer) => {
     hand.truco.sayTruco(player)
     hand.setState(EHandState.WAITING_FOR_TRUCO_ANSWER)
@@ -170,56 +168,10 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
     turn: Number(match.table.forehandIdx),
     state: EHandState.WAITING_PLAY,
     rounds: [],
-    envido: Envido(match.teams, match.matchPoint, match.table),
+    envido: Envido(match.teams, match.options, match.table),
     truco: Truco(match.teams),
     setTurnCommands() {
-      match.table.players.forEach((player) => {
-        player.resetCommands()
-      })
-
-      if (hand.rounds.length === 1) {
-        if (hand.envido.teamIdx !== null && !hand.envido.answered) {
-          match.teams[Number(!hand.envido.teamIdx)].players.forEach((player) => {
-            hand.envido.possibleAnswerCommands.forEach((command) => {
-              player._commands.add(command)
-            })
-          })
-        }
-        if (hand.envido.accepted && !hand.envido.finished && hand.envido.winningPointsAnswer) {
-          hand.currentPlayer?._commands.add(EEnvidoAnswerCommand.SON_BUENAS)
-        }
-        if (
-          hand.currentPlayer &&
-          !hand.envido.started &&
-          (hand.truco.state < 2 || (hand.truco.state === 2 && hand.truco.answer === null))
-        ) {
-          for (const key in EEnvidoCommand) {
-            hand.currentPlayer._commands.add(key as EEnvidoCommand)
-          }
-        }
-      }
-      if (hand.envido.finished || !hand.envido.started) {
-        if (hand.truco.waitingAnswer) {
-          match.teams[Number(!hand.truco.teamIdx)].players.forEach((player) => {
-            const nextCommand = hand.truco.getNextTrucoCommand()
-            if (nextCommand) {
-              player._commands.add(nextCommand)
-            }
-            player._commands.add(EAnswerCommand.QUIERO)
-            player._commands.add(EAnswerCommand.NO_QUIERO)
-          })
-        } else {
-          match.table.players.forEach((player) => {
-            if (hand.truco.teamIdx !== player.teamIdx) {
-              const nextCommand = hand.truco.getNextTrucoCommand()
-              if (nextCommand) {
-                player._commands.add(nextCommand)
-              }
-            }
-            player._commands.add(ESayCommand.MAZO)
-          })
-        }
-      }
+      return setTurnCommands(match, hand)
     },
     points: [0, 0],
     currentRound: null,
@@ -337,7 +289,7 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
 
       hand.currentRound?.nextTurn()
     },
-    getNextPlayer() {
+    getNextTurn() {
       const player = roundsGenerator.next()
       hand.setTurnCommands()
       return player
@@ -346,6 +298,7 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
       match.teams[player.teamIdx].disable(player)
     },
     addPoints(team, points) {
+      logger.fatal({ team, points }, "Adding hand points")
       hand.points[team] = hand.points[team] + points
     },
     pushRound(round) {
@@ -373,5 +326,57 @@ export function Hand(match: IMatch, deck: IDeck, idx: number) {
     },
   }
 
+  const roundsGenerator = handTurnGeneratorSequence(match, hand)
+
   return hand
+}
+
+const setTurnCommands = (match: IMatch, hand: IHand) => {
+  match.table.players.forEach((player) => {
+    player.resetCommands()
+  })
+
+  if (hand.rounds.length === 1) {
+    if (hand.envido.teamIdx !== null && !hand.envido.answered) {
+      match.teams[Number(!hand.envido.teamIdx)].players.forEach((player) => {
+        hand.envido.possibleAnswerCommands.forEach((command) => {
+          player._commands.add(command)
+        })
+      })
+    }
+    if (hand.envido.accepted && !hand.envido.finished && hand.envido.winningPointsAnswer) {
+      hand.currentPlayer?._commands.add(EEnvidoAnswerCommand.SON_BUENAS)
+    }
+    if (
+      hand.currentPlayer &&
+      !hand.envido.started &&
+      (hand.truco.state < 2 || (hand.truco.state === 2 && hand.truco.answer === null))
+    ) {
+      for (const key in EEnvidoCommand) {
+        hand.currentPlayer._commands.add(key as EEnvidoCommand)
+      }
+    }
+  }
+  if (hand.envido.finished || !hand.envido.started) {
+    if (hand.truco.waitingAnswer) {
+      match.teams[Number(!hand.truco.teamIdx)].players.forEach((player) => {
+        const nextCommand = hand.truco.getNextTrucoCommand()
+        if (nextCommand) {
+          player._commands.add(nextCommand)
+        }
+        player._commands.add(EAnswerCommand.QUIERO)
+        player._commands.add(EAnswerCommand.NO_QUIERO)
+      })
+    } else {
+      match.table.players.forEach((player) => {
+        if (hand.truco.teamIdx !== player.teamIdx) {
+          const nextCommand = hand.truco.getNextTrucoCommand()
+          if (nextCommand) {
+            player._commands.add(nextCommand)
+          }
+        }
+        player._commands.add(ESayCommand.MAZO)
+      })
+    }
+  }
 }

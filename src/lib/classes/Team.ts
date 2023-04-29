@@ -1,3 +1,4 @@
+import logger from "../../etc/logger"
 import { IPlayer, ITeam } from "../../types"
 
 export function Team(id: 0 | 1, players: Array<IPlayer>, name?: string) {
@@ -22,7 +23,7 @@ export function Team(id: 0 | 1, players: Array<IPlayer>, name?: string) {
       }
     },
     isTeamDisabled() {
-      return team.players.reduce((prev, curr) => prev && (curr.disabled || curr.abandoned), true)
+      return team.players.every((player) => player.disabled || player.abandoned)
     },
     enable(player) {
       if (player) {
@@ -38,10 +39,17 @@ export function Team(id: 0 | 1, players: Array<IPlayer>, name?: string) {
       team._players.get(player.session as string)?.disable()
       return team.isTeamDisabled()
     },
+    pointsToWin(matchPoint) {
+      if (team.points.malas < matchPoint && team.points.buenas < 1) {
+        return matchPoint * 2 - team.points.malas
+      }
+      return matchPoint - team.points.buenas
+    },
     addPoints(matchPoint, points, simulate = false) {
-      const current = { ...team.points }
+      const current = structuredClone(team.points)
       const malas = current.malas + points
       const diff = malas - matchPoint
+
       if (diff > 0) {
         current.malas = matchPoint
         current.buenas += diff
@@ -55,6 +63,7 @@ export function Team(id: 0 | 1, players: Array<IPlayer>, name?: string) {
       if (simulate) {
         return current
       }
+
       team.points = current
       return team.points
     },
