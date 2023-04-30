@@ -1,6 +1,6 @@
 import * as readline from "readline"
 import { IPlayInstance, IRound, Lobby } from "../lib"
-import { ICard, IPlayer, ITeam } from "../types"
+import { CARDS_HUMAN_READABLE, ICard, IPlayer, ITeam } from "../types"
 
 const command = (
   title: string,
@@ -137,7 +137,7 @@ const sayPoints = (play: IPlayInstance) =>
       console.log(
         play.rounds && play.rounds.length
           ? play.rounds.map((round: IRound) =>
-              round.cards.length ? round.cards.map((c) => [c.player.id, c.card]) : ""
+              round.cards.length ? round.cards.map((c) => [c.player.id, CARDS_HUMAN_READABLE[c.card] || 'xx']) : ""
             )
           : ""
       )

@@ -7,7 +7,11 @@ export * from "./classes"
 export * from "./constants"
 export * from "./middlewares"
 
+import * as dotenv from 'dotenv'
+
 let version = ""
+
+dotenv.config()
 
 export default () => {
   process.on("unhandledRejection", (reason, promise) => {

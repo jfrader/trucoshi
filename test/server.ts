@@ -51,7 +51,7 @@ describe("Socket Server", () => {
     clientSocket1.close()
   })
 
-  it("should work", (done) => {
+  it("should send ping", (done) => {
     clientSocket0.on(EServerEvent.PONG, (_a, b) => {
       assert.equal(b, 123)
       done()
