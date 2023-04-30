@@ -22,6 +22,7 @@ import {
   TMap,
 } from "../../types"
 import {
+  MATCH_FINISHED_CLEANUP_TIMEOUT,
   PLAYER_LOBBY_TIMEOUT,
   PLAYER_TIMEOUT_GRACE,
 } from "../constants"
@@ -649,6 +650,10 @@ export const Trucoshi = ({
             logger.error(e, "ONWINNER CALLBACK ERROR")
             resolve()
           })
+
+        setTimeout(() => {
+          server.cleanupMatchTable(table)
+        }, MATCH_FINISHED_CLEANUP_TIMEOUT)
       })
     },
     async startMatch(matchSessionId) {
