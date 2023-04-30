@@ -133,11 +133,12 @@ function* handTurnGeneratorSequence(match: IMatch, hand: IHand) {
     }
 
     if (winnerTeamIdx !== null) {
-      if (hand.envido.winner) {
-        hand.addPoints(hand.envido.winner.id, hand.envido.getPointsToGive())
-      }
       hand.addPoints(winnerTeamIdx, hand.truco.state)
       hand.setState(EHandState.FINISHED)
+    }
+
+    if (hand.state === EHandState.FINISHED && hand.envido.winner) {
+      hand.addPoints(hand.envido.winner.id, hand.envido.getPointsToGive())
     }
 
     currentRoundIdx++

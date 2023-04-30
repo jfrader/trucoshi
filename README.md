@@ -16,10 +16,6 @@ Pretende ser un server basado en sockets del juego de Truco Argentino que te per
 
 Proba la demo actual en [Trucoshi](https://trucoshi.com)
 
-# Test
-
-Right now there's only a local CLI way of playing as there is no socket server implementation and its just the game logic.
-
 # Client
 
 [Trucoshi React Client](https://github.com/jfrader/trucoshi-client)
@@ -32,13 +28,17 @@ Right now there's only a local CLI way of playing as there is no socket server i
 
 `yarn build`
 
+# Test
+
+`yarn test`
+
 ### Play
 
-`yarn test:play`
+`yarn cli:play`
 
 ### Autoplay
 
-`yarn test:autoplay`
+`yarn cli:autoplay`
 
 # Todo
 

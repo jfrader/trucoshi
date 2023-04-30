@@ -262,15 +262,7 @@ export class TMap<K, V> extends Map<K, V> {
   }
 
   findAll(finder: (value: V) => boolean) {
-    let result: Array<V> = []
-
-    for (let value of this.values()) {
-      const find = finder(value)
-      if (find) {
-        result.push(value)
-      }
-    }
-    return result
+    return Array.from(this.values()).filter(finder)
   }
 
   getOrThrow(key?: K) {

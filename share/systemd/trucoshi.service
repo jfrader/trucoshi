@@ -6,6 +6,7 @@ After=network.target
 [Service]
 Environment=NODE_PORT=4001
 Environment=NODE_ORIGIN=http://localhost:3000
+Environment=NODE_DEBUG_LEVEL=debug
 Type=simple
 User=web
 ExecStart=/usr/bin/node /home/www/trucoshi/bin/trucoshi-server

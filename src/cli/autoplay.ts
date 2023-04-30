@@ -1,4 +1,4 @@
-import { IRound, Lobby } from "../lib"
+import { CARDS_HUMAN_READABLE, IRound, Lobby } from "../lib"
 ;(async () => {
   const trucoshi = Lobby()
 
@@ -40,7 +40,7 @@ import { IRound, Lobby } from "../lib"
       console.log(
         play.rounds && play.rounds.length
           ? play.rounds.map((round: IRound) =>
-              round.cards.length ? round.cards.map((c) => [c.player.id, c.card]) : ""
+              round.cards.length ? round.cards.map((c) => [c.player.id, CARDS_HUMAN_READABLE[c.card] || 'xx']) : ""
             )
           : ""
       )
