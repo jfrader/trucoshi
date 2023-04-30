@@ -2,6 +2,7 @@ import { CARDS, CARDS_HUMAN_READABLE } from "./lib/constants"
 
 export { CARDS, CARDS_HUMAN_READABLE }
 
+
 export interface ILobbyOptions {
   maxPlayers: 2 | 4 | 6
   faltaEnvido: 1 | 2
