@@ -1,6 +1,6 @@
 {
   "name": "trucoshi",
-  "version": "0.5.10",
+  "version": "0.5.11",
   "main": "dist/types.js",
   "license": "GPL-3.0",
   "scripts": {
