@@ -344,7 +344,12 @@ const setTurnCommands = (match: IMatch, hand: IHand) => {
         })
       })
     }
-    if (hand.envido.accepted && !hand.envido.finished && hand.envido.winningPointsAnswer) {
+    if (
+      hand.envido.accepted &&
+      !hand.envido.finished &&
+      hand.envido.winningPointsAnswer !== -1 &&
+      hand.envido.winningPointsAnswer > 0
+    ) {
       hand.currentPlayer?._commands.add(EEnvidoAnswerCommand.SON_BUENAS)
     }
     if (
