@@ -1,5 +1,9 @@
 import logger from "../../etc/logger"
-import { EAnswerCommand, EEnvidoAnswerCommand, EHandState, ESayCommand, IPlayer, ITeam } from "../../types"
+import {
+  EHandState,
+  IPlayer,
+  ITeam,
+} from "../../types"
 import { IHand } from "./Hand"
 import { IMatch } from "./Match"
 import { IPlayInstance } from "./Play"
@@ -60,88 +64,81 @@ export const GameLoop = (match: IMatch) => {
       return gameloop
     },
     async begin() {
-      gameloop.teams = match.teams
+      let winner: ITeam | null = null
+      try {
+        gameloop.teams = match.teams
 
-      while (!match.winner) {
-        const play = match.play()
+        while (!match.winner) {
+          const play = match.play()
 
-        logger.trace({ winner: match.winner }, "Game tick started")
+          logger.trace({ winner: match.winner }, "Game tick started")
 
-        gameloop.currentHand = match.currentHand
+          gameloop.currentHand = match.currentHand
 
-        if (!play && match.prevHand) {
-          await gameloop._onHandFinished(match.prevHand)
-          continue
-        }
+          if (!play && match.prevHand) {
+            await gameloop._onHandFinished(match.prevHand)
+            continue
+          }
 
-        if (!play || !play.player) {
-          continue
-        }
+          if (!play || !play.player) {
+            continue
+          }
 
-        gameloop.currentPlayer = play.player
+          gameloop.currentPlayer = play.player
 
-        if (play.state === EHandState.WAITING_ENVIDO_ANSWER) {
-          try {
+          if (play.state === EHandState.WAITING_ENVIDO_ANSWER) {
             play.player.setTurn(true)
             await gameloop._onEnvido(play, false)
-          } catch (e) {
-            logger.debug(play, "Player failed to answer an envido call")
-          } finally {
             play.player.setTurn(false)
+            continue
           }
-          continue
-        }
 
-        if (play.state === EHandState.WAITING_ENVIDO_POINTS_ANSWER) {
-          try {
+          if (play.state === EHandState.WAITING_ENVIDO_POINTS_ANSWER) {
             play.player.setTurn(true)
             play.player.setEnvidoTurn(true)
             await gameloop._onEnvido(play, true)
-          } catch (e) {
-            logger.debug(play, "Player failed to say their envido points")
-          } finally {
             play.player.setEnvidoTurn(false)
             play.player.setTurn(false)
+            continue
           }
-          continue
-        }
 
-        if (play.state === EHandState.WAITING_FOR_TRUCO_ANSWER) {
-          try {
+          if (play.state === EHandState.WAITING_FOR_TRUCO_ANSWER) {
             play.player.setTurn(true)
             await gameloop._onTruco(play)
-          } catch (e) {
-            logger.debug(play, "Player failed to answer a truco call")
-          } finally {
             play.player.setTurn(false)
+            continue
           }
-          continue
-        }
 
-        if (play.state === EHandState.WAITING_PLAY) {
-          try {
+          if (play.state === EHandState.WAITING_PLAY) {
             play.player.setTurn(true)
             await gameloop._onTurn(play)
-          } catch (e) {
-            logger.debug(play, "Player failed to play their turn")
-          } finally {
             play.player.setTurn(false)
+            continue
           }
-          continue
+
+          break
         }
 
-        break
+        if (!match.winner) {
+          throw new Error("Something went very wrong in the game loop")
+        }
+
+        winner = match.winner
+      } catch (e) {
+        logger.error(e)
+        logger.fatal(e, "Match ended because an error was thrown in the game loop!")
+        match.setWinner(match.teams[0])
+        winner = match.teams[0]
       }
 
-      if (!match.winner) {
-        logger.error(new Error("Something went very wrong in the game loop"))
-        return
-      }
-
-      gameloop.winner = match.winner
+      gameloop.winner = winner
       gameloop.currentPlayer = null
 
-      await gameloop._onWinner(match.winner, match.teams)
+      try {
+        await gameloop._onWinner(winner, match.teams)
+      } catch (e) {
+        logger.error(e, "Gameloop onWinner callback error")
+      }
     },
   }
 

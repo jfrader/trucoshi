@@ -44,7 +44,7 @@ function* matchTurnGeneratorSequence(match: IMatch) {
 
     yield match
 
-    const hand = match.setCurrentHand(Hand(match, match.deck, match.hands.length + 1)) as IHand
+    const hand = match.setCurrentHand(Hand(match, match.hands.length + 1)) as IHand
     match.pushHand(hand)
 
     while (!hand.finished()) {

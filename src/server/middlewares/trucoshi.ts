@@ -51,7 +51,11 @@ export const trucoshi =
         socket.join(matchId)
         server.tables.set(matchId, table)
 
-        return callback({ success: true, match: table.getPublicMatch(user.id) })
+        return callback({
+          success: true,
+          match: table.getPublicMatch(user.id),
+          activeMatches: server.getSessionActiveMatches(user.session),
+        })
       } catch (e) {
         logger.warn(e)
         return callback({ success: false })
@@ -75,7 +79,7 @@ export const trucoshi =
         logger.trace({ matchId }, "Match could not be started")
         callback({ success: false })
       } catch (e) {
-        logger.warn(e)
+        logger.error(e)
         callback({ success: false })
       }
     })
@@ -103,7 +107,8 @@ export const trucoshi =
           server.emitMatchUpdate(table, []).catch(console.error)
           return callback({
             success: true,
-            match: table.getPublicMatch(socket.data.user?.session),
+            match: table.getPublicMatch(user.session),
+            activeMatches: server.getSessionActiveMatches(user.session),
           })
         }
         callback({ success: false })

@@ -127,6 +127,7 @@ const getPublicMatch = (table: IMatchTable, userSession?: string, isNewHand: boo
   return {
     me,
     winner,
+    options: lobby.options,
     matchSessionId: table.matchSessionId,
     state: table.state(),
     teams: publicTeams,
