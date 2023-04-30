@@ -38,8 +38,6 @@ function* matchTurnGeneratorSequence(match: IMatch) {
     }
 
     match.deck.shuffle()
-
-    match.setPrevHand(match.hands.at(-1) || null)
     match.setCurrentHand(null)
 
     yield match
@@ -58,13 +56,14 @@ function* matchTurnGeneratorSequence(match: IMatch) {
           continue
         }
         if (value.finished()) {
-          continue
+          break
         }
       }
       match.setCurrentHand(value as IHand)
       yield match
     }
 
+    match.setPrevHand(hand)
     match.setCurrentHand(null)
 
     const teams = match.addPoints(hand.points)

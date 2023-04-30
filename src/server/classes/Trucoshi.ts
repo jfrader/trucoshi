@@ -632,9 +632,13 @@ export const Trucoshi = ({
           })
       })
     },
-    onWinner(table, _winner) {
+    onWinner(table, winner) {
       return new Promise<void>((resolve) => {
         logger.debug(table.getPublicMatchInfo(), "Match has finished with a winner")
+
+        const chat = server.chat.rooms.getOrThrow(table.matchSessionId)
+        chat.system(`${winner.name} es el equipo ganador!`)
+
         server
           .emitMatchUpdate(table)
           .then(() =>
