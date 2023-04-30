@@ -2,18 +2,14 @@ import { CARDS, CARDS_HUMAN_READABLE } from "./lib/constants"
 
 export { CARDS, CARDS_HUMAN_READABLE }
 
-export {
-  PREVIOUS_HAND_ACK_TIMEOUT,
-  PLAYER_ABANDON_TIMEOUT,
-  PLAYER_TURN_TIMEOUT,
-} from "./server/constants"
-
 export interface ILobbyOptions {
   maxPlayers: 2 | 4 | 6
   faltaEnvido: 1 | 2
   flor: boolean
   matchPoint: number
+  handAckTime: number
   turnTime: number
+  abandonTime: number
 }
 
 export interface ISaidCommand {
@@ -28,6 +24,7 @@ export interface IMatchPreviousHand {
 }
 
 export interface IPublicMatch {
+  options: ILobbyOptions
   state: EMatchTableState
   winner: ITeam | null
   matchSessionId: string
@@ -195,7 +192,9 @@ export interface ClientToServerEvents {
 
   [EClientEvent.LEAVE_MATCH]: (matchId: string) => void
 
-  [EClientEvent.CREATE_MATCH]: (callback: IEventCallback<{ match?: IPublicMatch }>) => void
+  [EClientEvent.CREATE_MATCH]: (
+    callback: IEventCallback<{ match?: IPublicMatch; activeMatches?: IPublicMatchInfo[] }>
+  ) => void
 
   [EClientEvent.START_MATCH]: (
     matchId: string,
@@ -232,7 +231,7 @@ export interface ClientToServerEvents {
   [EClientEvent.JOIN_MATCH]: (
     matchSessionId: string,
     teamIdx: 0 | 1 | undefined,
-    callback: IEventCallback<{ match?: IPublicMatch }>
+    callback: IEventCallback<{ match?: IPublicMatch; activeMatches?: IPublicMatchInfo[] }>
   ) => void
 }
 

@@ -1,5 +1,2 @@
-export const PREVIOUS_HAND_ACK_TIMEOUT = 1000 * 6
-export const PLAYER_ABANDON_TIMEOUT = 1000 * 45
-export const PLAYER_TURN_TIMEOUT = 1000 * 30
 export const PLAYER_TIMEOUT_GRACE = 500
 export const PLAYER_LOBBY_TIMEOUT = 1000 * 10

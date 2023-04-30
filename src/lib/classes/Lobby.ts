@@ -1,4 +1,4 @@
-import { DEFAULT_LOBBY_OPTIONS, TEAM_SIZE_VALUES } from "../constants"
+import { PLAYER_ABANDON_TIMEOUT, PLAYER_TURN_TIMEOUT, PREVIOUS_HAND_ACK_TIMEOUT, TEAM_SIZE_VALUES } from "../constants"
 import { GAME_ERROR, ILobbyOptions, IPlayer, ITeam } from "../../types"
 import { GameLoop, IGameLoop } from "./GameLoop"
 import { Match } from "./Match"
@@ -7,6 +7,18 @@ import { ITable, Table } from "./Table"
 import { Team } from "./Team"
 import { IQueue, Queue } from "./Queue"
 import logger from "../../etc/logger"
+
+export const DEFAULT_LOBBY_OPTIONS: ILobbyOptions = {
+  faltaEnvido: 2,
+  flor: false,
+  matchPoint: 9,
+  maxPlayers: 6,
+  handAckTime: PREVIOUS_HAND_ACK_TIMEOUT,
+  turnTime: PLAYER_TURN_TIMEOUT,
+  abandonTime: PLAYER_ABANDON_TIMEOUT,
+}
+
+logger.info(DEFAULT_LOBBY_OPTIONS)
 
 export interface IPrivateLobby {
   options: ILobbyOptions
@@ -56,7 +68,7 @@ export interface ILobby
 
 export function Lobby(options: Partial<ILobbyOptions> = {}): ILobby {
   const lobby: IPrivateLobby = {
-    options: { ...DEFAULT_LOBBY_OPTIONS, ...options },
+    options: Object.assign(structuredClone(DEFAULT_LOBBY_OPTIONS), options),
     lastTeamIdx: 1,
     _players: [],
     get players() {

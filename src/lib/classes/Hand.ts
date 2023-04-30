@@ -145,14 +145,14 @@ function* handTurnGeneratorSequence(match: IMatch, hand: IHand) {
   yield hand
 }
 
-export function Hand(match: IMatch, deck: IDeck, idx: number) {
+export function Hand(match: IMatch, idx: number) {
   for (const team of match.teams) {
     for (const player of team.players) {
       if (player.abandoned) {
         continue
       }
       player.enable()
-      player.setHand(deck.takeThree())
+      player.setHand(match.deck.takeThree())
       player.resetCommands()
     }
   }

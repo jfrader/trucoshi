@@ -22,11 +22,8 @@ import {
   TMap,
 } from "../../types"
 import {
-  PLAYER_ABANDON_TIMEOUT,
   PLAYER_LOBBY_TIMEOUT,
   PLAYER_TIMEOUT_GRACE,
-  PLAYER_TURN_TIMEOUT,
-  PREVIOUS_HAND_ACK_TIMEOUT,
 } from "../constants"
 import { Chat, IChat } from "./Chat"
 import { IMatchTable } from "./MatchTable"
@@ -438,7 +435,7 @@ export const Trucoshi = ({
               return rejectPlayer()
             }
             playerSocket.emit(EServerEvent.PREVIOUS_HAND, previousHand, resolvePlayer)
-            setTimeout(rejectPlayer, PREVIOUS_HAND_ACK_TIMEOUT)
+            setTimeout(rejectPlayer, table.lobby.options.handAckTime + PLAYER_TIMEOUT_GRACE)
           }).catch(console.error)
         )
       })
@@ -456,8 +453,8 @@ export const Trucoshi = ({
       await Promise.allSettled(promises)
     },
     setTurnTimeout(table, player, user, onReconnection, onTimeout) {
-      logger.trace({ player }, "Setting turn timeout")
-      player.setTurnExpiration(table.lobby.options.turnTime, PLAYER_ABANDON_TIMEOUT)
+      logger.trace({ player, options: table.lobby.options }, "Setting turn timeout")
+      player.setTurnExpiration(table.lobby.options.turnTime, table.lobby.options.abandonTime)
 
       const chat = server.chat.rooms.getOrThrow(table.matchSessionId)
 
@@ -470,7 +467,7 @@ export const Trucoshi = ({
         table.playerDisconnected(player)
 
         user
-          .waitReconnection(table.matchSessionId)
+          .waitReconnection(table.matchSessionId, table.lobby.options.abandonTime)
           .then(() => {
             logger.trace(
               { match: table.getPublicMatchInfo(), player: player.getPublicPlayer() },
