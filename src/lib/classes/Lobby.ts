@@ -18,8 +18,6 @@ export const DEFAULT_LOBBY_OPTIONS: ILobbyOptions = {
   abandonTime: PLAYER_ABANDON_TIMEOUT,
 }
 
-logger.info(DEFAULT_LOBBY_OPTIONS)
-
 export interface IPrivateLobby {
   options: ILobbyOptions
   gameLoop?: IGameLoop

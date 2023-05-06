@@ -315,10 +315,7 @@ export const Trucoshi = ({
       return new Promise<void>((resolve, reject) => {
         server
           .emitWaitingPossibleSay(play, table, isNewHand)
-          .then(() => {
-            play.setWaiting(false)
-            resolve()
-          })
+          .then(() => resolve())
           .catch(logger.error)
         return server
           .getTableSockets(table, async (playerSocket, player) => {
@@ -380,7 +377,6 @@ export const Trucoshi = ({
           const saidCommand = play.say(command, player)
           if (saidCommand || saidCommand === 0) {
             clearTimeout(server.turns.getOrThrow(table.matchSessionId).timeout)
-            play.setWaiting(false)
 
             server.chat.rooms
               .getOrThrow(table.matchSessionId)

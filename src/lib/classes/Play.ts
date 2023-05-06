@@ -5,6 +5,9 @@ import { IHand } from "./Hand"
 import { IRound } from "./Round"
 import { ITruco } from "./Truco"
 
+type PlayArgs<TType> = TType extends (...args: infer U extends any[]) => any ? U : never
+type PlayReturn<TType> = (TType extends (...args: any[]) => infer U ? U : never) | null
+
 export interface IPlayInstance {
   teams: [ITeam, ITeam]
   handIdx: number
@@ -18,10 +21,25 @@ export interface IPlayInstance {
   waitingPlay: boolean
   setWaiting(waiting: boolean): void
   use(idx: number, card: ICard): ICard | null
-  say(command: ECommand | number, player: IPlayer): ECommand | number | null
+  say(command: ECommand | number, player: IPlayer): typeof command | null
 }
 
 export function PlayInstance(hand: IHand, prevHand: IHand | null, teams: [ITeam, ITeam]) {
+  function play<TFnType extends ((...args: any[]) => any) | undefined>(
+    fn?: TFnType,
+    ...args: PlayArgs<TFnType>
+  ): PlayReturn<TFnType> {
+    if (!fn) {
+      return null
+    }
+    const result = fn(...args)
+    if (result !== null) {
+      instance.setWaiting(false)
+      return result
+    }
+    return null
+  }
+
   const instance: IPlayInstance = {
     state: hand.state,
     teams,
@@ -37,33 +55,26 @@ export function PlayInstance(hand: IHand, prevHand: IHand | null, teams: [ITeam,
       instance.waitingPlay = waiting
     },
     use(idx, card) {
-      return hand.use(idx, card)
+      return play(hand.use, idx, card)
     },
     say(command, player) {
       try {
-        if (command === 0) {
-          hand.sayEnvidoPoints(player, command)
-          return command
-        }
-
         if (player.disabled) {
-          return null
+          return play()
         }
 
-        const fn = hand.say[command as ECommand]
-
-        if (fn) {
-          if (!player.commands.includes(command as ECommand)) {
-            throw new Error(GAME_ERROR.INVALID_COMAND)
-          }
-          fn(player)
-        } else {
+        if (typeof command === "number") {
           if (command !== 0 && !player.envido.includes(command as number)) {
             throw new Error(GAME_ERROR.INVALID_ENVIDO_POINTS)
           }
-          hand.sayEnvidoPoints(player, command as number)
+
+          return play(hand.sayEnvidoPoints, player, command)
         }
-        return command
+
+        if (!player.commands.includes(command as ECommand)) {
+          throw new Error(GAME_ERROR.INVALID_COMAND)
+        }
+        return play(hand.say, command, player)
       } catch (e) {
         logger.error(e)
         return null

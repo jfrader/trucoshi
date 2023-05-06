@@ -1,6 +1,7 @@
 import logger from "../../etc/logger"
 import {
   EAnswerCommand,
+  ECommand,
   EEnvidoAnswerCommand,
   EEnvidoCommand,
   EFlorCommand,
@@ -34,7 +35,7 @@ export interface IHand {
   get currentPlayer(): IPlayer | null
   set currentPlayer(player: IPlayer | null)
   currentRound: IRound | null
-  say: IHandCommands
+  say(command: ECommand, player: IPlayer): ECommand | null
   finished: () => boolean
   setTurnCommands(): void
   play(prevHand: IHand | null): IPlayInstance | null
@@ -54,7 +55,7 @@ export interface IHand {
 
 function* handTurnGeneratorSequence(match: IMatch, hand: IHand) {
   let currentRoundIdx = 0
-  let forehandTeamIdx = match.table.getPlayer(hand.turn).teamIdx as 0 | 1
+  let forehandTeamIdx = match.table.getPlayerByPosition(hand.turn).teamIdx as 0 | 1
 
   while (currentRoundIdx < 3 && !hand.finished()) {
     const round = Round()
@@ -112,7 +113,7 @@ function* handTurnGeneratorSequence(match: IMatch, hand: IHand) {
         }
       }
 
-      const player = match.table.getPlayer(hand.turn)
+      const player = match.table.getPlayerByPosition(hand.turn)
       hand.setCurrentPlayer(player)
 
       if (match.teams.some((team) => team.isTeamDisabled())) {
@@ -157,12 +158,6 @@ export function Hand(match: IMatch, idx: number) {
       player.resetCommands()
     }
   }
-
-  const trucoCommand = (player: IPlayer) => {
-    hand.truco.sayTruco(player)
-    hand.setState(EHandState.WAITING_FOR_TRUCO_ANSWER)
-  }
-
   const hand: IHand = {
     idx,
     started: false,
@@ -194,55 +189,6 @@ export function Hand(match: IMatch, idx: number) {
 
       return player
     },
-    say: {
-      [ESayCommand.MAZO]: (player) => {
-        hand.disablePlayer(player)
-        hand.nextTurn()
-      },
-      [EAnswerCommand.QUIERO]: (player) => {
-        if (hand.state === EHandState.WAITING_FOR_TRUCO_ANSWER) {
-          hand.truco.sayAnswer(player, true)
-          hand.setState(EHandState.WAITING_PLAY)
-        }
-        if (hand.state === EHandState.WAITING_ENVIDO_ANSWER) {
-          hand.envido.sayAnswer(player, true)
-          hand.setState(EHandState.WAITING_ENVIDO_POINTS_ANSWER)
-        }
-      },
-      [EAnswerCommand.NO_QUIERO]: (player) => {
-        if (hand.state === EHandState.WAITING_FOR_TRUCO_ANSWER) {
-          hand.truco.sayAnswer(player, false)
-          hand.setState(EHandState.WAITING_PLAY)
-        }
-        if (hand.state === EHandState.WAITING_ENVIDO_ANSWER) {
-          hand.envido.sayAnswer(player, false)
-          hand.endEnvido()
-        }
-      },
-      [EEnvidoAnswerCommand.SON_BUENAS]: (player) => {
-        if (hand.state === EHandState.WAITING_ENVIDO_POINTS_ANSWER) {
-          hand.envido.sayPoints(player, 0)
-          hand.endEnvido()
-        }
-      },
-      [ETrucoCommand.TRUCO]: trucoCommand,
-      [ETrucoCommand.RE_TRUCO]: trucoCommand,
-      [ETrucoCommand.VALE_CUATRO]: trucoCommand,
-      [EEnvidoCommand.ENVIDO]: (player: IPlayer) => {
-        hand.envido.sayEnvido(EEnvidoCommand.ENVIDO, player)
-        hand.setState(EHandState.WAITING_ENVIDO_ANSWER)
-      },
-      [EEnvidoCommand.REAL_ENVIDO]: (player: IPlayer) => {
-        hand.envido.sayEnvido(EEnvidoCommand.REAL_ENVIDO, player)
-        hand.setState(EHandState.WAITING_ENVIDO_ANSWER)
-      },
-      [EEnvidoCommand.FALTA_ENVIDO]: (player: IPlayer) => {
-        hand.envido.sayEnvido(EEnvidoCommand.FALTA_ENVIDO, player)
-        hand.setState(EHandState.WAITING_ENVIDO_ANSWER)
-      },
-      [EFlorCommand.FLOR]: () => {},
-      [EFlorCommand.CONTRAFLOR]: () => {},
-    },
     play(prevHand) {
       return PlayInstance(hand, prevHand, match.teams)
     },
@@ -258,6 +204,15 @@ export function Hand(match: IMatch, idx: number) {
         hand.setState(EHandState.WAITING_FOR_TRUCO_ANSWER)
       } else {
         hand.setState(EHandState.WAITING_PLAY)
+      }
+    },
+    say(command, player) {
+      try {
+        commands[command](hand, player)
+        return command
+      } catch (e) {
+        logger.error(e)
+        return null
       }
     },
     use(idx, card, burn) {
@@ -307,7 +262,7 @@ export function Hand(match: IMatch, idx: number) {
     },
     setTurn(turn) {
       hand.turn = turn
-      return match.table.getPlayer(hand.turn)
+      return match.table.getPlayerByPosition(hand.turn)
     },
     setCurrentRound(round) {
       hand.currentRound = round
@@ -384,4 +339,59 @@ const setTurnCommands = (match: IMatch, hand: IHand) => {
       })
     }
   }
+}
+
+const trucoCommand = (hand: IHand, player: IPlayer) => {
+  hand.truco.sayTruco(player)
+  hand.setState(EHandState.WAITING_FOR_TRUCO_ANSWER)
+}
+
+const commands: IHandCommands = {
+  [ESayCommand.MAZO]: (hand, player) => {
+    hand.disablePlayer(player)
+    hand.nextTurn()
+  },
+  [EAnswerCommand.QUIERO]: (hand, player) => {
+    if (hand.state === EHandState.WAITING_FOR_TRUCO_ANSWER) {
+      hand.truco.sayAnswer(player, true)
+      hand.setState(EHandState.WAITING_PLAY)
+    }
+    if (hand.state === EHandState.WAITING_ENVIDO_ANSWER) {
+      hand.envido.sayAnswer(player, true)
+      hand.setState(EHandState.WAITING_ENVIDO_POINTS_ANSWER)
+    }
+  },
+  [EAnswerCommand.NO_QUIERO]: (hand, player) => {
+    if (hand.state === EHandState.WAITING_FOR_TRUCO_ANSWER) {
+      hand.truco.sayAnswer(player, false)
+      hand.setState(EHandState.WAITING_PLAY)
+    }
+    if (hand.state === EHandState.WAITING_ENVIDO_ANSWER) {
+      hand.envido.sayAnswer(player, false)
+      hand.endEnvido()
+    }
+  },
+  [EEnvidoAnswerCommand.SON_BUENAS]: (hand, player) => {
+    if (hand.state === EHandState.WAITING_ENVIDO_POINTS_ANSWER) {
+      hand.envido.sayPoints(player, 0)
+      hand.endEnvido()
+    }
+  },
+  [ETrucoCommand.TRUCO]: trucoCommand,
+  [ETrucoCommand.RE_TRUCO]: trucoCommand,
+  [ETrucoCommand.VALE_CUATRO]: trucoCommand,
+  [EEnvidoCommand.ENVIDO]: (hand, player) => {
+    hand.envido.sayEnvido(EEnvidoCommand.ENVIDO, player)
+    hand.setState(EHandState.WAITING_ENVIDO_ANSWER)
+  },
+  [EEnvidoCommand.REAL_ENVIDO]: (hand, player) => {
+    hand.envido.sayEnvido(EEnvidoCommand.REAL_ENVIDO, player)
+    hand.setState(EHandState.WAITING_ENVIDO_ANSWER)
+  },
+  [EEnvidoCommand.FALTA_ENVIDO]: (hand, player) => {
+    hand.envido.sayEnvido(EEnvidoCommand.FALTA_ENVIDO, player)
+    hand.setState(EHandState.WAITING_ENVIDO_ANSWER)
+  },
+  [EFlorCommand.FLOR]: () => {},
+  [EFlorCommand.CONTRAFLOR]: () => {},
 }

@@ -74,7 +74,7 @@ function* matchTurnGeneratorSequence(match: IMatch) {
       match.setCurrentHand(null)
       break
     }
-    match.table.nextTurn()
+    match.table.nextHand()
   }
   yield match
 }
