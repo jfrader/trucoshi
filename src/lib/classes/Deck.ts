@@ -25,14 +25,19 @@ export function Deck(): IDeck {
       return deck
     },
   }
-  return deck
+
+  return deck.shuffle().shuffle()
 }
 
-export function PlayedCard(player: IPlayer | IPublicPlayer, card: ICard, burn?: boolean): IPlayedCard {
+export function PlayedCard(
+  player: IPlayer | IPublicPlayer,
+  card: ICard,
+  burn?: boolean
+): IPlayedCard {
   const pc: IPlayedCard = {
     player,
     card,
-    key: card + player.key
+    key: card + player.key,
   }
 
   if (burn) {
