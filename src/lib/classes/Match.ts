@@ -88,7 +88,7 @@ export function Match(table: ITable, teams: Array<ITeam> = [], options: ILobbyOp
 
   const match: IMatch = {
     winner: null,
-    deck: Deck().shuffle(),
+    deck: Deck(),
     options: structuredClone(options),
     teams: teams as [ITeam, ITeam],
     hands: [],
@@ -96,7 +96,10 @@ export function Match(table: ITable, teams: Array<ITeam> = [], options: ILobbyOp
     prevHand: null,
     currentHand: null,
     play() {
-      logger.trace({ players: table.players.map(p => p.getPublicPlayer()) }, "Attempting to get match next turn")
+      logger.trace(
+        { players: table.players.map((p) => p.getPublicPlayer()) },
+        "Attempting to get match next turn"
+      )
       match.getNextTurn()
       if (!match.currentHand) {
         return null
