@@ -4,8 +4,8 @@ export interface ITable {
   forehandIdx: number
   cards: Array<Array<IPlayedCard>>
   players: Array<IPlayer>
-  nextTurn(): IPlayer
-  getPlayer(idx?: number, forehandFirst?: boolean): IPlayer
+  nextHand(): IPlayer
+  getPlayerByPosition(idx?: number, forehandFirst?: boolean): IPlayer
   getPlayerPosition(key: string, forehandFirst?: boolean): number
   getPlayersForehandFirst(forehandIdx?: number): Array<IPlayer>
 }
@@ -15,13 +15,13 @@ export function Table(players: Array<IPlayer>): ITable {
     players,
     cards: [],
     forehandIdx: 0,
-    nextTurn() {
+    nextHand() {
       if (table.forehandIdx < table.players.length - 1) {
         table.forehandIdx++
       } else {
         table.forehandIdx = 0
       }
-      return table.getPlayer()
+      return table.getPlayerByPosition()
     },
     getPlayerPosition(key, forehandFirst = false) {
       const array = forehandFirst ? table.getPlayersForehandFirst() : table.players
@@ -33,7 +33,7 @@ export function Table(players: Array<IPlayer>): ITable {
       const end = players.slice(0, idx)
       return cut.concat(end)
     },
-    getPlayer(idx, forehandFirst = false) {
+    getPlayerByPosition(idx, forehandFirst = false) {
       const array = forehandFirst ? table.getPlayersForehandFirst() : table.players
       if (idx !== undefined) {
         return array[idx]

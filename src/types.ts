@@ -1,7 +1,7 @@
+import { IHand } from "./lib"
 import { CARDS, CARDS_HUMAN_READABLE } from "./lib/constants"
 
 export { CARDS, CARDS_HUMAN_READABLE }
-
 
 export interface ILobbyOptions {
   maxPlayers: 2 | 4 | 6
@@ -125,7 +125,7 @@ export type ECommand =
   | EFlorCommand
 
 export type IHandCommands = {
-  [key in ECommand]: (player: IPlayer) => void
+  [key in ECommand]: (hand: IHand, player: IPlayer) => void
 }
 
 export enum EServerEvent {
