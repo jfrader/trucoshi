@@ -5,6 +5,7 @@
     - session
     - username
     - nostrPubkey
+    - password
 
 - Match
     - id
@@ -29,5 +30,7 @@
     - betId
     - userId
     - userStakeInSats
-    - lnInvoice
-
+    - winInvoice
+    - winPreimage
+    - hodlInvoice
+    - hodlPreimage
