@@ -1,4 +1,4 @@
-import logger from "../../etc/logger"
+import logger from "../../utils/logger"
 import { ICard, IPlayedCard, IPlayer } from "../../types"
 import { getCardValue } from "../utils"
 import { PlayedCard } from "./Deck"

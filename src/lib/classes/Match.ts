@@ -1,4 +1,4 @@
-import logger from "../../etc/logger"
+import logger from "../../utils/logger"
 import { IDeck, IHandPoints, ILobbyOptions, IPlayer, ITeam } from "../../types"
 import { Deck } from "./Deck"
 import { Hand, IHand } from "./Hand"

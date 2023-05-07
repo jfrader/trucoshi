@@ -1,4 +1,4 @@
-import logger from "../../etc/logger"
+import logger from "../../utils/logger"
 
 export interface IQueue {
   promise: Promise<void>

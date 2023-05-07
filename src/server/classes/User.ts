@@ -1,4 +1,4 @@
-import logger from "../../etc/logger"
+import logger from "../../utils/logger"
 import { PLAYER_TIMEOUT_GRACE } from "../constants"
 
 export interface IUser {

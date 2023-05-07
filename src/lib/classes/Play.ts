@@ -1,4 +1,4 @@
-import logger from "../../etc/logger"
+import logger from "../../utils/logger"
 import { ECommand, EHandState, GAME_ERROR, ICard, IPlayer, ITeam } from "../../types"
 import { IEnvido } from "./Envido"
 import { IHand } from "./Hand"

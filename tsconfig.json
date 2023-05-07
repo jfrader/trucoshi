@@ -13,6 +13,6 @@
     "resolveJsonModule": true,
     "declaration": true
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "etc/scripts/autoplay.ts", "etc/scripts/play.ts", "etc"],
   "exclude": ["node_modules", "dist", "test"]
 }
