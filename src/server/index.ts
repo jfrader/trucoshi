@@ -1,4 +1,4 @@
-import logger from "../etc/logger"
+import logger from "../utils/logger"
 import { Trucoshi } from "./classes"
 import { trucoshi } from "./middlewares"
 import { readFileSync } from "fs"

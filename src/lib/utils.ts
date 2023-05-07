@@ -1,4 +1,4 @@
-import logger from "../etc/logger"
+import logger from "../utils/logger"
 import { ICard } from "../types"
 import { IRound, IRoundPoints } from "./classes"
 import { CARDS } from "./constants"

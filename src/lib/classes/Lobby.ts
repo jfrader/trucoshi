@@ -6,7 +6,7 @@ import { Player } from "./Player"
 import { ITable, Table } from "./Table"
 import { Team } from "./Team"
 import { IQueue, Queue } from "./Queue"
-import logger from "../../etc/logger"
+import logger from "../../utils/logger"
 
 export const DEFAULT_LOBBY_OPTIONS: ILobbyOptions = {
   faltaEnvido: 2,

@@ -29,7 +29,7 @@ import {
 import { Chat, IChat } from "./Chat"
 import { IMatchTable } from "./MatchTable"
 import { IUser, ISocketMatchState, User } from "./User"
-import logger from "../../etc/logger"
+import logger from "../../utils/logger"
 
 interface ITrucoshiTurn {
   play: IPlayInstance

@@ -2,7 +2,7 @@ import { randomUUID } from "crypto"
 import { ExtendedError } from "socket.io/dist/namespace"
 import { EClientEvent, EServerEvent } from "../../types"
 import { ITrucoshi, MatchTable, TrucoshiSocket } from "../classes"
-import logger from "../../etc/logger"
+import logger from "../../utils/logger"
 
 export const trucoshi =
   (server: ITrucoshi) => (socket: TrucoshiSocket, next: (err?: ExtendedError) => void) => {

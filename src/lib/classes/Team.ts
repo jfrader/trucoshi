@@ -1,4 +1,4 @@
-import logger from "../../etc/logger"
+import logger from "../../utils/logger"
 import { IPlayer, ITeam } from "../../types"
 
 export function Team(id: 0 | 1, players: Array<IPlayer>, name?: string) {
