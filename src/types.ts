@@ -1,6 +1,9 @@
 import { IHand } from "./lib"
-import { CARDS, CARDS_HUMAN_READABLE } from "./lib/constants"
 
+import { EMatchState } from "@prisma/client"
+export { EMatchState } from "@prisma/client"
+
+import { CARDS, CARDS_HUMAN_READABLE } from "./lib/constants"
 export { CARDS, CARDS_HUMAN_READABLE }
 
 export interface ILobbyOptions {
@@ -26,7 +29,7 @@ export interface IMatchPreviousHand {
 
 export interface IPublicMatch {
   options: ILobbyOptions
-  state: EMatchTableState
+  state: EMatchState
   winner: ITeam | null
   matchSessionId: string
   teams: Array<IPublicTeam>
@@ -41,7 +44,7 @@ export interface IPublicMatchInfo {
   matchSessionId: string
   players: number
   options: ILobbyOptions
-  state: EMatchTableState
+  state: EMatchState
 }
 
 export type IPublicChatRoom = Pick<IChatRoom, "id" | "messages">
@@ -69,13 +72,6 @@ export enum EChatSystem {
   TEAM_0 = 0,
   TEAM_1 = 1,
   SYSTEM = "SYSTEM",
-}
-
-export enum EMatchTableState {
-  UNREADY,
-  READY,
-  STARTED,
-  FINISHED,
 }
 
 export enum ESayCommand {
@@ -209,7 +205,7 @@ export interface ClientToServerEvents {
   ) => void
 
   [EClientEvent.LIST_MATCHES]: (
-    filters: { state?: Array<EMatchTableState> },
+    filters: { state?: Array<EMatchState> },
     callback: IEventCallback<{ matches: Array<IPublicMatchInfo> }>
   ) => void
 
@@ -234,12 +230,6 @@ export interface ClientToServerEvents {
     teamIdx: 0 | 1 | undefined,
     callback: IEventCallback<{ match?: IPublicMatch; activeMatches?: IPublicMatchInfo[] }>
   ) => void
-}
-
-export enum ETrucoshiMatchState {
-  UNREADY,
-  STARTED,
-  FINISHED,
 }
 
 export type IWaitingPlayData = { cardIdx: number; card: ICard }

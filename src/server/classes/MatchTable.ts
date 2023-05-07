@@ -1,6 +1,6 @@
 import { IHand, ILobby, Lobby } from "../../lib"
 import {
-  EMatchTableState,
+  EMatchState,
   ILobbyOptions,
   IMatchPreviousHand,
   IPlayedCard,
@@ -13,7 +13,7 @@ export interface IMatchTable {
   ownerSession: string
   matchSessionId: string
   lobby: ILobby
-  state(): EMatchTableState
+  state(): EMatchState
   isSessionPlaying(session: string): IPlayer | null
   getPreviousHand(hand: IHand): IMatchPreviousHand
   getHandRounds(hand: IHand): IPlayedCard[][]
@@ -36,15 +36,15 @@ export function MatchTable(
     state() {
       table.lobby.calculateReady()
       if (table.lobby.gameLoop?.winner) {
-        return EMatchTableState.FINISHED
+        return EMatchState.FINISHED
       }
       if (table.lobby.started) {
-        return EMatchTableState.STARTED
+        return EMatchState.STARTED
       }
       if (table.lobby.ready) {
-        return EMatchTableState.READY
+        return EMatchState.READY
       }
-      return EMatchTableState.UNREADY
+      return EMatchState.UNREADY
     },
     isSessionPlaying(session) {
       const {
@@ -59,7 +59,7 @@ export function MatchTable(
       if (player.abandoned) {
         return
       }
-      if (table.state() === EMatchTableState.STARTED) {
+      if (table.state() === EMatchState.STARTED) {
         player.setReady(true)
       }
     },
