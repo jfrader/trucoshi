@@ -1,0 +1,58 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          Int      @id @default(autoincrement())
+  username    String   @unique
+  nostrPubkey String   @unique
+  password    String
+  Session     Session?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  Match       Match?
+}
+
+model Session {
+  id        Int      @id @default(autoincrement())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int      @unique
+  createdAt DateTime
+  expiresAt DateTime
+  token     String
+}
+
+enum EMatchState {
+  UNREADY
+  READY
+  STARTED
+  FINISHED
+}
+
+model Match {
+  id      Int         @id @default(autoincrement())
+  state   EMatchState @default(UNREADY)
+  owner   User        @relation(fields: [ownerId], references: [id])
+  ownerId Int         @unique
+  hasBet  Boolean
+
+  // options
+  maxPlayers  Int
+  faltaEnvido Int
+  flor        Boolean
+  matchPoint  Int
+  handAckTime Int
+  turnTime    Int
+  abandonTime Int
+
+  latestHand Json? @default("[]")
+  results    Json  @default("{ \"0\": { \"buenas\": 0, \"malas\": 0 },\"1\": { \"buenas\": 0, \"malas\": 0 } }")
+}

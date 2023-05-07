@@ -7,7 +7,7 @@ import {
   EAnswerCommand,
   ECommand,
   EHandState,
-  EMatchTableState,
+  EMatchState,
   ESayCommand,
   EServerEvent,
   ICard,
@@ -38,11 +38,11 @@ interface ITrucoshiTurn {
 }
 
 interface MatchTableMap extends TMap<string, IMatchTable> {
-  getAll(filters: { state?: Array<EMatchTableState> }): Array<IPublicMatchInfo>
+  getAll(filters: { state?: Array<EMatchState> }): Array<IPublicMatchInfo>
 }
 
 class MatchTableMap extends TMap<string, IMatchTable> {
-  getAll(filters: { state?: Array<EMatchTableState> } = {}) {
+  getAll(filters: { state?: Array<EMatchState> } = {}) {
     let results: Array<IPublicMatchInfo> = []
 
     for (let value of this.values()) {
@@ -180,7 +180,7 @@ export const Trucoshi = ({
       }
       return server.tables
         .findAll((table) => {
-          if (table.state() === EMatchTableState.FINISHED) {
+          if (table.state() === EMatchState.FINISHED) {
             return false
           }
           return Boolean(table.isSessionPlaying(session))
@@ -765,12 +765,12 @@ export const Trucoshi = ({
 
         const { table, player, user } = playingMatch
 
-        if (table.state() === EMatchTableState.FINISHED) {
+        if (table.state() === EMatchState.FINISHED) {
           server.removePlayerAndCleanup(table, player)
           return resolve()
         }
 
-        if (player && table.state() !== EMatchTableState.STARTED) {
+        if (player && table.state() !== EMatchState.STARTED) {
           table.playerDisconnected(player)
 
           user
