@@ -41,7 +41,7 @@ export interface IHand {
   play(prevHand: IHand | null): IPlayInstance | null
   nextTurn(): void
   endEnvido(): void
-  sayEnvidoPoints(player: IPlayer, points: number): IEnvido
+  sayEnvidoPoints(player: IPlayer, points: number): number
   use(idx: number, card: ICard, burn?: boolean): ICard | null
   pushRound(round: IRound): IRound
   setTurn(turn: number): IPlayer
@@ -197,7 +197,7 @@ export function Hand(match: IMatch, idx: number) {
       if (winner) {
         hand.endEnvido()
       }
-      return hand.envido
+      return points
     },
     endEnvido() {
       if (hand.truco.waitingAnswer) {

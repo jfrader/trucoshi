@@ -376,6 +376,7 @@ export const Trucoshi = ({
           logger.trace({ player, command }, "Attempt to say command")
           const saidCommand = play.say(command, player)
           if (saidCommand || saidCommand === 0) {
+            logger.trace({ player, command }, "Say command success")
             clearTimeout(server.turns.getOrThrow(table.matchSessionId).timeout)
 
             server.chat.rooms
@@ -398,6 +399,7 @@ export const Trucoshi = ({
           logger.trace({ player, card, cardIdx }, "Attempt to play card")
           const playedCard = play.use(cardIdx, card)
           if (playedCard) {
+            logger.trace({ player, card, cardIdx }, "Play card success")
             clearTimeout(server.turns.getOrThrow(table.matchSessionId).timeout)
 
             server.chat.rooms.getOrThrow(table.matchSessionId).card(player, playedCard)
