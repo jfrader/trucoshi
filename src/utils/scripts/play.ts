@@ -1,6 +1,6 @@
 import * as readline from "readline"
-import { IPlayInstance, IRound, Lobby } from "../../src/lib"
-import { CARDS_HUMAN_READABLE, ICard, IPlayer, ITeam } from "../../src/types"
+import { IPlayInstance, IRound, Lobby } from "../../../src/lib"
+import { CARDS_HUMAN_READABLE, ICard, IPlayer, ITeam } from "../../../src/types"
 
 const command = (
   title: string,
