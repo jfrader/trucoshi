@@ -1,10 +1,15 @@
 import { IHand } from "./lib"
 
-import { EMatchState } from "@prisma/client"
-export { EMatchState } from "@prisma/client"
-
 import { CARDS, CARDS_HUMAN_READABLE } from "./lib/constants"
+
 export { CARDS, CARDS_HUMAN_READABLE }
+
+export enum EMatchState {
+  UNREADY = "UNREADY",
+  READY = "READY",
+  STARTED = "STARTED",
+  FINISHED = "FINISHED",
+}
 
 export interface ILobbyOptions {
   maxPlayers: 2 | 4 | 6
