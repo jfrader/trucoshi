@@ -516,7 +516,7 @@ export const Trucoshi = ({
           server
             .sayCommand(table, play, player, ESayCommand.MAZO)
             .catch(logger.error)
-            .finally(reject)
+            .finally(resolve)
         )
 
         server.turns.set(table.matchSessionId, {
@@ -555,7 +555,7 @@ export const Trucoshi = ({
           server
             .sayCommand(table, play, player, EAnswerCommand.NO_QUIERO)
             .catch(logger.error)
-            .finally(reject)
+            .finally(resolve)
         )
 
         server.turns.set(table.matchSessionId, {
@@ -597,12 +597,12 @@ export const Trucoshi = ({
 
         const timeout = server.setTurnTimeout(table, player, user, turn, () => {
           if (isPointsRound) {
-            return server.sayCommand(table, play, player, 0).catch(logger.error).finally(reject)
+            return server.sayCommand(table, play, player, 0).catch(logger.error).finally(resolve)
           }
           server
             .sayCommand(table, play, player, EAnswerCommand.NO_QUIERO)
             .catch(logger.error)
-            .finally(reject)
+            .finally(resolve)
         })
 
         server.turns.set(table.matchSessionId, {
