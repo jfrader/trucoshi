@@ -1,9 +1,5 @@
 import logger from "../../utils/logger"
-import {
-  EHandState,
-  IPlayer,
-  ITeam,
-} from "../../types"
+import { ECommand, EHandState, ICard, IPlayer, ITeam } from "../../types"
 import { IHand } from "./Hand"
 import { IMatch } from "./Match"
 import { IPlayInstance } from "./Play"
@@ -22,6 +18,8 @@ export interface IGameLoop {
   _onHandFinished: IHandFinishedCallback
   currentPlayer: IPlayer | null
   currentHand: IHand | null
+  lastCommand: ECommand | number | null
+  lastCard: ICard | null
   teams: Array<ITeam>
   winner: ITeam | null
   onTurn: (callback: ITurnCallback) => IGameLoop
@@ -43,6 +41,8 @@ export const GameLoop = (match: IMatch) => {
     winner: null,
     currentPlayer: null,
     currentHand: null,
+    lastCard: null,
+    lastCommand: null,
     onHandFinished: (callback) => {
       gameloop._onHandFinished = callback
       return gameloop
@@ -84,6 +84,8 @@ export const GameLoop = (match: IMatch) => {
             continue
           }
 
+          gameloop.lastCard = play.lastCard
+          gameloop.lastCommand = play.lastCommand
           gameloop.currentPlayer = play.player
 
           if (play.state === EHandState.WAITING_ENVIDO_ANSWER) {
