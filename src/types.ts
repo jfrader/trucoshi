@@ -40,8 +40,10 @@ export interface IPublicMatch {
   teams: Array<IPublicTeam>
   players: Array<IPublicPlayer>
   me: IPublicPlayer | null
-  isNewHand: boolean
+  freshHand: boolean
   rounds: IPlayedCard[][]
+  lastCard?: ICard | null
+  lastCommand?: ECommand | number | null
 }
 
 export interface IPublicMatchInfo {

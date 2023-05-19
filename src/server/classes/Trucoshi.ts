@@ -101,9 +101,9 @@ export interface ITrucoshi {
   emitWaitingPossibleSay(
     play: IPlayInstance,
     table: IMatchTable,
-    isNewHand?: boolean
+    freshHand?: boolean
   ): Promise<ECommand | number>
-  emitWaitingForPlay(play: IPlayInstance, table: IMatchTable, isNewHand?: boolean): Promise<void>
+  emitWaitingForPlay(play: IPlayInstance, table: IMatchTable, freshHand?: boolean): Promise<void>
   emitMatchUpdate(table: IMatchTable, skipSocketIds?: Array<string>): Promise<void>
   emitPreviousHand(hand: IHand, table: IMatchTable): Promise<void>
   emitSocketMatch(socket: TrucoshiSocket, currentMatchId: string | null): IPublicMatch | null
@@ -256,7 +256,7 @@ export const Trucoshi = ({
         )
       })
     },
-    async emitWaitingPossibleSay(play, table, isNewHand = false) {
+    async emitWaitingPossibleSay(play, table, freshHand = false) {
       logger.debug(
         { match: table.getPublicMatchInfo(), handIdx: play.handIdx },
         "Emitting match possible players say"
@@ -285,7 +285,7 @@ export const Trucoshi = ({
 
             playerSocket.emit(
               EServerEvent.WAITING_POSSIBLE_SAY,
-              table.getPublicMatch(player.session, isNewHand),
+              table.getPublicMatch(player.session, freshHand),
               (data) => {
                 if (!data) {
                   return
@@ -311,10 +311,10 @@ export const Trucoshi = ({
           .catch(console.error)
       })
     },
-    async emitWaitingForPlay(play, table, isNewHand) {
+    async emitWaitingForPlay(play, table, freshHand) {
       return new Promise<void>((resolve, reject) => {
         server
-          .emitWaitingPossibleSay(play, table, isNewHand)
+          .emitWaitingPossibleSay(play, table, freshHand)
           .then(() => resolve())
           .catch(logger.error)
         return server
@@ -503,7 +503,7 @@ export const Trucoshi = ({
 
         const turn = () =>
           server
-            .emitWaitingForPlay(play, table)
+            .emitWaitingForPlay(play, table, play.freshHand)
             .then(resolve)
             .catch((e) => {
               logger.error(e, "ONTURN CALLBACK ERROR")
@@ -799,18 +799,20 @@ export const Trucoshi = ({
       }
     },
     cleanupMatchTable(table) {
+      const matchId = table.matchSessionId
       try {
         for (const player of table.lobby.players) {
           const user = server.users.getOrThrow(player.session)
-          user.resolveWaitingPromises(table.matchSessionId) // resolve promises and timeouts
+          user.resolveWaitingPromises(matchId)
           if (player.isOwner) {
-            user.ownedMatches.delete(table.matchSessionId)
+            user.ownedMatches.delete(matchId)
           }
         }
       } catch (e) {
         logger.error(e)
       } finally {
-        server.tables.delete(table.matchSessionId)
+        server.tables.delete(matchId)
+        server.chat.delete(matchId)
       }
     },
   }

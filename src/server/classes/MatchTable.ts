@@ -17,7 +17,7 @@ export interface IMatchTable {
   isSessionPlaying(session: string): IPlayer | null
   getPreviousHand(hand: IHand): IMatchPreviousHand
   getHandRounds(hand: IHand): IPlayedCard[][]
-  getPublicMatch(session?: string, isNewHand?: boolean): IPublicMatch
+  getPublicMatch(session?: string, freshHand?: boolean): IPublicMatch
   getPublicMatchInfo(): IPublicMatchInfo
   playerDisconnected(player: IPlayer): void
   playerReconnected(player: IPlayer): void
@@ -70,10 +70,7 @@ export function MatchTable(
       const {
         matchSessionId,
         state,
-        lobby: {
-          players,
-          options
-        },
+        lobby: { players, options },
       } = table
       return {
         ownerId: players.find((player) => player.isOwner)?.id as string,
@@ -96,20 +93,21 @@ export function MatchTable(
         matchSessionId: table.matchSessionId,
       }
     },
-    getPublicMatch(userSession, isNewHand) {
-      return getPublicMatch(table, userSession, isNewHand)
+    getPublicMatch(userSession, freshHand) {
+      return getPublicMatch(table, userSession, freshHand)
     },
   }
 
   return table
 }
 
-const getPublicMatch = (table: IMatchTable, userSession?: string, isNewHand: boolean = false) => {
+const getPublicMatch = (table: IMatchTable, userSession?: string, freshHand: boolean = false) => {
   const { lobby } = table
+  const { gameLoop } = lobby
 
-  const winner = lobby.gameLoop?.winner || null
+  const winner = gameLoop?.winner || null
 
-  const rounds = lobby.gameLoop?.currentHand ? table.getHandRounds(lobby.gameLoop?.currentHand) : []
+  const rounds = gameLoop?.currentHand ? table.getHandRounds(gameLoop?.currentHand) : []
 
   const players = lobby.players.filter((player) => Boolean(player)) as IPlayer[]
 
@@ -121,7 +119,7 @@ const getPublicMatch = (table: IMatchTable, userSession?: string, isNewHand: boo
     lobby.table ? lobby.table.getPlayersForehandFirst(me ? currentPlayerIdx : 0) : players
   ).map((player) => player.getPublicPlayer(userSession))
 
-  const teams = lobby.gameLoop?.teams || lobby.teams
+  const teams = gameLoop?.teams || lobby.teams
   const publicTeams = teams.map((team) => team.getPublicTeam(userSession))
 
   return {
@@ -132,7 +130,9 @@ const getPublicMatch = (table: IMatchTable, userSession?: string, isNewHand: boo
     state: table.state(),
     teams: publicTeams,
     players: publicPlayers,
-    isNewHand,
+    lastCommand: gameLoop?.lastCommand,
+    lastCard: gameLoop?.lastCard,
+    freshHand,
     rounds,
   }
 }

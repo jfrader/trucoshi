@@ -209,6 +209,7 @@ export function Hand(match: IMatch, idx: number) {
     say(command, player) {
       try {
         commands[command](hand, player)
+        hand.started = true
         return command
       } catch (e) {
         logger.error(e)
@@ -216,7 +217,6 @@ export function Hand(match: IMatch, idx: number) {
       }
     },
     use(idx, card, burn) {
-      hand.started = true
       const player = hand.currentPlayer
       const round = hand.currentRound
       if (!player || !round) {
@@ -229,6 +229,7 @@ export function Hand(match: IMatch, idx: number) {
 
       const playerCard = player.useCard(idx, card)
       if (playerCard) {
+        hand.started = true
         const card = round.use(PlayedCard(player, playerCard, burn))
         hand.nextTurn()
         return card

@@ -7,6 +7,7 @@ const SYSTEM_ID = "system"
 export interface IChat {
   rooms: TMap<string, IChatRoom>
   create(id: string): void
+  delete(id: string): void
 }
 
 const ChatUser = (id: string) => {
@@ -94,6 +95,9 @@ export const Chat = (io: TrucoshiServer) => {
       }
       const room = ChatRoom(io, id)
       chat.rooms.set(id, room)
+    },
+    delete(id) {
+      chat.rooms.delete(id)
     },
   }
 

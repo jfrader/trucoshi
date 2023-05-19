@@ -18,7 +18,10 @@ export interface IPlayInstance {
   player: IPlayer | null
   rounds: Array<IRound> | null
   prevHand: IHand | null
+  freshHand: boolean
   waitingPlay: boolean
+  lastCommand: ECommand | number | null
+  lastCard: ICard | null
   setWaiting(waiting: boolean): void
   use(idx: number, card: ICard): ICard | null
   say(command: ECommand | number, player: IPlayer): typeof command | null
@@ -50,12 +53,19 @@ export function PlayInstance(hand: IHand, prevHand: IHand | null, teams: [ITeam,
     roundIdx: hand.rounds.length,
     player: hand.currentPlayer,
     rounds: hand.rounds,
-    prevHand: prevHand && !hand.started && !hand.truco.waitingAnswer ? prevHand : null,
+    prevHand: prevHand && !hand.started ? prevHand : null,
+    freshHand: !hand.started,
+    lastCard: null,
+    lastCommand: null,
     setWaiting(waiting) {
       instance.waitingPlay = waiting
     },
     use(idx, card) {
-      return play(hand.use, idx, card)
+      const result = play(hand.use, idx, card)
+      if (result) {
+        instance.lastCard = result
+      }
+      return result
     },
     say(command, player) {
       try {
@@ -68,13 +78,21 @@ export function PlayInstance(hand: IHand, prevHand: IHand | null, teams: [ITeam,
             throw new Error(GAME_ERROR.INVALID_ENVIDO_POINTS)
           }
 
-          return play(hand.sayEnvidoPoints, player, command)
+          const result = play(hand.sayEnvidoPoints, player, command)
+          if (result) {
+            instance.lastCommand = result
+          }
+          return result
         }
 
         if (!player.commands.includes(command as ECommand)) {
           throw new Error(GAME_ERROR.INVALID_COMAND)
         }
-        return play(hand.say, command, player)
+        const result = play(hand.say, command, player)
+        if (result) {
+          instance.lastCommand = result
+        }
+        return result
       } catch (e) {
         logger.error(e)
         return null
