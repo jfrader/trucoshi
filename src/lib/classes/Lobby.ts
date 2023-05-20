@@ -1,4 +1,9 @@
-import { PLAYER_ABANDON_TIMEOUT, PLAYER_TURN_TIMEOUT, PREVIOUS_HAND_ACK_TIMEOUT, TEAM_SIZE_VALUES } from "../constants"
+import {
+  PLAYER_ABANDON_TIMEOUT,
+  PLAYER_TURN_TIMEOUT,
+  PREVIOUS_HAND_ACK_TIMEOUT,
+  TEAM_SIZE_VALUES,
+} from "../constants"
 import { GAME_ERROR, ILobbyOptions, IPlayer, ITeam } from "../../types"
 import { GameLoop, IGameLoop } from "./GameLoop"
 import { Match } from "./Match"
@@ -14,7 +19,7 @@ export const DEFAULT_LOBBY_OPTIONS: ILobbyOptions = {
   matchPoint: 9,
   maxPlayers: 6,
   handAckTime: PREVIOUS_HAND_ACK_TIMEOUT,
-  turnTime: PLAYER_TURN_TIMEOUT,
+  turnTime: process.env.NODE_DISABLE_TURN_TIMER ? 99999 * 1000 : PLAYER_TURN_TIMEOUT,
   abandonTime: PLAYER_ABANDON_TIMEOUT,
 }
 
