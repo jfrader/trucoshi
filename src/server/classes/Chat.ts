@@ -39,6 +39,12 @@ const ChatRoom = (io: TrucoshiServer, id: string) => {
   const room: IChatRoom = {
     id,
     messages: [],
+    socket: {
+      emit(socket) {
+        const userSocket = io.sockets.sockets.get(socket)
+        userSocket?.emit(EServerEvent.UPDATE_CHAT, { id: room.id, messages: room.messages })
+      },
+    },
     send(user, content) {
       const message = ChatMessage({
         user,

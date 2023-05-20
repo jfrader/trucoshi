@@ -740,12 +740,6 @@ export const Trucoshi = ({
             )
             server.emitWaitingPossibleSay(play, currentTable).then(resolve).catch(logger.error)
           }
-        } else {
-          logger.debug(socket.data.user.getPublicUser(), "Emitting public match to a spectator")
-          socket.emit(
-            EServerEvent.UPDATE_MATCH,
-            currentTable.getPublicMatch(socket.data.user.session)
-          )
         }
         return currentTable.getPublicMatch(socket.data.user.session)
       }

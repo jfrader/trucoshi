@@ -68,6 +68,9 @@ export interface IChatMessage {
 export interface IChatRoom {
   id: string
   messages: Array<IChatMessage>
+  socket: {
+    emit(socket: string): void
+  }
   send(user: IChatMessage["user"], message: string): void
   card(user: IChatMessage["user"], card: ICard): void
   command(team: 0 | 1, command: ECommand | number): void
@@ -177,7 +180,7 @@ export interface ServerToClientEvents {
 
   [EServerEvent.UPDATE_ACTIVE_MATCHES]: (activeMatches: IPublicMatchInfo[]) => void
 
-  [EServerEvent.UPDATE_MATCH]: (match: IPublicMatch) => void
+  [EServerEvent.UPDATE_MATCH]: (match: IPublicMatch, callback?: () => void) => void
 
   [EServerEvent.PLAYER_USED_CARD]: (match: IPublicMatch, card: IPlayedCard) => void
 
@@ -208,7 +211,7 @@ export interface ClientToServerEvents {
   [EClientEvent.FETCH_MATCH]: (
     session: string | null,
     matchId: string,
-    callback: IEventCallback
+    callback: IEventCallback<{ match: IPublicMatch | null }>
   ) => void
 
   [EClientEvent.LIST_MATCHES]: (

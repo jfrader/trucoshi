@@ -145,13 +145,14 @@ export const trucoshi =
     socket.on(EClientEvent.FETCH_MATCH, (session, matchId, callback) => {
       return server.setOrGetSession(socket, null, session, ({ success }) => {
         if (!success) {
-          return callback({ success: false })
+          return callback({ success: false, match: null })
         }
 
-        server.chat.rooms.get(matchId)?.emit()
+        server.chat.rooms.get(matchId)?.socket.emit(socket.id)
         const match = server.emitSocketMatch(socket, matchId)
 
-        callback({ success: Boolean(match) })
+        callback({ success: Boolean(match), match })
+        server.chat.rooms.get(matchId)?.socket.emit(socket.id)
       })
     })
 
