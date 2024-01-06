@@ -1,6 +1,7 @@
 import {
   EAnswerCommand,
   ECommand,
+  EEnvidoAnswerCommand,
   EEnvidoCommand,
   GAME_ERROR,
   IEnvidoCalculator,
@@ -185,6 +186,7 @@ export function Envido(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITa
       if (!envido.accepted) {
         throw new Error(GAME_ERROR.ENVIDO_NOT_ACCEPTED)
       }
+
       if (!envido.winningPlayer || envido.winningPointsAnswer === -1) {
         envido.winningPlayer = player
         envido.winningPointsAnswer = points

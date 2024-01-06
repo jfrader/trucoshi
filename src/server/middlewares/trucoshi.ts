@@ -1,23 +1,11 @@
-import { randomUUID } from "crypto"
 import { ExtendedError } from "socket.io/dist/namespace"
-import { EClientEvent, EServerEvent } from "../../types"
 import { ITrucoshi, MatchTable, TrucoshiSocket } from "../classes"
+import { EClientEvent, EServerEvent } from "../../types"
+import { randomUUID } from "crypto"
 import logger from "../../utils/logger"
 
 export const trucoshi =
   (server: ITrucoshi) => (socket: TrucoshiSocket, next: (err?: ExtendedError) => void) => {
-    socket.on("disconnect", (reason) => {
-      logger.info("Socket disconnected, reason?: %s", reason)
-      try {
-        const user = server.users.getOrThrow(socket.data.user?.session)
-        if (user) {
-          // user.disconnect() // should disconnect only if all sockets disconnected
-        }
-      } catch (e) {
-        // noop
-      }
-    })
-
     socket.on(EClientEvent.PING, (clientTime) => {
       socket.emit(EServerEvent.PONG, Date.now(), clientTime)
     })
@@ -30,22 +18,28 @@ export const trucoshi =
         if (!socket.data.user) {
           throw new Error("Attempted to create a match without a session")
         }
-        const user = server.users.getOrThrow(socket.data.user.session)
+        const userSession = server.sessions.getOrThrow(socket.data.user.session)
 
-        if (!user) {
+        if (!userSession) {
           throw new Error("Attempted to create a match without a user")
         }
 
-        logger.debug(user.getPublicUser(), "User creating new match...")
+        logger.debug(userSession.getPublicInfo(), "User creating new match...")
 
-        const matchId = randomUUID()
+        const matchId = randomUUID().substring(0, 8)
         const table = MatchTable(matchId, socket.data.user.session)
 
-        logger.trace(user.getPublicUser(), "User has created a new match table", table)
+        logger.trace(userSession.getPublicInfo(), "User has created a new match table", table)
 
-        user.ownedMatches.add(matchId)
+        userSession.ownedMatches.add(matchId)
 
-        await table.lobby.addPlayer(user.key, user.id, socket.data.user.session, 0, true)
+        await table.lobby.addPlayer(
+          userSession.key,
+          userSession.account?.name || userSession.name,
+          userSession.session,
+          0,
+          true
+        )
 
         server.chat.create(matchId)
         socket.join(matchId)
@@ -53,8 +47,8 @@ export const trucoshi =
 
         return callback({
           success: true,
-          match: table.getPublicMatch(user.id),
-          activeMatches: server.getSessionActiveMatches(user.session),
+          match: table.getPublicMatch(userSession.name),
+          activeMatches: server.getSessionActiveMatches(userSession.session),
         })
       } catch (e) {
         logger.warn(e)
@@ -67,9 +61,9 @@ export const trucoshi =
      */
     socket.on(EClientEvent.START_MATCH, async (matchId, callback) => {
       try {
-        const user = server.users.getOrThrow(socket.data.user?.session)
+        const user = server.sessions.getOrThrow(socket.data.user?.session)
 
-        logger.debug(user.getPublicUser(), "User starting match...")
+        logger.debug(user.getPublicInfo(), "User starting match...")
 
         if (matchId && user.ownedMatches.has(matchId)) {
           logger.trace("Server starting match...")
@@ -89,26 +83,26 @@ export const trucoshi =
      */
     socket.on(EClientEvent.JOIN_MATCH, async (matchSessionId, teamIdx, callback) => {
       try {
-        const user = server.users.getOrThrow(socket.data.user?.session)
+        const userSession = server.sessions.getOrThrow(socket.data.user?.session)
         const table = server.tables.get(matchSessionId)
 
-        logger.debug(user.getPublicUser(), "User joining match...")
+        logger.debug(userSession.getPublicInfo(), "User joining match...")
 
         if (table) {
           await table.lobby.addPlayer(
-            user.key,
-            user.id,
-            user.session,
+            userSession.key,
+            userSession.account?.name || userSession.name,
+            userSession.session,
             teamIdx,
-            user.ownedMatches.has(matchSessionId)
+            userSession.ownedMatches.has(matchSessionId)
           )
           socket.join(table.matchSessionId)
 
-          server.emitMatchUpdate(table, []).catch(console.error)
+          server.emitMatchUpdate(table).catch(console.error)
           return callback({
             success: true,
-            match: table.getPublicMatch(user.session),
-            activeMatches: server.getSessionActiveMatches(user.session),
+            match: table.getPublicMatch(userSession.session),
+            activeMatches: server.getSessionActiveMatches(userSession.session),
           })
         }
         callback({ success: false })
@@ -127,33 +121,32 @@ export const trucoshi =
     })
 
     /**
-     * Set Session
+     * Login
      */
-    socket.on(EClientEvent.SET_SESSION, (id, session, callback = () => {}) => {
-      server.setOrGetSession(socket, id, session, ({ success, session, serverVersion }) => {
-        if (session && success) {
-          const activeMatches = server.getSessionActiveMatches(session)
-          return callback({ success, serverVersion, session, activeMatches })
-        }
-        callback({ success, serverVersion, session, activeMatches: [] })
-      })
+    socket.on(EClientEvent.LOGIN, (account, identityJwt, callback) => {
+      server.login(socket, account, identityJwt, callback)
+    })
+
+    /**
+     * Logout
+     */
+    socket.on(EClientEvent.LOGOUT, (callback) => {
+      server.logout(socket, callback)
     })
 
     /**
      * Fetch match with session
      */
-    socket.on(EClientEvent.FETCH_MATCH, (session, matchId, callback) => {
-      return server.setOrGetSession(socket, null, session, ({ success }) => {
-        if (!success) {
-          return callback({ success: false, match: null })
-        }
+    socket.on(EClientEvent.FETCH_MATCH, (matchId, callback) => {
+      if (!socket.data.user) {
+        return callback({ success: false, match: null })
+      }
 
-        server.chat.rooms.get(matchId)?.socket.emit(socket.id)
-        const match = server.emitSocketMatch(socket, matchId)
+      server.chat.rooms.get(matchId)?.socket.emit(socket.id)
+      const match = server.emitSocketMatch(socket, matchId)
 
-        callback({ success: Boolean(match), match })
-        server.chat.rooms.get(matchId)?.socket.emit(socket.id)
-      })
+      callback({ success: Boolean(match), match })
+      server.chat.rooms.get(matchId)?.socket.emit(socket.id)
     })
 
     /**

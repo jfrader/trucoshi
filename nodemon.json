@@ -1,6 +1,6 @@
 {
-    "watch": ["src"],
-    "ext": ".ts,.js",
-    "ignore": [],
-    "exec": "yarn build && node ./bin/trucoshi-server"
+  "watch": ["src", "node_modules/lightning-accounts"],
+  "ext": ".ts,.js",
+  "ignore": [],
+  "exec": "yarn build && node ./bin/trucoshi-server"
 }

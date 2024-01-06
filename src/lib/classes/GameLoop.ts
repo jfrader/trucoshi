@@ -65,29 +65,29 @@ export const GameLoop = (match: IMatch) => {
     },
     async begin() {
       let winner: ITeam | null = null
-      try {
-        gameloop.teams = match.teams
+      gameloop.teams = match.teams
 
-        while (!match.winner) {
-          const play = match.play()
+      while (!match.winner) {
+        const play = match.play()
 
-          logger.trace({ winner: match.winner }, "Game tick started")
+        logger.trace({ winner: match.winner }, "Game tick started")
 
-          gameloop.currentHand = match.currentHand
+        gameloop.currentHand = match.currentHand
 
-          if (!play && match.prevHand) {
-            await gameloop._onHandFinished(match.prevHand)
-            continue
-          }
+        if (!play && match.prevHand) {
+          await gameloop._onHandFinished(match.prevHand)
+          continue
+        }
 
-          if (!play || !play.player) {
-            continue
-          }
+        if (!play || !play.player) {
+          continue
+        }
 
-          gameloop.lastCard = play.lastCard
-          gameloop.lastCommand = play.lastCommand
-          gameloop.currentPlayer = play.player
+        gameloop.lastCard = play.lastCard
+        gameloop.lastCommand = play.lastCommand
+        gameloop.currentPlayer = play.player
 
+        try {
           if (play.state === EHandState.WAITING_ENVIDO_ANSWER) {
             play.player.setTurn(true)
             await gameloop._onEnvido(play, false)
@@ -117,21 +117,21 @@ export const GameLoop = (match: IMatch) => {
             play.player.setTurn(false)
             continue
           }
-
-          break
+        } catch (e) {
+          logger.error(e)
+          logger.fatal(e, "Match ended because an error was thrown in the game loop!")
+          match.setWinner(match.teams[0])
+          winner = match.teams[0]
         }
 
-        if (!match.winner) {
-          throw new Error("Something went very wrong in the game loop")
-        }
-
-        winner = match.winner
-      } catch (e) {
-        logger.error(e)
-        logger.fatal(e, "Match ended because an error was thrown in the game loop!")
-        match.setWinner(match.teams[0])
-        winner = match.teams[0]
+        break
       }
+
+      if (!match.winner) {
+        throw new Error("Something went very wrong in the game loop")
+      }
+
+      winner = match.winner
 
       gameloop.winner = winner
       gameloop.currentPlayer = null
