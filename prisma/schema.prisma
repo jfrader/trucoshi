@@ -11,23 +11,70 @@ datasource db {
 }
 
 model User {
-  id          Int      @id @default(autoincrement())
-  username    String   @unique
-  nostrPubkey String   @unique
-  password    String
-  Session     Session?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  Match       Match?
+  id           Int           @id @default(autoincrement())
+  accountId    Int           @unique
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  match        Match[]
+  matchPlayers MatchPlayer[]
+  stats        UserStats?
 }
 
-model Session {
-  id        Int      @id @default(autoincrement())
-  user      User     @relation(fields: [userId], references: [id])
-  userId    Int      @unique
-  createdAt DateTime
-  expiresAt DateTime
-  token     String
+model UserStats {
+  id        Int  @id @default(autoincrement())
+  user      User @relation(fields: [userId], references: [id])
+  userId    Int  @unique
+  accountId Int  @unique
+  win       Int  @default(0)
+  loss      Int  @default(0)
+  satsBet   Int  @default(0)
+  satsWon   Int  @default(0)
+  satsLost  Int  @default(0)
+}
+
+model Match {
+  id             Int           @id @default(autoincrement())
+  state          EMatchState   @default(UNREADY)
+  owner          User          @relation(fields: [ownerId], references: [id])
+  ownerId        Int
+  ownerAccountId Int
+  options        Json          @default("{}")
+  results        Json          @default("{ \"0\": { \"buenas\": 0, \"malas\": 0 },\"1\": { \"buenas\": 0, \"malas\": 0 } }")
+  players        MatchPlayer[]
+  hands          MatchHand[]
+  bet            MatchBet?
+}
+
+model MatchBet {
+  id             Int     @id @default(autoincrement())
+  match          Match   @relation(fields: [matchId], references: [id])
+  matchId        Int     @unique
+  satsPerPlayer  Int
+  allPlayersPaid Boolean
+  winnerAwarded  Boolean
+}
+
+model MatchHand {
+  id        Int   @id @default(autoincrement())
+  idx       Int
+  rounds    Json  @default("[[]]")
+  results   Json  @default("{ \"0\": { \"buenas\": 0, \"malas\": 0 },\"1\": { \"buenas\": 0, \"malas\": 0 } }")
+  matchId   Int
+  match     Match @relation(fields: [matchId], references: [id])
+  winnerIdx Int
+}
+
+model MatchPlayer {
+  id           Int   @id @default(autoincrement())
+  user         User  @relation(fields: [userId], references: [id])
+  userId       Int   @unique
+  accountId    Int
+  teamIdx      Int
+  satsPaid     Int   @default(0)
+  satsReceived Int   @default(0)
+  payRequestId Int
+  matchId      Int
+  match        Match @relation(fields: [matchId], references: [id])
 }
 
 enum EMatchState {
@@ -35,24 +82,4 @@ enum EMatchState {
   READY
   STARTED
   FINISHED
-}
-
-model Match {
-  id      Int         @id @default(autoincrement())
-  state   EMatchState @default(UNREADY)
-  owner   User        @relation(fields: [ownerId], references: [id])
-  ownerId Int         @unique
-  hasBet  Boolean
-
-  // options
-  maxPlayers  Int
-  faltaEnvido Int
-  flor        Boolean
-  matchPoint  Int
-  handAckTime Int
-  turnTime    Int
-  abandonTime Int
-
-  latestHand Json? @default("[]")
-  results    Json  @default("{ \"0\": { \"buenas\": 0, \"malas\": 0 },\"1\": { \"buenas\": 0, \"malas\": 0 } }")
 }

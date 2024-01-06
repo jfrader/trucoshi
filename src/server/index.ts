@@ -1,13 +1,15 @@
 import logger from "../utils/logger"
 import { Trucoshi } from "./classes"
-import { trucoshi } from "./middlewares"
 import { readFileSync } from "fs"
+import { createAdapter } from "@socket.io/redis-adapter"
+import { createClient } from "redis"
 
 export * from "./classes"
 export * from "./constants"
 export * from "./middlewares"
 
-import * as dotenv from 'dotenv'
+import * as dotenv from "dotenv"
+import { trucoshi, session } from "./middlewares"
 
 let version = ""
 
@@ -31,7 +33,7 @@ export default () => {
     process.exit(1)
   }
 
-  logger.info("Starting Trucoshi server version " + version)
+  logger.info("Starting Trucoshi " + process.env.NODE_ENV + " server version " + version)
 
   const PORT = process.env.NODE_PORT || 4001
   const ORIGIN = process.env.NODE_ORIGIN || "http://localhost:3000"
@@ -41,11 +43,7 @@ export default () => {
   server.listen((io) => {
     logger.info(`Listening on port ${PORT} accepting origin ${ORIGIN}`)
 
+    io.use(session(server))
     io.use(trucoshi(server))
-
-    io.on("connection", (socket) => {
-      logger.debug("New socket connection %s", socket.id)
-      logger.info(socket.handshake.headers, "New socket handhshake")
-    })
   })
 }

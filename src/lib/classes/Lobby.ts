@@ -21,6 +21,7 @@ export const DEFAULT_LOBBY_OPTIONS: ILobbyOptions = {
   handAckTime: PREVIOUS_HAND_ACK_TIMEOUT,
   turnTime: process.env.NODE_DISABLE_TURN_TIMER ? 99999 * 1000 : PLAYER_TURN_TIMEOUT,
   abandonTime: PLAYER_ABANDON_TIMEOUT,
+  satsPerPlayer: 0,
 }
 
 export interface IPrivateLobby {
@@ -45,7 +46,12 @@ export interface IPrivateLobby {
   removePlayer(session: string): ILobby
   calculateReady(): boolean
   calculateFull(): boolean
-  setOptions(options: Partial<ILobbyOptions>): void
+  setOptions(
+    options: Pick<
+      Partial<ILobbyOptions>,
+      "abandonTime" | "faltaEnvido" | "flor" | "handAckTime" | "matchPoint" | "turnTime"
+    >
+  ): void
   isEmpty(): boolean
   startMatch(matchPoint?: 9 | 12 | 15): IGameLoop
 }

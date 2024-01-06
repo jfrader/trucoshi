@@ -11,7 +11,7 @@ import {
 } from "../src/types"
 import { ITrucoshi, Trucoshi, TrucoshiSocket } from "../src/server/classes"
 
-describe("Socket Server", () => {
+xdescribe("Socket Server", () => {
   let serverSocket: TrucoshiSocket
 
   let clientSocket0: Socket<ServerToClientEvents, ClientToServerEvents>

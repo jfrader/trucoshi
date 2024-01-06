@@ -218,6 +218,7 @@ export function Hand(match: IMatch, idx: number) {
     },
     use(idx, card, burn) {
       const player = hand.currentPlayer
+
       const round = hand.currentRound
       if (!player || !round) {
         return null
@@ -300,12 +301,7 @@ const setTurnCommands = (match: IMatch, hand: IHand) => {
         })
       })
     }
-    if (
-      hand.envido.accepted &&
-      !hand.envido.finished &&
-      hand.envido.winningPointsAnswer !== -1 &&
-      hand.envido.winningPointsAnswer > 0
-    ) {
+    if (hand.envido.accepted && !hand.envido.finished && hand.envido.winningPointsAnswer > 0) {
       hand.currentPlayer?._commands.add(EEnvidoAnswerCommand.SON_BUENAS)
     }
     if (
@@ -374,8 +370,7 @@ const commands: IHandCommands = {
   },
   [EEnvidoAnswerCommand.SON_BUENAS]: (hand, player) => {
     if (hand.state === EHandState.WAITING_ENVIDO_POINTS_ANSWER) {
-      hand.envido.sayPoints(player, 0)
-      hand.endEnvido()
+      hand.sayEnvidoPoints(player, 0)
     }
   },
   [ETrucoCommand.TRUCO]: trucoCommand,

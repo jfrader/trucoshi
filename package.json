@@ -3,14 +3,22 @@
   "version": "0.6.7",
   "main": "dist/types.js",
   "license": "GPL-3.0",
+  "paths": {
+    "trucoshi": [
+      "./"
+    ]
+  },
   "scripts": {
     "start": "nodemon",
     "profiler": "yarn build && node --prof ./bin/trucoshi-server",
-    "build": "yarn run rimraf ./dist && yarn run tsc --project .",
-    "prepublishOnly": "yarn test && yarn build",
-    "test": "NODE_DEBUG_LEVEL=error ts-mocha --exit ./test/**/*.ts",
+    "build": "yarn run rimraf ./build && yarn run tsc --project .",
+    "build:dist": "yarn run rimraf ./dist && yarn run tsc --project ./tsconfig.dist.json",
+    "prepublishOnly": "yarn test && yarn build:dist",
+    "test": "NODE_DEBUG_LEVEL=debug ts-mocha --exit ./test/**/*.ts",
     "cli:autoplay": "yarn run ts-node src/cli/autoplay",
-    "cli:play": "yarn run ts-node src/cli/play"
+    "cli:play": "yarn run ts-node src/cli/play",
+    "prisma:types": "yarn prisma generate",
+    "prisma:migrate": "npx prisma migrate dev"
   },
   "devDependencies": {
     "@types/chai": "^4.3.4",
@@ -20,11 +28,12 @@
     "chai": "^4.3.7",
     "mocha": "^10.2.0",
     "nodemon": "^2.0.20",
-    "prisma": "^4.13.0",
+    "prisma": "^4.14.1",
     "socket.io-client": "^4.5.4",
     "ts-mocha": "^10.0.0"
   },
   "files": [
+    "node_modules/.prisma/client/*",
     "dist/lib/constants.js",
     "dist/lib/constants.d.ts",
     "dist/types.js",
@@ -33,9 +42,17 @@
     "dist/server/constants.d.ts"
   ],
   "dependencies": {
-    "@prisma/client": "4.13.0",
+    "@prisma/client": "^4.14.1",
+    "@socket.io/redis-adapter": "^8.2.1",
+    "@types/jsonwebtoken": "^9.0.5",
     "@types/pino": "^7.0.5",
+    "@types/redis": "^4.0.11",
+    "axios": "^1.6.3",
     "dotenv": "^16.0.3",
+    "form-data": "^4.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "lightning-accounts": "^2.0.0",
+    "path-scurry": "^1.9.2",
     "pino": "^8.11.0",
     "pino-pretty": "^10.0.0",
     "rimraf": "^4.1.1",

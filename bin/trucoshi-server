@@ -1,4 +1,4 @@
 #!/usr/bin/env node
-const trucoshi = require("../dist/server/index")
+const trucoshi = require("../build/server/index")
 
 trucoshi.default()

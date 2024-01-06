@@ -1,15 +1,11 @@
-import { IHand } from "./lib"
+import { User } from "lightning-accounts"
+import { CARDS, IHand } from "./lib"
+import { IUserData } from "./server"
+import { EMatchState } from "@prisma/client"
 
-import { CARDS, CARDS_HUMAN_READABLE } from "./lib/constants"
+export { CARDS, CARDS_HUMAN_READABLE, BURNT_CARD } from "./lib/constants"
 
-export { CARDS, CARDS_HUMAN_READABLE }
-
-export enum EMatchState {
-  UNREADY = "UNREADY",
-  READY = "READY",
-  STARTED = "STARTED",
-  FINISHED = "FINISHED",
-}
+export { EMatchState }
 
 export interface ILobbyOptions {
   maxPlayers: 2 | 4 | 6
@@ -19,6 +15,7 @@ export interface ILobbyOptions {
   handAckTime: number
   turnTime: number
   abandonTime: number
+  satsPerPlayer: number
 }
 
 export interface ISaidCommand {
@@ -136,6 +133,7 @@ export type IHandCommands = {
 
 export enum EServerEvent {
   PONG = "PONG",
+  SET_SESSION = "SET_SESSION",
   PREVIOUS_HAND = "PREVIOUS_HAND",
   UPDATE_MATCH = "UPDATE_MATCH",
   WAITING_PLAY = "WAITING_PLAY",
@@ -147,17 +145,18 @@ export enum EServerEvent {
 }
 
 export enum EClientEvent {
-  PING = "PING",
-  SAY = "SAY",
+  LOGIN = "LOGIN",
+  LOGOUT = "LOGOUT",
   LEAVE_MATCH = "LEAVE_MATCH",
   CREATE_MATCH = "CREATE_MATCH",
   LIST_MATCHES = "LIST_MATCHES",
   JOIN_MATCH = "JOIN_MATCH",
   START_MATCH = "START_MATCH",
   SET_PLAYER_READY = "SET_PLAYER_READY",
-  SET_SESSION = "SET_SESSION",
   FETCH_MATCH = "FETCH_MATCH",
   CHAT = "CHAT",
+  PING = "PING",
+  SAY = "SAY",
 }
 
 export type IEventCallback<T = {}> = (
@@ -168,6 +167,12 @@ export type IEventCallback<T = {}> = (
 
 export interface ServerToClientEvents {
   [EServerEvent.PONG]: (serverTime: number, clientTime: number) => void
+
+  [EServerEvent.SET_SESSION]: (
+    userData: IUserData,
+    serverVersion: string,
+    activeMatches: Array<IPublicMatchInfo>
+  ) => void
 
   [EServerEvent.WAITING_POSSIBLE_SAY]: (
     match: IPublicMatch,
@@ -193,6 +198,9 @@ export interface ServerToClientEvents {
 }
 
 export interface ClientToServerEvents {
+  [EClientEvent.LOGIN]: (user: User, identityToken: string, callback: IEventCallback<{}>) => void
+  [EClientEvent.LOGOUT]: (callback: IEventCallback<{}>) => void
+
   [EClientEvent.PING]: (clientTime: number) => void
 
   [EClientEvent.CHAT]: (matchId: string, msg: string, callback: () => void) => void
@@ -209,7 +217,6 @@ export interface ClientToServerEvents {
   ) => void
 
   [EClientEvent.FETCH_MATCH]: (
-    session: string | null,
     matchId: string,
     callback: IEventCallback<{ match: IPublicMatch | null }>
   ) => void
@@ -223,16 +230,6 @@ export interface ClientToServerEvents {
     matchSessionId: string,
     ready: boolean,
     callback: IEventCallback<{ match?: IPublicMatch }>
-  ) => void
-
-  [EClientEvent.SET_SESSION]: (
-    id: string | null,
-    session: string | null,
-    callback?: IEventCallback<{
-      session?: string
-      serverVersion: string
-      activeMatches: Array<IPublicMatchInfo>
-    }>
   ) => void
 
   [EClientEvent.JOIN_MATCH]: (
@@ -422,3 +419,5 @@ export interface ITeamPoints {
   malas: number
   winner: boolean
 }
+
+export type IPublicUser = Pick<User, "id" | "email" | "name" | "role">

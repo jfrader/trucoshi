@@ -116,7 +116,7 @@ export const Chat = (io: TrucoshiServer) => {
       return
     }
 
-    const { id, key } = userSocket.data.user
+    const { name: id, key } = userSocket.data.user
 
     chat.rooms.get(room)?.system(`${id} entro a la sala`)
 
@@ -140,7 +140,7 @@ export const Chat = (io: TrucoshiServer) => {
       return
     }
 
-    const { id } = userSocket.data.user
+    const { name: id } = userSocket.data.user
     chat.rooms.get(room)?.system(`${id} salio de la sala`)
   })
 

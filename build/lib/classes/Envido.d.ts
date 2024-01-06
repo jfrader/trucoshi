@@ -1,0 +1,31 @@
+import { ECommand, EEnvidoCommand, IEnvidoCalculator, ILobbyOptions, IPlayer, ITeam } from "../../types";
+import { ITable } from "./Table";
+export interface IEnvido {
+    started: boolean;
+    accepted: boolean;
+    answered: boolean;
+    finished: boolean;
+    possibleAnswerCommands: Array<ECommand>;
+    stake: number;
+    declineStake: number;
+    teamIdx: 0 | 1 | null;
+    answer: boolean | null;
+    pointAnswersCount: number;
+    winningPointsAnswer: number;
+    turn: number;
+    winningPlayer: IPlayer | null;
+    winner: ITeam | null;
+    teams: [ITeam, ITeam];
+    players: Array<IPlayer>;
+    currentPlayer: IPlayer | null;
+    getPointsToGive(): number;
+    sayPoints(player: IPlayer, points: number): IEnvido;
+    sayEnvido(command: EEnvidoCommand, player: IPlayer): IEnvido;
+    sayAnswer(player: IPlayer, answer: boolean | null): IEnvido;
+    setTurn(turn: number): number;
+    setTeam(idx: 0 | 1): 0 | 1;
+    setCurrentPlayer(player: IPlayer | null): IPlayer | null;
+    getNextPlayer(): IteratorResult<IEnvido, IEnvido | void>;
+}
+export declare const EnvidoCalculator: IEnvidoCalculator;
+export declare function Envido(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITable): IEnvido;

@@ -1,3 +1,4 @@
+import jwt, { JwtPayload } from "jsonwebtoken"
 import { randomUUID } from "crypto"
 import { createServer, Server as HttpServer } from "http"
 import { Server, Socket } from "socket.io"
@@ -7,7 +8,6 @@ import {
   EAnswerCommand,
   ECommand,
   EHandState,
-  EMatchState,
   ESayCommand,
   EServerEvent,
   ICard,
@@ -28,8 +28,18 @@ import {
 } from "../constants"
 import { Chat, IChat } from "./Chat"
 import { IMatchTable } from "./MatchTable"
-import { IUser, ISocketMatchState, User } from "./User"
+import { IUserSession, ISocketMatchState, UserSession, IUserData } from "./UserSession"
 import logger from "../../utils/logger"
+import { IStore, Store } from "../../store/classes/Store"
+import { prismaClient } from "../../store/client"
+import { User } from "lightning-accounts"
+import { getPublicKey } from "../../utils/config/lightningAccounts"
+
+import { createAdapter } from "@socket.io/redis-adapter"
+
+import { accountsApi } from "../../accounts/client"
+import { createClient } from "redis"
+import { EMatchState } from "@prisma/client"
 
 interface ITrucoshiTurn {
   play: IPlayInstance
@@ -58,7 +68,7 @@ class MatchTableMap extends TMap<string, IMatchTable> {
 interface InterServerEvents {}
 
 interface SocketData {
-  user?: IUser
+  user?: IUserData
   matches: TMap<string, ISocketMatchState>
 }
 
@@ -79,24 +89,25 @@ export type TrucoshiSocket = Socket<
 export interface ITrucoshi {
   io: TrucoshiServer
   httpServer: HttpServer
+  store: IStore
   chat: IChat
-  users: TMap<string, IUser> // sessionId, user
   tables: MatchTableMap // sessionId, table
+  sessions: TMap<string, IUserSession> // sessionId, user
   turns: TMap<string, ITrucoshiTurn> // sessionId, play instance
+  createUserSession(socket: TrucoshiSocket, username?: string, token?: string): IUserSession
   getTableSockets(
     table: IMatchTable,
     callback?: (playerSocket: TrucoshiSocket, player: IPlayer | null) => Promise<void>
   ): Promise<{ sockets: any[]; players: IPublicPlayer[]; spectators: any[] }>
   getSessionActiveMatches(session?: string): IPublicMatchInfo[]
-  setOrGetSession(
+  login(
     socket: TrucoshiSocket,
-    id: string | null,
-    session: string | null,
-    callback: IEventCallback<{
-      session?: string
-      serverVersion: string
-    }>
-  ): Promise<IUser>
+    account: User,
+    identityJwt: string,
+    callback: IEventCallback<{}>
+  ): Promise<void>
+  logout(socket: TrucoshiSocket, callback: IEventCallback<{}>): void
+  emitSocketSession(socket: TrucoshiSocket): Promise<void>
   leaveMatch(matchId: string, socketId: string): Promise<void>
   emitWaitingPossibleSay(
     play: IPlayInstance,
@@ -124,7 +135,7 @@ export interface ITrucoshi {
   setTurnTimeout(
     table: IMatchTable,
     player: IPlayer,
-    user: IUser,
+    user: IUserSession,
     retry: () => void,
     cancel: () => void
   ): NodeJS.Timeout
@@ -150,29 +161,54 @@ export const Trucoshi = ({
 }) => {
   const httpServer = createServer()
 
+  const pubClient = createClient({ url: process.env.REDIS_URL })
+  const subClient = pubClient.duplicate()
+
   const io = new Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>(
     httpServer,
     {
       cors: {
+        credentials: true,
         origin,
         methods: ["GET", "POST"],
       },
     }
   )
 
-  const users = new TMap<string, IUser>() // sessionId, user
+  const store = Store(prismaClient)
+  const chat = Chat(io)
+
+  const sessions = new TMap<string, IUserSession>() // sessionId (token), user
   const tables = new MatchTableMap() // sessionId, table
   const turns = new TMap<string, ITrucoshiTurn>() // sessionId, play instance, play promise resolve and type
 
   const server: ITrucoshi = {
-    users,
+    sessions,
+    store,
     tables,
     turns,
     io,
     httpServer,
-    chat: Chat(io),
+    chat,
     listen(callback) {
-      httpServer.listen(port, undefined, undefined, () => callback(server.io))
+      accountsApi.auth
+        .getAuth()
+        .catch((e) => {
+          logger.error(e, "Failed to login to lightning-accounts")
+        })
+        .then(() => {
+          logger.info("Logged in to lightning-accounts")
+          return Promise.all([pubClient.connect(), subClient.connect()])
+        })
+        .catch((e) => {
+          logger.error(e, "Failed to connect to Redis")
+        })
+        .finally(() => {
+          logger.info("Connected to redis")
+          io.adapter(createAdapter(pubClient, subClient))
+          io.listen(port)
+          callback(io)
+        })
     },
     getSessionActiveMatches(session) {
       if (!session) {
@@ -187,29 +223,61 @@ export const Trucoshi = ({
         })
         .map((match) => match.getPublicMatchInfo())
     },
-    async setOrGetSession(socket, id, session, callback = () => {}) {
-      if (session) {
-        const user = server.users.get(session)
-        if (user) {
-          const newId = id || user.id || "Satoshi"
-          user.connect()
-          user.setId(newId)
-          socket.data.user = user
-          socket.data.matches = new TMap()
-          callback({ success: true, serverVersion, session })
-          return user
-        }
+    createUserSession(socket, id, token) {
+      const session = token || randomUUID()
+      const key = randomUUID()
+      const userSession = UserSession(key, id || "Satoshi", session)
+      socket.data.user = userSession
+      socket.data.matches = new TMap()
+      server.sessions.set(session, userSession)
+
+      return userSession
+    },
+    async login(socket, me, identityJwt, callback) {
+      if (!socket.data.user) {
+        return callback({ success: false })
       }
 
-      const newSession = randomUUID()
-      const userKey = randomUUID()
-      const newId = id || "Satoshi"
-      const newUser = User(userKey, newId, newSession)
-      socket.data.user = newUser
-      socket.data.matches = new TMap()
-      server.users.set(newSession, newUser)
-      callback({ success: false, serverVersion, session: newSession })
-      return newUser
+      try {
+        const session = server.sessions.getOrThrow(socket.data.user.session)
+        const payload = jwt.verify(identityJwt, getPublicKey()) as JwtPayload
+
+        if (!payload.sub || me.id !== Number(payload.sub)) {
+          return callback({ success: false })
+        }
+
+        const res = await accountsApi.users.usersDetail(payload.sub)
+
+        session.setAccount(res.data)
+
+        logger.info(res.data, "Logging in account")
+
+        return callback({ success: true })
+      } catch (e) {
+        logger.error(e)
+        return callback({ success: false })
+      }
+    },
+    logout(socket, callback) {
+      if (!socket.data.user) {
+        return callback({ success: false })
+      }
+
+      try {
+        const session = server.sessions.getOrThrow(socket.data.user.session)
+        session.setAccount(null)
+        return callback({ success: true })
+      } catch (e) {
+        logger.error(e)
+        return callback({ success: false })
+      }
+    },
+    async emitSocketSession(socket) {
+      if (!socket.data.user) {
+        return
+      }
+      const activeMatches = server.getSessionActiveMatches(socket.data.user.session)
+      socket.emit(EServerEvent.SET_SESSION, socket.data.user, serverVersion, activeMatches)
     },
     async getTableSockets(table, callback) {
       const allSockets = await server.io.sockets.adapter.fetchSockets({
@@ -302,7 +370,7 @@ export const Trucoshi = ({
                   .sayCommand(table, play, player, command)
                   .then((command) => {
                     resolve(command)
-                    server.users.getOrThrow(player.session).reconnect(table.matchSessionId)
+                    server.sessions.getOrThrow(player.session).reconnect(table.matchSessionId)
                   })
                   .catch(reject)
               }
@@ -360,7 +428,7 @@ export const Trucoshi = ({
                     .playCard(table, play, player, cardIdx, card)
                     .then(() => {
                       resolve()
-                      server.users.getOrThrow(player.session).reconnect(table.matchSessionId)
+                      server.sessions.getOrThrow(player.session).reconnect(table.matchSessionId)
                     })
                     .catch(reject)
                 }
@@ -499,7 +567,7 @@ export const Trucoshi = ({
         }
 
         const player = play.player
-        const user = server.users.getOrThrow(session)
+        const user = server.sessions.getOrThrow(session)
 
         const turn = () =>
           server
@@ -549,7 +617,7 @@ export const Trucoshi = ({
         turn()
 
         const player = play.player
-        const user = server.users.getOrThrow(session)
+        const user = server.sessions.getOrThrow(session)
 
         const timeout = server.setTurnTimeout(table, player, user, turn, () =>
           server
@@ -593,7 +661,7 @@ export const Trucoshi = ({
         turn()
 
         const player = play.player
-        const user = server.users.getOrThrow(session)
+        const user = server.sessions.getOrThrow(session)
 
         const timeout = server.setTurnTimeout(table, player, user, turn, () => {
           if (isPointsRound) {
@@ -724,7 +792,7 @@ export const Trucoshi = ({
           ) {
             logger.debug(
               {
-                ...socket.data.user.getPublicUser(),
+                ...socket.data.user,
                 socket: socket.id,
               },
               "Emitting user's socket current playing match: waiting for play"
@@ -733,7 +801,7 @@ export const Trucoshi = ({
           } else {
             logger.debug(
               {
-                ...socket.data.user.getPublicUser(),
+                ...socket.data.user,
                 socket: socket.id,
               },
               "Emitting user's socket current playing match: waiting possible say"
@@ -747,7 +815,7 @@ export const Trucoshi = ({
     },
     leaveMatch(matchId, socketId) {
       return new Promise((resolve) => {
-        logger.debug({ matchId, socketId }, "Socket just left a match")
+        logger.debug({ matchId, socketId }, "Socket trying to leave a match")
         const playingMatch = _getPossiblePlayingMatch(matchId, socketId)
 
         if (!playingMatch) {
@@ -755,7 +823,7 @@ export const Trucoshi = ({
         }
 
         if (!playingMatch.player || !playingMatch.user) {
-          logger.trace({ matchId, socketId }, "Socket left a match but user isn't playing")
+          logger.trace({ matchId, socketId }, "Socket left a match but isn't a player")
           return resolve()
         }
 
@@ -769,7 +837,9 @@ export const Trucoshi = ({
         if (player && table.state() !== EMatchState.STARTED) {
           table.playerDisconnected(player)
 
-          user
+          const userSession = server.sessions.getOrThrow(user.session)
+
+          userSession
             .waitReconnection(table.matchSessionId, PLAYER_LOBBY_TIMEOUT)
             .then(() => {
               table.playerReconnected(player)
@@ -796,7 +866,7 @@ export const Trucoshi = ({
       const matchId = table.matchSessionId
       try {
         for (const player of table.lobby.players) {
-          const user = server.users.getOrThrow(player.session)
+          const user = server.sessions.getOrThrow(player.session)
           user.resolveWaitingPromises(matchId)
           if (player.isOwner) {
             user.ownedMatches.delete(matchId)
@@ -813,7 +883,7 @@ export const Trucoshi = ({
   const _getPossiblePlayingMatch = (
     room: any,
     socketId: any
-  ): { table: IMatchTable; player?: IPlayer; user?: IUser } | null => {
+  ): { table: IMatchTable; player?: IPlayer; user?: IUserData } | null => {
     const socket = server.io.sockets.sockets.get(socketId)
 
     if (!socket || !socket.data.user) {
@@ -843,9 +913,11 @@ export const Trucoshi = ({
     }
     const { table, user } = playingMatch
 
+    const userSession = server.sessions.getOrThrow(user.session)
+
     logger.debug({ matchId: room, socketId }, "Player socket joined match room")
 
-    user.reconnect(table.matchSessionId)
+    userSession.reconnect(table.matchSessionId)
   })
 
   return server
