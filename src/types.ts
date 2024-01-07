@@ -198,7 +198,11 @@ export interface ServerToClientEvents {
 }
 
 export interface ClientToServerEvents {
-  [EClientEvent.LOGIN]: (user: User, identityToken: string, callback: IEventCallback<{}>) => void
+  [EClientEvent.LOGIN]: (
+    user: User,
+    identityToken: string,
+    callback: IEventCallback<{ activeMatches?: IPublicMatchInfo[] }>
+  ) => void
   [EClientEvent.LOGOUT]: (callback: IEventCallback<{}>) => void
 
   [EClientEvent.PING]: (clientTime: number) => void

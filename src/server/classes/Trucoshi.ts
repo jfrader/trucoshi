@@ -114,7 +114,11 @@ export interface ITrucoshi {
     table: IMatchTable,
     freshHand?: boolean
   ): Promise<ECommand | number>
-  emitWaitingForPlay(play: IPlayInstance, table: IMatchTable, freshHand?: boolean): Promise<void>
+  emitWaitingForPlay(
+    play: IPlayInstance,
+    table: IMatchTable,
+    freshHand?: boolean
+  ): Promise<"say" | "play">
   emitMatchUpdate(table: IMatchTable, skipSocketIds?: Array<string>): Promise<void>
   emitPreviousHand(hand: IHand, table: IMatchTable): Promise<void>
   emitSocketMatch(socket: TrucoshiSocket, currentMatchId: string | null): IPublicMatch | null
@@ -240,14 +244,21 @@ export const Trucoshi = ({
       }
 
       try {
-        const session = server.sessions.getOrThrow(socket.data.user.session)
+        let session = server.sessions.getOrThrow(socket.data.user.session)
         const payload = jwt.verify(identityJwt, getPublicKey()) as JwtPayload
 
         if (!payload.sub || me.id !== Number(payload.sub)) {
           return callback({ success: false })
         }
 
+        const existingSession = server.sessions.find((s) => s.account?.id === payload.sub)
+
         const res = await accountsApi.users.usersDetail(payload.sub)
+
+        if (existingSession) {
+          socket.data.user = existingSession.getUserData()
+          session = existingSession
+        }
 
         session.setAccount(res.data)
 
@@ -352,6 +363,10 @@ export const Trucoshi = ({
               "Emitting waiting possible say to a player"
             )
 
+            if (player.disabled) {
+              return
+            }
+
             playerSocket.emit(
               EServerEvent.WAITING_POSSIBLE_SAY,
               table.getPublicMatch(player.session, freshHand),
@@ -381,10 +396,10 @@ export const Trucoshi = ({
       })
     },
     async emitWaitingForPlay(play, table, freshHand) {
-      return new Promise<void>((resolve, reject) => {
+      return new Promise<"say" | "play">((resolve, reject) => {
         server
           .emitWaitingPossibleSay(play, table, freshHand)
-          .then(() => resolve())
+          .then(() => resolve("say"))
           .catch(logger.error)
         return server
           .getTableSockets(table, async (playerSocket, player) => {
@@ -428,7 +443,7 @@ export const Trucoshi = ({
                   server
                     .playCard(table, play, player, cardIdx, card)
                     .then(() => {
-                      resolve()
+                      resolve("play")
                       server.sessions.getOrThrow(player.session).reconnect(table.matchSessionId)
                     })
                     .catch(reject)
@@ -445,7 +460,7 @@ export const Trucoshi = ({
           logger.trace({ player, command }, "Attempt to say command")
           const saidCommand = play.say(command, player)
           if (saidCommand || saidCommand === 0) {
-            logger.trace({ player, command }, "Say command success")
+            logger.debug({ player, command }, "Say command success")
             clearTimeout(server.turns.getOrThrow(table.matchSessionId).timeout)
 
             server.chat.rooms
@@ -457,7 +472,7 @@ export const Trucoshi = ({
               .then(() => resolve(saidCommand))
               .catch(reject)
           }
-          return reject(new Error("Invalid Command"))
+          return reject(new Error("Invalid Command " + command))
         }
         return reject(new Error("Undefined Command"))
       })
@@ -468,13 +483,13 @@ export const Trucoshi = ({
           logger.trace({ player, card, cardIdx }, "Attempt to play card")
           const playedCard = play.use(cardIdx, card)
           if (playedCard) {
-            logger.trace({ player, card, cardIdx }, "Play card success")
+            logger.debug({ player, card, cardIdx }, "Play card success")
             clearTimeout(server.turns.getOrThrow(table.matchSessionId).timeout)
 
             server.chat.rooms.getOrThrow(table.matchSessionId).card(player, playedCard)
             return server.resetSocketsMatchState(table).then(resolve).catch(reject)
           }
-          return reject(new Error("Invalid Card"))
+          return reject(new Error("Invalid Card " + card))
         }
         return reject(new Error("Undefined Card"))
       })
@@ -573,10 +588,12 @@ export const Trucoshi = ({
         const turn = () =>
           server
             .emitWaitingForPlay(play, table, play.freshHand)
-            .then(resolve)
+            .then(() => {
+              resolve()
+            })
             .catch((e) => {
-              logger.error(e, "ONTURN CALLBACK ERROR")
-              reject(e)
+              logger.debug(e, "ONTURN CALLBACK ERROR")
+              turn()
             })
 
         turn()
@@ -611,8 +628,9 @@ export const Trucoshi = ({
             .emitWaitingPossibleSay(play, table)
             .then(() => resolve())
             .catch((e) => {
-              logger.error(e, "ONTRUCO CALLBACK ERROR")
-              reject(e)
+              logger.debug(e, "ONTRUCO CALLBACK ERROR")
+              // reject(e)
+              turn()
             })
 
         turn()
@@ -655,8 +673,8 @@ export const Trucoshi = ({
             .emitWaitingPossibleSay(play, table)
             .then(() => resolve())
             .catch((e) => {
-              logger.error(e, "ONENVIDO CALLBACK ERROR")
-              reject(e)
+              logger.debug(e, "ONENVIDO CALLBACK ERROR")
+              turn()
             })
 
         turn()

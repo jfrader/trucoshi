@@ -79,6 +79,7 @@ function Lobby(options = {}) {
                     }
                 });
                 if (player) {
+                    logger_1.default.trace({ player: player.id }, "Adding player to match table lobby");
                     return player;
                 }
                 throw new Error("Couldn't add player to match");

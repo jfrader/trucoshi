@@ -113,12 +113,17 @@ const Trucoshi = ({ port, origin, serverVersion, }) => {
                     return callback({ success: false });
                 }
                 try {
-                    const session = server.sessions.getOrThrow(socket.data.user.session);
+                    let session = server.sessions.getOrThrow(socket.data.user.session);
                     const payload = jsonwebtoken_1.default.verify(identityJwt, (0, lightningAccounts_1.getPublicKey)());
                     if (!payload.sub || me.id !== Number(payload.sub)) {
                         return callback({ success: false });
                     }
+                    const existingSession = server.sessions.find((s) => { var _a; return ((_a = s.account) === null || _a === void 0 ? void 0 : _a.id) === payload.sub; });
                     const res = yield client_2.accountsApi.users.usersDetail(payload.sub);
+                    if (existingSession) {
+                        socket.data.user = existingSession.getUserData();
+                        session = existingSession;
+                    }
                     session.setAccount(res.data);
                     logger_1.default.info(res.data, "Logging in account");
                     return callback({ success: true });
@@ -240,7 +245,7 @@ const Trucoshi = ({ port, origin, serverVersion, }) => {
                 return new Promise((resolve, reject) => {
                     server
                         .emitWaitingPossibleSay(play, table, freshHand)
-                        .then(() => resolve())
+                        .then(() => resolve("say"))
                         .catch(logger_1.default.error);
                     return server
                         .getTableSockets(table, (playerSocket, player) => __awaiter(this, void 0, void 0, function* () {
@@ -273,7 +278,7 @@ const Trucoshi = ({ port, origin, serverVersion, }) => {
                                 server
                                     .playCard(table, play, player, cardIdx, card)
                                     .then(() => {
-                                    resolve();
+                                    resolve("play");
                                     server.sessions.getOrThrow(player.session).reconnect(table.matchSessionId);
                                 })
                                     .catch(reject);
@@ -300,7 +305,7 @@ const Trucoshi = ({ port, origin, serverVersion, }) => {
                             .then(() => resolve(saidCommand))
                             .catch(reject);
                     }
-                    return reject(new Error("Invalid Command"));
+                    return reject(new Error("Invalid Command " + command));
                 }
                 return reject(new Error("Undefined Command"));
             });
@@ -316,7 +321,7 @@ const Trucoshi = ({ port, origin, serverVersion, }) => {
                         server.chat.rooms.getOrThrow(table.matchSessionId).card(player, playedCard);
                         return server.resetSocketsMatchState(table).then(resolve).catch(reject);
                     }
-                    return reject(new Error("Invalid Card"));
+                    return reject(new Error("Invalid Card " + card));
                 }
                 return reject(new Error("Undefined Card"));
             });
@@ -392,10 +397,12 @@ const Trucoshi = ({ port, origin, serverVersion, }) => {
                 const user = server.sessions.getOrThrow(session);
                 const turn = () => server
                     .emitWaitingForPlay(play, table, play.freshHand)
-                    .then(resolve)
+                    .then(() => {
+                    resolve();
+                })
                     .catch((e) => {
-                    logger_1.default.error(e, "ONTURN CALLBACK ERROR");
-                    reject(e);
+                    logger_1.default.debug(e, "ONTURN CALLBACK ERROR");
+                    turn();
                 });
                 turn();
                 const timeout = server.setTurnTimeout(table, player, user, turn, () => server
@@ -421,8 +428,9 @@ const Trucoshi = ({ port, origin, serverVersion, }) => {
                     .emitWaitingPossibleSay(play, table)
                     .then(() => resolve())
                     .catch((e) => {
-                    logger_1.default.error(e, "ONTRUCO CALLBACK ERROR");
-                    reject(e);
+                    logger_1.default.debug(e, "ONTRUCO CALLBACK ERROR");
+                    // reject(e)
+                    turn();
                 });
                 turn();
                 const player = play.player;
@@ -455,8 +463,8 @@ const Trucoshi = ({ port, origin, serverVersion, }) => {
                     .emitWaitingPossibleSay(play, table)
                     .then(() => resolve())
                     .catch((e) => {
-                    logger_1.default.error(e, "ONENVIDO CALLBACK ERROR");
-                    reject(e);
+                    logger_1.default.debug(e, "ONENVIDO CALLBACK ERROR");
+                    turn();
                 });
                 turn();
                 const player = play.player;

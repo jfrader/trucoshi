@@ -86,7 +86,7 @@ export const trucoshi =
         const userSession = server.sessions.getOrThrow(socket.data.user?.session)
         const table = server.tables.get(matchSessionId)
 
-        logger.debug(userSession.getPublicInfo(), "User joining match...")
+        logger.info(userSession.getPublicInfo(), "User joining match...")
 
         if (table) {
           await table.lobby.addPlayer(
@@ -105,7 +105,7 @@ export const trucoshi =
             activeMatches: server.getSessionActiveMatches(userSession.session),
           })
         }
-        callback({ success: false })
+        throw new Error("Table not found")
       } catch (e) {
         logger.warn(e)
         callback({ success: false })
@@ -124,7 +124,17 @@ export const trucoshi =
      * Login
      */
     socket.on(EClientEvent.LOGIN, (account, identityJwt, callback) => {
-      server.login(socket, account, identityJwt, callback)
+      try {
+        server.login(socket, account, identityJwt, ({ success }) => {
+          callback({
+            success,
+            activeMatches: server.getSessionActiveMatches(socket.data.user?.session),
+          })
+        })
+      } catch (e) {
+        logger.warn(e)
+        callback({ success: false })
+      }
     })
 
     /**
@@ -157,16 +167,17 @@ export const trucoshi =
         if (!socket.data.user) {
           throw new Error("Session not found")
         }
-
         const table = server.tables.getOrThrow(matchId)
+
         const player = table.lobby.players.find(
           (player) => player && player.session === socket.data.user?.session
         )
         if (player) {
           player.setReady(ready)
           server.emitMatchUpdate(table, [socket.id]).catch(console.error)
-          callback({ success: true, match: table.getPublicMatch(socket.data.user?.session) })
+          return callback({ success: true, match: table.getPublicMatch(socket.data.user?.session) })
         }
+        throw new Error("Player not found " + socket.data.user.name)
       } catch (e) {
         logger.warn(e)
         callback({ success: false })

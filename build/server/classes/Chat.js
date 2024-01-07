@@ -92,15 +92,16 @@ const Chat = (io) => {
     };
     const adapter = io.of("/").adapter;
     adapter.on("join-room", (room, socketId) => {
-        var _a;
         const userSocket = io.sockets.sockets.get(socketId);
         if (!userSocket || !userSocket.data.user) {
             logger_1.default.debug(`Tried to join room but there's no session data`);
             return;
         }
         const { name: id, key } = userSocket.data.user;
-        (_a = chat.rooms.get(room)) === null || _a === void 0 ? void 0 : _a.system(`${id} entro a la sala`);
-        logger_1.default.info(`${id} entro a la sala`);
+        const chatroom = chat.rooms.get(room);
+        chatroom === null || chatroom === void 0 ? void 0 : chatroom.system(`${id} entro a la sala`);
+        if (chatroom)
+            logger_1.default.info(`${id} entro a la sala ${room}`);
         userSocket.on(types_1.EClientEvent.CHAT, (matchId, message, callback) => {
             if (matchId !== room || !userSocket.data.user) {
                 return;

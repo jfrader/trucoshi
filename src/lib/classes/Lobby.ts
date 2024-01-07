@@ -120,6 +120,7 @@ export function Lobby(options: Partial<ILobbyOptions> = {}): ILobby {
         }
       })
       if (player) {
+        logger.trace({ player: (player as any).id }, "Adding player to match table lobby")
         return player
       }
       throw new Error("Couldn't add player to match")

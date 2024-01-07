@@ -53,11 +53,10 @@ describe("Trucoshi Lib", () => {
               return
             }
 
-
             if (pointsRound) {
               if (
                 play.player.commands.includes(EEnvidoAnswerCommand.SON_BUENAS) &&
-                Math.random() > 0.9
+                Math.random() > 0.51
               ) {
                 play.say(EEnvidoAnswerCommand.SON_BUENAS, play.player)
                 return
@@ -81,11 +80,11 @@ describe("Trucoshi Lib", () => {
               return
             }
 
-            if (Math.random() > 0.77) {
+            if (Math.random() > 0.51) {
               let randomIdx = Math.floor(Math.random() * (play.player.commands.length - 1))
 
               let i = 0
-              while (i < 5 && play.player.commands[randomIdx] === ESayCommand.MAZO) {
+              while (play.player.commands.length > 1 && i < 5 && play.player.commands[randomIdx] === ESayCommand.MAZO) {
                 randomIdx = Math.floor(Math.random() * (play.player.commands.length - 1))
                 i++
               }
