@@ -1,8 +1,12 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Chat = void 0;
 const crypto_1 = require("crypto");
 const types_1 = require("../../types");
+const logger_1 = __importDefault(require("../../utils/logger"));
 const SYSTEM_ID = "system";
 const ChatUser = (id) => {
     return {
@@ -91,10 +95,12 @@ const Chat = (io) => {
         var _a;
         const userSocket = io.sockets.sockets.get(socketId);
         if (!userSocket || !userSocket.data.user) {
+            logger_1.default.debug(`Tried to join room but there's no session data`);
             return;
         }
         const { name: id, key } = userSocket.data.user;
         (_a = chat.rooms.get(room)) === null || _a === void 0 ? void 0 : _a.system(`${id} entro a la sala`);
+        logger_1.default.info(`${id} entro a la sala`);
         userSocket.on(types_1.EClientEvent.CHAT, (matchId, message, callback) => {
             if (matchId !== room || !userSocket.data.user) {
                 return;
@@ -110,6 +116,7 @@ const Chat = (io) => {
         var _a;
         const userSocket = io.sockets.sockets.get(socketId);
         if (!userSocket || !userSocket.data.user) {
+            logger_1.default.debug(`Tried to leave room but there's no session data`);
             return;
         }
         const { name: id } = userSocket.data.user;

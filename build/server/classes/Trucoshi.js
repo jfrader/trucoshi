@@ -74,13 +74,14 @@ const Trucoshi = ({ port, origin, serverVersion, }) => {
                 logger_1.default.info("Logged in to lightning-accounts");
                 return Promise.all([pubClient.connect(), subClient.connect()]);
             })
+                .then(() => logger_1.default.info("Connected to redis"))
                 .catch((e) => {
                 logger_1.default.error(e, "Failed to connect to Redis");
             })
                 .finally(() => {
-                logger_1.default.info("Connected to redis");
                 io.adapter((0, redis_adapter_1.createAdapter)(pubClient, subClient));
                 io.listen(port);
+                server.chat = (0, Chat_1.Chat)(io);
                 callback(io);
             });
         },

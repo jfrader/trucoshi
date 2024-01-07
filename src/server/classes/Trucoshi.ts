@@ -200,13 +200,14 @@ export const Trucoshi = ({
           logger.info("Logged in to lightning-accounts")
           return Promise.all([pubClient.connect(), subClient.connect()])
         })
+        .then(() => logger.info("Connected to redis"))
         .catch((e) => {
           logger.error(e, "Failed to connect to Redis")
         })
         .finally(() => {
-          logger.info("Connected to redis")
           io.adapter(createAdapter(pubClient, subClient))
           io.listen(port)
+          server.chat = Chat(io)
           callback(io)
         })
     },
