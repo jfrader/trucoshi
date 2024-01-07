@@ -325,7 +325,7 @@ const setTurnCommands = (match: IMatch, hand: IHand) => {
         player._commands.add(EAnswerCommand.NO_QUIERO)
       })
     } else {
-      match.table.players.forEach((player) => {
+      match.table.players.filter(p => !p.disabled).forEach((player) => {
         if (hand.truco.teamIdx !== player.teamIdx) {
           const nextCommand = hand.truco.getNextTrucoCommand()
           if (nextCommand) {
@@ -346,7 +346,10 @@ const trucoCommand = (hand: IHand, player: IPlayer) => {
 const commands: IHandCommands = {
   [ESayCommand.MAZO]: (hand, player) => {
     hand.disablePlayer(player)
-    hand.nextTurn()
+
+    if (player.isTurn) {
+      hand.nextTurn()
+    }
   },
   [EAnswerCommand.QUIERO]: (hand, player) => {
     if (hand.state === EHandState.WAITING_FOR_TRUCO_ANSWER) {

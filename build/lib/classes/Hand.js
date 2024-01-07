@@ -256,7 +256,7 @@ const setTurnCommands = (match, hand) => {
             });
         }
         else {
-            match.table.players.forEach((player) => {
+            match.table.players.filter(p => !p.disabled).forEach((player) => {
                 if (hand.truco.teamIdx !== player.teamIdx) {
                     const nextCommand = hand.truco.getNextTrucoCommand();
                     if (nextCommand) {
@@ -275,7 +275,9 @@ const trucoCommand = (hand, player) => {
 const commands = {
     [types_1.ESayCommand.MAZO]: (hand, player) => {
         hand.disablePlayer(player);
-        hand.nextTurn();
+        if (player.isTurn) {
+            hand.nextTurn();
+        }
     },
     [types_1.EAnswerCommand.QUIERO]: (hand, player) => {
         if (hand.state === types_1.EHandState.WAITING_FOR_TRUCO_ANSWER) {

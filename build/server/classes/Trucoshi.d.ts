@@ -50,7 +50,7 @@ export interface ITrucoshi {
     emitSocketSession(socket: TrucoshiSocket): Promise<void>;
     leaveMatch(matchId: string, socketId: string): Promise<void>;
     emitWaitingPossibleSay(play: IPlayInstance, table: IMatchTable, freshHand?: boolean): Promise<ECommand | number>;
-    emitWaitingForPlay(play: IPlayInstance, table: IMatchTable, freshHand?: boolean): Promise<void>;
+    emitWaitingForPlay(play: IPlayInstance, table: IMatchTable, freshHand?: boolean): Promise<"say" | "play">;
     emitMatchUpdate(table: IMatchTable, skipSocketIds?: Array<string>): Promise<void>;
     emitPreviousHand(hand: IHand, table: IMatchTable): Promise<void>;
     emitSocketMatch(socket: TrucoshiSocket, currentMatchId: string | null): IPublicMatch | null;

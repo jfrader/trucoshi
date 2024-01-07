@@ -83,7 +83,7 @@ const trucoshi = (server) => (socket, next) => {
         try {
             const userSession = server.sessions.getOrThrow((_c = socket.data.user) === null || _c === void 0 ? void 0 : _c.session);
             const table = server.tables.get(matchSessionId);
-            logger_1.default.debug(userSession.getPublicInfo(), "User joining match...");
+            logger_1.default.info(userSession.getPublicInfo(), "User joining match...");
             if (table) {
                 yield table.lobby.addPlayer(userSession.key, ((_d = userSession.account) === null || _d === void 0 ? void 0 : _d.name) || userSession.name, userSession.session, teamIdx, userSession.ownedMatches.has(matchSessionId));
                 socket.join(table.matchSessionId);
@@ -94,7 +94,7 @@ const trucoshi = (server) => (socket, next) => {
                     activeMatches: server.getSessionActiveMatches(userSession.session),
                 });
             }
-            callback({ success: false });
+            throw new Error("Table not found");
         }
         catch (e) {
             logger_1.default.warn(e);
@@ -112,7 +112,19 @@ const trucoshi = (server) => (socket, next) => {
      * Login
      */
     socket.on(types_1.EClientEvent.LOGIN, (account, identityJwt, callback) => {
-        server.login(socket, account, identityJwt, callback);
+        try {
+            server.login(socket, account, identityJwt, ({ success }) => {
+                var _a;
+                callback({
+                    success,
+                    activeMatches: server.getSessionActiveMatches((_a = socket.data.user) === null || _a === void 0 ? void 0 : _a.session),
+                });
+            });
+        }
+        catch (e) {
+            logger_1.default.warn(e);
+            callback({ success: false });
+        }
     });
     /**
      * Logout
@@ -147,8 +159,9 @@ const trucoshi = (server) => (socket, next) => {
             if (player) {
                 player.setReady(ready);
                 server.emitMatchUpdate(table, [socket.id]).catch(console.error);
-                callback({ success: true, match: table.getPublicMatch((_a = socket.data.user) === null || _a === void 0 ? void 0 : _a.session) });
+                return callback({ success: true, match: table.getPublicMatch((_a = socket.data.user) === null || _a === void 0 ? void 0 : _a.session) });
             }
+            throw new Error("Player not found " + socket.data.user.name);
         }
         catch (e) {
             logger_1.default.warn(e);
