@@ -26,39 +26,42 @@ describe("Socket Server", () => {
   before((done) => {
     server = Trucoshi({ port: 9999, serverVersion: "1" })
 
-    server.listen((io) => {
-      io.use(session(server))
-      io.use(trucoshi(server))
+    server.listen(
+      (io) => {
+        io.use(session(server))
+        io.use(trucoshi(server))
 
-      for (let i = 0; i < 6; i++) {
-        clients.push(
-          Client(`http://localhost:9999`, {
-            autoConnect: false,
-            withCredentials: true,
-            auth: { name: "player" + i },
-          })
-        )
-      }
-
-      io.on("connection", (socket) => {
-        serverSocket = socket
-      })
-
-      const promises = clients.map(
-        (c) =>
-          new Promise<void>((res) => {
-            c.on(EServerEvent.SET_SESSION, ({ session, name }) => {
-              if ((c.auth as any).sessionID !== session) {
-                c.auth = { name, sessionID: session }
-              }
-              res()
+        for (let i = 0; i < 6; i++) {
+          clients.push(
+            Client(`http://localhost:9999`, {
+              autoConnect: false,
+              withCredentials: true,
+              auth: { name: "player" + i },
             })
-            c.connect()
-          })
-      )
+          )
+        }
 
-      Promise.all(promises).then(() => done())
-    })
+        io.on("connection", (socket) => {
+          serverSocket = socket
+        })
+
+        const promises = clients.map(
+          (c) =>
+            new Promise<void>((res) => {
+              c.on(EServerEvent.SET_SESSION, ({ session, name }) => {
+                if ((c.auth as any).sessionID !== session) {
+                  c.auth = { name, sessionID: session }
+                }
+                res()
+              })
+              c.connect()
+            })
+        )
+
+        Promise.all(promises).then(() => done())
+      },
+      { redis: false, lightningAccounts: false }
+    )
   })
 
   after(() => {
@@ -179,11 +182,9 @@ describe("Socket Server", () => {
     expect(match0?.winner?.points.buenas).to.be.greaterThanOrEqual(9)
   })
 
-  it("should play a random match", async () => {
+  it("should play a random match of 6", async () => {
     let matchId: string | undefined
     let matches: IPublicMatch[] = []
-
-    let clientsBusy = [false, false, false, false, false, false]
 
     let winningResolve = () => {}
     const WinnerPromise = new Promise<void>((res) => {
@@ -192,7 +193,6 @@ describe("Socket Server", () => {
 
     clients.forEach((c, i) => {
       c.on(EServerEvent.WAITING_PLAY, (match, callback) => {
-        clientsBusy[i] = true
         matches[i] = match
 
         if (!match.me?.hand) {
@@ -308,6 +308,148 @@ describe("Socket Server", () => {
 
     await new Promise<void>((res) => {
       clients[0].emit(
+        EClientEvent.START_MATCH,
+        matchId as string,
+        ({ success, matchSessionId }) => {
+          expect(success).to.equal(true)
+          expect(matchSessionId).to.equal(matchId)
+          res()
+        }
+      )
+    })
+
+    await WinnerPromise
+
+    expect(matches[0]?.winner?.points.buenas).to.be.greaterThanOrEqual(9)
+  })
+
+  it("should play a random match of 4", async () => {
+    let matchId: string | undefined
+    let matches: IPublicMatch[] = []
+    const fourClients = clients.slice(0, 4)
+
+    let winningResolve = () => {}
+    const WinnerPromise = new Promise<void>((res) => {
+      winningResolve = res
+    })
+
+    fourClients.forEach((c, i) => {
+      c.on(EServerEvent.WAITING_PLAY, (match, callback) => {
+        matches[i] = match
+
+        if (!match.me?.hand) {
+          console.error("WTF")
+          process.exit(1)
+        }
+
+        const rndIdx = Math.floor(Math.random() * (match.me.hand.length - 1))
+
+        const data = { card: match.me.hand[rndIdx] as ICard, cardIdx: rndIdx }
+
+        callback(data)
+      })
+
+      c.on(EServerEvent.WAITING_POSSIBLE_SAY, (match, callback) => {
+        matches[i] = match
+
+        if (match.me?.isEnvidoTurn && match.me.envido) {
+          if (!match.me?.isTurn) {
+            return
+          }
+
+          const rndIdx = Math.floor(Math.random() * (match.me.envido.length - 1))
+          const command = match.me.envido[rndIdx] as number
+
+          return callback({ command })
+        }
+
+        if (
+          (Math.random() > 0.8 || match.me?.commands?.includes(EAnswerCommand.QUIERO)) &&
+          match.me?.commands?.length
+        ) {
+          const rndIdx = Math.floor(Math.random() * (match.me.commands.length - 1))
+          const command = match.me.commands[rndIdx] as ECommand
+
+          return callback({ command })
+        }
+      })
+    })
+
+    fourClients.forEach((c, i) =>
+      c.on(EServerEvent.PREVIOUS_HAND, (match, callback) => {
+        expect(match.matchSessionId === matchId)
+        callback()
+      })
+    )
+
+    await new Promise<void>((res, rej) => {
+      fourClients[0].emit(EClientEvent.CREATE_MATCH, ({ match }) => {
+        expect(Boolean(match?.matchSessionId)).to.equal(true)
+        matchId = match?.matchSessionId
+        if (!match) {
+          return rej("Match not found create match")
+        }
+        matches[0] = match
+        res()
+      })
+    })
+
+    const joinPromises = fourClients.map((c, i) => {
+      const sendReady = (matchId: any) =>
+        new Promise<void>((res, rej) =>
+          c.emit(EClientEvent.SET_PLAYER_READY, matchId, true, ({ success, match }) => {
+            if (!match) {
+              return rej("Match not found ready")
+            }
+            matches[i] = match
+            expect(success).to.equal(true)
+            res()
+          })
+        )
+
+      if (i === 0) {
+        return () => sendReady(matchId)
+      }
+      return (teamIdx: 0 | 1) =>
+        new Promise<void>((res, rej) => {
+          c.emit(EClientEvent.JOIN_MATCH, matchId as string, teamIdx, ({ success, match }) => {
+            expect(success).to.equal(true)
+            expect(match?.matchSessionId).to.equal(matchId)
+
+            expect(Boolean(match?.players.find((player) => player.id === "player" + i))).to.equal(
+              true
+            )
+
+            if (!match) {
+              return rej("Match not found join match")
+            }
+            matches[i] = match
+
+            sendReady(matchId).then(res)
+          })
+        })
+    })
+
+    let tidx: 0 | 1 = 0
+    for (const joinPromise of joinPromises) {
+      await joinPromise(tidx)
+      await new Promise((res) => setTimeout(res, 50))
+      tidx = Number(!tidx) as 0 | 1
+    }
+
+    fourClients.forEach((c, i) =>
+      c.on(EServerEvent.UPDATE_MATCH, (match) => {
+        matches[i] = match
+        if (i === 0) {
+          if (match.winner) {
+            winningResolve()
+          }
+        }
+      })
+    )
+
+    await new Promise<void>((res) => {
+      fourClients[0].emit(
         EClientEvent.START_MATCH,
         matchId as string,
         ({ success, matchSessionId }) => {
