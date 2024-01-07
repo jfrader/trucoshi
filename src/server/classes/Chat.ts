@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto"
 import { EClientEvent, EServerEvent, IChatMessage, IChatRoom, TMap } from "../../types"
 import { TrucoshiServer } from "./Trucoshi"
+import logger from "../../utils/logger"
 
 const SYSTEM_ID = "system"
 
@@ -113,12 +114,14 @@ export const Chat = (io: TrucoshiServer) => {
     const userSocket = io.sockets.sockets.get(socketId)
 
     if (!userSocket || !userSocket.data.user) {
+      logger.debug(`Tried to join room but there's no session data`)
       return
     }
 
     const { name: id, key } = userSocket.data.user
 
     chat.rooms.get(room)?.system(`${id} entro a la sala`)
+    logger.info(`${id} entro a la sala`)
 
     userSocket.on(EClientEvent.CHAT, (matchId, message, callback) => {
       if (matchId !== room || !userSocket.data.user) {
@@ -137,6 +140,7 @@ export const Chat = (io: TrucoshiServer) => {
     const userSocket = io.sockets.sockets.get(socketId)
 
     if (!userSocket || !userSocket.data.user) {
+      logger.debug(`Tried to leave room but there's no session data`)
       return
     }
 
