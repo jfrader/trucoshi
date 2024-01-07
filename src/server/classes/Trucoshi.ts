@@ -374,6 +374,12 @@ export const Trucoshi = ({
             )
 
             if (player.disabled) {
+              playerSocket.emit(
+                EServerEvent.UPDATE_MATCH,
+                table.getPublicMatch(
+                  player ? (playerSocket.data.user?.session as string) : undefined
+                )
+              )
               return
             }
 
