@@ -11,7 +11,7 @@
   "scripts": {
     "start": "nodemon",
     "profiler": "yarn build && node --prof ./bin/trucoshi-server",
-    "build": "yarn run rimraf ./build && yarn run tsc --project .",
+    "build": "yarn run rimraf ./build && yarn run tsc --project . && yarn build:dist",
     "build:dist": "yarn run rimraf ./dist && yarn run tsc --project ./tsconfig.dist.json",
     "prepublishOnly": "yarn test && yarn build:dist",
     "test": "NODE_DEBUG_LEVEL=error ts-mocha --exit ./test/**/*.ts -t 30000",
