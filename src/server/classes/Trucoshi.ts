@@ -151,7 +151,10 @@ export interface ITrucoshi {
   removePlayerAndCleanup(table: IMatchTable, player: IPlayer): void
   cleanupMatchTable(table: IMatchTable): void
   resetSocketsMatchState(table: IMatchTable): Promise<void>
-  listen: (callback: (io: TrucoshiServer) => void) => void
+  listen: (
+    callback: (io: TrucoshiServer) => void,
+    options?: { redis: boolean; lightningAccounts: boolean }
+  ) => Promise<TrucoshiServer>
 }
 
 export const Trucoshi = ({
@@ -194,26 +197,33 @@ export const Trucoshi = ({
     io,
     httpServer,
     chat,
-    listen(callback) {
-      accountsApi.auth
-        .getAuth()
-        .catch((e) => {
-          logger.error(e, "Failed to login to lightning-accounts")
-        })
-        .then(() => {
+    async listen(
+      callback,
+      { redis = true, lightningAccounts = true } = { redis: true, lightningAccounts: true }
+    ) {
+      if (lightningAccounts) {
+        try {
+          await accountsApi.auth.getAuth()
           logger.info("Logged in to lightning-accounts")
-          return Promise.all([pubClient.connect(), subClient.connect()])
-        })
-        .then(() => logger.info("Connected to redis"))
-        .catch((e) => {
-          logger.error(e, "Failed to connect to Redis")
-        })
-        .finally(() => {
+        } catch (e) {
+          logger.error(e, "Failed to login to lightning-accounts")
+        }
+      }
+
+      if (redis) {
+        try {
+          await Promise.all([pubClient.connect(), subClient.connect()])
           io.adapter(createAdapter(pubClient, subClient))
-          io.listen(port)
-          server.chat = Chat(io)
-          callback(io)
-        })
+          logger.info("Connected to redis")
+        } catch (e) {
+          logger.error(e, "Failed to connect to Redis")
+        }
+      }
+
+      io.listen(port)
+      server.chat = Chat(io)
+      callback(io)
+      return io
     },
     getSessionActiveMatches(session) {
       if (!session) {
