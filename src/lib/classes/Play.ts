@@ -51,6 +51,8 @@ export function PlayInstance(hand: IHand, prevHand: IHand | null, teams: [ITeam,
     return null
   }
 
+  let busy = false
+
   const instance: IPlayInstance = {
     state: hand.state,
     teams,
@@ -69,6 +71,10 @@ export function PlayInstance(hand: IHand, prevHand: IHand | null, teams: [ITeam,
       instance.waitingPlay = waiting
     },
     use(idx, card) {
+      if (busy) {
+        return play()
+      }
+      busy = true
       const result = play(hand.use, idx, card)
       if (result) {
         instance.lastCard = result
@@ -76,6 +82,10 @@ export function PlayInstance(hand: IHand, prevHand: IHand | null, teams: [ITeam,
       return result
     },
     say(command, player) {
+      if (busy) {
+        return play()
+      }
+      busy = true
       try {
         if (player.disabled) {
           return play()
