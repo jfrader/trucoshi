@@ -10,6 +10,8 @@ export type ITrucoCallback = (play: IPlayInstance) => Promise<void>
 export type IHandFinishedCallback = (hand: IHand | null) => Promise<void>
 export type IEnvidoCallback = (play: IPlayInstance, pointsRound: boolean) => Promise<void>
 
+const log = logger.child({ class: "Gameloop" })
+
 export interface IGameLoop {
   _onTruco: ITrucoCallback
   _onTurn: ITurnCallback
@@ -64,13 +66,17 @@ export const GameLoop = (match: IMatch) => {
       return gameloop
     },
     async begin() {
+      log.debug(
+        {
+          matchId: match.id,
+        },
+        "New match gameloop started"
+      )
       let winner: ITeam | null = null
       gameloop.teams = match.teams
 
       while (!match.winner) {
         const play = match.play()
-
-        logger.trace({ winner: match.winner }, "Game tick started")
 
         gameloop.currentHand = match.currentHand
 
@@ -88,7 +94,14 @@ export const GameLoop = (match: IMatch) => {
         gameloop.currentPlayer = play.player
 
         try {
-          logger.trace({ state: play.state, player: play.player.id }, "Game new turn started")
+          log.debug(
+            {
+              matchId: match.id,
+              state: play.state,
+              player: play.player.id,
+            },
+            "Game new turn started"
+          )
 
           if (play.state === EHandState.WAITING_ENVIDO_ANSWER) {
             play.player.setTurn(true)
@@ -120,8 +133,8 @@ export const GameLoop = (match: IMatch) => {
             continue
           }
         } catch (e) {
-          logger.error(e)
-          logger.fatal(e, "Match ended because an error was thrown in the game loop!")
+          log.error(e)
+          log.fatal(e, "Match ended because an error was thrown in the game loop!")
           match.setWinner(match.teams[0])
           winner = match.teams[0]
         }
@@ -135,13 +148,15 @@ export const GameLoop = (match: IMatch) => {
 
       winner = match.winner
 
+      log.debug({ matchId: match.id, winnerIdx: winner.id }, "Gameloop match found a winner!")
+
       gameloop.winner = winner
       gameloop.currentPlayer = null
 
       try {
         await gameloop._onWinner(winner, match.teams)
       } catch (e) {
-        logger.error(e, "Gameloop onWinner callback error")
+        log.error(e, "Gameloop onWinner callback error")
       }
     },
   }

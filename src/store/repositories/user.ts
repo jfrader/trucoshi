@@ -17,7 +17,7 @@ export const userRepository = (client: PrismaClient) => {
 
       return { success: true, user }
     } catch (e) {
-      logger.debug(e, "Error creating user")
+      logger.trace(e, "Error creating user")
       return { success: false, session: null }
     }
   }

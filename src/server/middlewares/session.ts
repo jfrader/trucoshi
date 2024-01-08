@@ -5,7 +5,7 @@ import { TMap } from "../../types"
 
 export const session = (server: ITrucoshi) => {
   server.io.on("connection", (socket) => {
-    logger.debug("New socket connection %s", socket.id)
+    logger.trace("New socket connection %s", socket.id)
     logger.info(socket.data.user, "New connection session")
     if (socket.data.user) {
       socket.join(socket.data.user.session)
@@ -15,7 +15,7 @@ export const session = (server: ITrucoshi) => {
 
   return (socket: TrucoshiSocket, next: (err?: ExtendedError) => void) => {
     socket.on("disconnect", async (reason) => {
-      logger.info("Socket disconnected, reason?: %s", reason)
+      logger.trace("Socket disconnected, reason?: %s", reason)
       if (socket.data.user) {
         const matchingSockets = await server.io.in(socket.data.user?.session).fetchSockets()
         const isDisconnected = matchingSockets.length === 0

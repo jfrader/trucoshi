@@ -4,6 +4,8 @@ import { EClientEvent, EServerEvent } from "../../types"
 import { randomUUID } from "crypto"
 import logger from "../../utils/logger"
 
+const log = logger.child({ middleware: "trucoshi" })
+
 export const trucoshi =
   (server: ITrucoshi) => (socket: TrucoshiSocket, next: (err?: ExtendedError) => void) => {
     socket.on(EClientEvent.PING, (clientTime) => {
@@ -24,12 +26,12 @@ export const trucoshi =
           throw new Error("Attempted to create a match without a user")
         }
 
-        logger.debug(userSession.getPublicInfo(), "User creating new match...")
+        log.trace(userSession.getPublicInfo(), "User creating new match...")
 
         const matchId = randomUUID().substring(0, 8)
         const table = MatchTable(matchId, socket.data.user.session)
 
-        logger.trace(userSession.getPublicInfo(), "User has created a new match table", table)
+        log.silent(userSession.getPublicInfo(), "User has created a new match table", table)
 
         userSession.ownedMatches.add(matchId)
 
@@ -51,7 +53,7 @@ export const trucoshi =
           activeMatches: server.getSessionActiveMatches(userSession.session),
         })
       } catch (e) {
-        logger.warn(e)
+        log.warn(e)
         return callback({ success: false })
       }
     })
@@ -63,17 +65,17 @@ export const trucoshi =
       try {
         const user = server.sessions.getOrThrow(socket.data.user?.session)
 
-        logger.debug(user.getPublicInfo(), "User starting match...")
+        log.trace(user.getPublicInfo(), "User starting match...")
 
         if (matchId && user.ownedMatches.has(matchId)) {
-          logger.trace("Server starting match...")
+          log.silent("Server starting match...")
           await server.startMatch(matchId)
           return callback({ success: true, matchSessionId: matchId })
         }
-        logger.trace({ matchId }, "Match could not be started")
+        log.silent({ matchId }, "Match could not be started")
         callback({ success: false })
       } catch (e) {
-        logger.error(e)
+        log.error(e, "Client event START_MATCH error")
         callback({ success: false })
       }
     })
@@ -86,7 +88,7 @@ export const trucoshi =
         const userSession = server.sessions.getOrThrow(socket.data.user?.session)
         const table = server.tables.get(matchSessionId)
 
-        logger.info(userSession.getPublicInfo(), "User joining match...")
+        log.info(userSession.getPublicInfo(), "User joining match...")
 
         if (table) {
           await table.lobby.addPlayer(
@@ -107,7 +109,7 @@ export const trucoshi =
         }
         throw new Error("Table not found")
       } catch (e) {
-        logger.warn(e)
+        log.error(e, "Client event JOIN_MATCH error")
         callback({ success: false })
       }
     })
@@ -132,7 +134,7 @@ export const trucoshi =
           })
         })
       } catch (e) {
-        logger.warn(e)
+        log.error(e, "Client event LOGIN error")
         callback({ success: false })
       }
     })
@@ -179,7 +181,7 @@ export const trucoshi =
         }
         throw new Error("Player not found " + socket.data.user.name)
       } catch (e) {
-        logger.warn(e)
+        log.error(e, "Client event SET_PLAYER_READY error")
         callback({ success: false })
       }
     })
@@ -188,8 +190,11 @@ export const trucoshi =
      * Leave Match
      */
     socket.on(EClientEvent.LEAVE_MATCH, (matchId) => {
-      logger.trace({ matchId, socketId: socket.id }, "Client emitted LEAVE_MATCH event")
-      server.leaveMatch(matchId, socket.id).then().catch(console.error)
+      log.silent({ matchId, socketId: socket.id }, "Client emitted LEAVE_MATCH event")
+      server
+        .leaveMatch(matchId, socket.id)
+        .then()
+        .catch((e) => log.error(e, "Client event LEAVE_MATCH error"))
     })
 
     next()

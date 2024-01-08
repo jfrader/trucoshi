@@ -32,7 +32,7 @@ export function MatchTable(
   const table: IMatchTable = {
     ownerSession,
     matchSessionId,
-    lobby: Lobby(options),
+    lobby: Lobby(matchSessionId, options),
     state() {
       table.lobby.calculateReady()
       if (table.lobby.gameLoop?.winner) {

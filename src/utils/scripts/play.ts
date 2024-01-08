@@ -104,7 +104,7 @@ const sayPoints = (play: IPlayInstance) =>
   )
 
 ;(async () => {
-  const trucoshi = Lobby()
+  const trucoshi = Lobby("testmatch2")
 
   const promises = [
     trucoshi.addPlayer("lukini", "lukini", "lukini").then((player) => player.setReady(true)),
