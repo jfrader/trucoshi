@@ -20,15 +20,24 @@ export const playRandomMatch = async (
   let matchId: string | undefined
   let matches: IPublicMatch[] = []
 
-  clients.forEach((c) => c.removeAllListeners())
-
   let winningResolve = () => {}
   const WinnerPromise = new Promise<void>((res) => {
     winningResolve = res
   })
 
+  const checkMatch = (i, match) => {
+    if (matches[i] && match?.matchSessionId !== matches[i].matchSessionId) {
+      return false
+    }
+
+    return true
+  }
+
   clients.forEach((c, i) => {
     c.on(EServerEvent.WAITING_PLAY, (match, callback) => {
+      if (!checkMatch(i, match)) {
+        return
+      }
       matches[i] = match
 
       if (!match.me?.hand) {
@@ -44,6 +53,9 @@ export const playRandomMatch = async (
     })
 
     c.on(EServerEvent.WAITING_POSSIBLE_SAY, (match, callback) => {
+      if (!checkMatch(i, match)) {
+        return
+      }
       matches[i] = match
 
       if (match.me?.isEnvidoTurn && match.me.envido) {
@@ -75,6 +87,9 @@ export const playRandomMatch = async (
 
   clients.forEach((c, i) =>
     c.on(EServerEvent.PREVIOUS_HAND, (match, callback) => {
+      if (!checkMatch(i, match)) {
+        return
+      }
       expect(match.matchSessionId === matchId)
       callback()
     })
@@ -82,6 +97,9 @@ export const playRandomMatch = async (
 
   await new Promise<void>((res, rej) => {
     clients[0].emit(EClientEvent.CREATE_MATCH, ({ match }) => {
+      if (!checkMatch(0, match)) {
+        return
+      }
       expect(Boolean(match?.matchSessionId)).to.equal(true)
       matchId = match?.matchSessionId
       if (!match) {
@@ -96,6 +114,9 @@ export const playRandomMatch = async (
     const sendReady = (matchId: any) =>
       new Promise<void>((res, rej) =>
         c.emit(EClientEvent.SET_PLAYER_READY, matchId, true, ({ success, match }) => {
+          if (!checkMatch(i, match)) {
+            return
+          }
           if (!match) {
             return rej("Match not found ready")
           }
@@ -111,6 +132,9 @@ export const playRandomMatch = async (
     return (teamIdx: 0 | 1) =>
       new Promise<void>((res, rej) => {
         c.emit(EClientEvent.JOIN_MATCH, matchId as string, teamIdx, ({ success, match }) => {
+          if (!checkMatch(i, match)) {
+            return
+          }
           expect(success).to.equal(true)
           expect(match?.matchSessionId).to.equal(matchId)
 
@@ -137,6 +161,9 @@ export const playRandomMatch = async (
 
   clients.forEach((c, i) =>
     c.on(EServerEvent.UPDATE_MATCH, (match) => {
+      if (!checkMatch(i, match)) {
+        return
+      }
       matches[i] = match
       if (i === 0) {
         if (match.winner) {
