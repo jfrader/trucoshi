@@ -6,6 +6,7 @@ import {
   EAnswerCommand,
   EClientEvent,
   ECommand,
+  EEnvidoAnswerCommand,
   ESayCommand,
   EServerEvent,
   ICard,
@@ -200,7 +201,7 @@ describe("Socket Server", () => {
           process.exit(1)
         }
 
-        const rndIdx = Math.floor(Math.random() * (match.me.hand.length - 1))
+        const rndIdx = Math.floor(Math.random() * match.me.hand.length)
 
         const data = { card: match.me.hand[rndIdx] as ICard, cardIdx: rndIdx }
 
@@ -215,7 +216,11 @@ describe("Socket Server", () => {
             return
           }
 
-          const rndIdx = Math.floor(Math.random() * (match.me.envido.length - 1))
+          if (match.me.commands.includes(EEnvidoAnswerCommand.SON_BUENAS) && Math.random() > 0.52) {
+            return callback({ command: EEnvidoAnswerCommand.SON_BUENAS })
+          }
+
+          const rndIdx = Math.floor(Math.random() * match.me.envido.length)
           const command = match.me.envido[rndIdx] as number
 
           return callback({ command })
@@ -225,7 +230,7 @@ describe("Socket Server", () => {
           (Math.random() > 0.8 || match.me?.commands?.includes(EAnswerCommand.QUIERO)) &&
           match.me?.commands?.length
         ) {
-          const rndIdx = Math.floor(Math.random() * (match.me.commands.length - 1))
+          const rndIdx = Math.floor(Math.random() * match.me.commands.length)
           const command = match.me.commands[rndIdx] as ECommand
 
           return callback({ command })
@@ -323,6 +328,9 @@ describe("Socket Server", () => {
     expect(matches[0]?.winner?.points.buenas).to.be.greaterThanOrEqual(9)
   })
 
+  /**
+   * RANDOM MATCH OF 4 ------------------------------------------------------------------------
+   */
   it("should play a random match of 4", async () => {
     let matchId: string | undefined
     let matches: IPublicMatch[] = []
@@ -342,7 +350,7 @@ describe("Socket Server", () => {
           process.exit(1)
         }
 
-        const rndIdx = Math.floor(Math.random() * (match.me.hand.length - 1))
+        const rndIdx = Math.floor(Math.random() * match.me.hand.length)
 
         const data = { card: match.me.hand[rndIdx] as ICard, cardIdx: rndIdx }
 
@@ -357,7 +365,11 @@ describe("Socket Server", () => {
             return
           }
 
-          const rndIdx = Math.floor(Math.random() * (match.me.envido.length - 1))
+          if (match.me.commands.includes(EEnvidoAnswerCommand.SON_BUENAS) && Math.random() > 0.52) {
+            return callback({ command: EEnvidoAnswerCommand.SON_BUENAS })
+          }
+
+          const rndIdx = Math.floor(Math.random() * match.me.envido.length)
           const command = match.me.envido[rndIdx] as number
 
           return callback({ command })
@@ -367,7 +379,7 @@ describe("Socket Server", () => {
           (Math.random() > 0.8 || match.me?.commands?.includes(EAnswerCommand.QUIERO)) &&
           match.me?.commands?.length
         ) {
-          const rndIdx = Math.floor(Math.random() * (match.me.commands.length - 1))
+          const rndIdx = Math.floor(Math.random() * match.me.commands.length)
           const command = match.me.commands[rndIdx] as ECommand
 
           return callback({ command })

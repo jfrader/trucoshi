@@ -88,6 +88,8 @@ export const GameLoop = (match: IMatch) => {
         gameloop.currentPlayer = play.player
 
         try {
+          logger.trace({ state: play.state, player: play.player.id }, "Game new turn started")
+
           if (play.state === EHandState.WAITING_ENVIDO_ANSWER) {
             play.player.setTurn(true)
             await gameloop._onEnvido(play, false)

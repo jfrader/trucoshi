@@ -36,13 +36,13 @@ export interface IHand {
   set currentPlayer(player: IPlayer | null)
   currentRound: IRound | null
   say(command: ECommand, player: IPlayer): ECommand | null
+  sayEnvidoPoints(player: IPlayer, points: number): number
+  use(idx: number, card: ICard, burn?: boolean): ICard | null
   finished: () => boolean
   setTurnCommands(): void
   play(prevHand: IHand | null): IPlayInstance | null
   nextTurn(): void
   endEnvido(): void
-  sayEnvidoPoints(player: IPlayer, points: number): number
-  use(idx: number, card: ICard, burn?: boolean): ICard | null
   pushRound(round: IRound): IRound
   setTurn(turn: number): IPlayer
   addPoints(team: 0 | 1, points: number): void

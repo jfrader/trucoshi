@@ -208,7 +208,7 @@ export function Envido(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITa
 
       envido.pointAnswersCount++
 
-      if (envido.pointAnswersCount >= envido.players.length) {
+      if (envido.pointAnswersCount >= envido.players.filter((p) => !p.disabled).length) {
         envido.finished = true
         envido.winner = teams[envido.winningPlayer.teamIdx]
       }
@@ -220,7 +220,7 @@ export function Envido(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITa
       if (answer === null || player.teamIdx === envido.teamIdx) {
         return envido
       }
-      if (answer) {
+      if (answer === true) {
         envido.accepted = true
         envido.turn = 0
         table.players.forEach((player) => player.calculateEnvido())
