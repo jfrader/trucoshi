@@ -13,6 +13,8 @@ import { IHand } from "./Hand"
 import { IRound } from "./Round"
 import { ITruco } from "./Truco"
 
+const log = logger.child({ class: "Play" })
+
 type PlayArgs<TType> = TType extends (...args: infer U extends any[]) => any ? U : never
 type PlayReturn<TType> = (TType extends (...args: any[]) => infer U ? U : never) | null
 
@@ -75,6 +77,9 @@ export function PlayInstance(hand: IHand, prevHand: IHand | null, teams: [ITeam,
         return play()
       }
       busy = true
+
+      log.debug({ card, player: hand.currentPlayer?.id, hand: hand.currentPlayer?.hand })
+
       const result = play(hand.use, idx, card)
       if (result) {
         instance.lastCard = result
@@ -86,6 +91,9 @@ export function PlayInstance(hand: IHand, prevHand: IHand | null, teams: [ITeam,
         return play()
       }
       busy = true
+
+      log.debug({ command, player: player.id, envido: player.envido, commands: player.commands })
+
       try {
         if (player.disabled) {
           return play()
@@ -112,7 +120,7 @@ export function PlayInstance(hand: IHand, prevHand: IHand | null, teams: [ITeam,
         }
         return result
       } catch (e) {
-        logger.error(e)
+        log.error(e, "Error trying to say command")
         return null
       }
     },

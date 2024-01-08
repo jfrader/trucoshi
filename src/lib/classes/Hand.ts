@@ -22,6 +22,8 @@ import { IPlayInstance, PlayInstance } from "./Play"
 import { IRound, Round } from "./Round"
 import { ITruco, Truco } from "./Truco"
 
+const log = logger.child({ class: "Hand" })
+
 export interface IHand {
   idx: number
   state: EHandState
@@ -192,13 +194,6 @@ export function Hand(match: IMatch, idx: number) {
     play(prevHand) {
       return PlayInstance(hand, prevHand, match.teams)
     },
-    sayEnvidoPoints(player, points) {
-      const { winner } = hand.envido.sayPoints(player, points)
-      if (winner) {
-        hand.endEnvido()
-      }
-      return points
-    },
     endEnvido() {
       if (hand.truco.waitingAnswer) {
         hand.setState(EHandState.WAITING_FOR_TRUCO_ANSWER)
@@ -212,9 +207,16 @@ export function Hand(match: IMatch, idx: number) {
         hand.started = true
         return command
       } catch (e) {
-        logger.error(e)
+        log.error(e, "Error on executing hand command")
         return null
       }
+    },
+    sayEnvidoPoints(player, points) {
+      const { winner } = hand.envido.sayPoints(player, points)
+      if (winner) {
+        hand.endEnvido()
+      }
+      return points
     },
     use(idx, card, burn) {
       const player = hand.currentPlayer
@@ -325,15 +327,17 @@ const setTurnCommands = (match: IMatch, hand: IHand) => {
         player._commands.add(EAnswerCommand.NO_QUIERO)
       })
     } else {
-      match.table.players.filter(p => !p.disabled).forEach((player) => {
-        if (hand.truco.teamIdx !== player.teamIdx) {
-          const nextCommand = hand.truco.getNextTrucoCommand()
-          if (nextCommand) {
-            player._commands.add(nextCommand)
+      match.table.players
+        .filter((p) => !p.disabled)
+        .forEach((player) => {
+          if (hand.truco.teamIdx !== player.teamIdx) {
+            const nextCommand = hand.truco.getNextTrucoCommand()
+            if (nextCommand) {
+              player._commands.add(nextCommand)
+            }
           }
-        }
-        player._commands.add(ESayCommand.MAZO)
-      })
+          player._commands.add(ESayCommand.MAZO)
+        })
     }
   }
 }

@@ -5,8 +5,11 @@ import { Hand, IHand } from "./Hand"
 import { IPlayInstance } from "./Play"
 import { ITable } from "./Table"
 
+const log = logger.child({ class: "Match" })
+
 export interface IMatch {
   readonly options: ILobbyOptions
+  id: string
   teams: [ITeam, ITeam]
   hands: Array<IHand>
   winner: ITeam | null
@@ -79,7 +82,12 @@ function* matchTurnGeneratorSequence(match: IMatch) {
   yield match
 }
 
-export function Match(table: ITable, teams: Array<ITeam> = [], options: ILobbyOptions): IMatch {
+export function Match(
+  id: string,
+  table: ITable,
+  teams: Array<ITeam> = [],
+  options: ILobbyOptions
+): IMatch {
   const size = teams[0].players.length
 
   if (size !== teams[1].players.length) {
@@ -87,6 +95,7 @@ export function Match(table: ITable, teams: Array<ITeam> = [], options: ILobbyOp
   }
 
   const match: IMatch = {
+    id,
     winner: null,
     deck: Deck(),
     options: structuredClone(options),
@@ -96,7 +105,7 @@ export function Match(table: ITable, teams: Array<ITeam> = [], options: ILobbyOp
     prevHand: null,
     currentHand: null,
     play() {
-      logger.trace(
+      log.silent(
         { players: table.players.map((p) => p.getPublicPlayer()) },
         "Attempting to get match next turn"
       )

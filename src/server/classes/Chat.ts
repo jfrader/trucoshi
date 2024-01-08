@@ -3,6 +3,8 @@ import { EClientEvent, EServerEvent, IChatMessage, IChatRoom, TMap } from "../..
 import { TrucoshiServer } from "./Trucoshi"
 import logger from "../../utils/logger"
 
+const log = logger.child({ class: "Chat" })
+
 const SYSTEM_ID = "system"
 
 export interface IChat {
@@ -114,7 +116,10 @@ export const Chat = (io: TrucoshiServer) => {
     const userSocket = io.sockets.sockets.get(socketId)
 
     if (!userSocket || !userSocket.data.user) {
-      logger.debug(`Tried to join room but there's no session data`)
+      log.trace(
+        { room, socketId },
+        `Tried to JOIN room but there's no session data or no socket was found`
+      )
       return
     }
 
@@ -123,7 +128,7 @@ export const Chat = (io: TrucoshiServer) => {
     const chatroom = chat.rooms.get(room)
 
     chatroom?.system(`${id} entro a la sala`)
-    if (chatroom) logger.info(`${id} entro a la sala ${room}`)
+    if (chatroom) log.info(`${id} entro a la sala ${room}`)
 
     userSocket.on(EClientEvent.CHAT, (matchId, message, callback) => {
       if (matchId !== room || !userSocket.data.user) {
@@ -142,7 +147,10 @@ export const Chat = (io: TrucoshiServer) => {
     const userSocket = io.sockets.sockets.get(socketId)
 
     if (!userSocket || !userSocket.data.user) {
-      logger.debug(`Tried to leave room but there's no session data`)
+      log.trace(
+        { room, socketId },
+        `Tried to LEAVE room but there's no session data or no socket was found`
+      )
       return
     }
 

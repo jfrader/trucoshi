@@ -2,6 +2,8 @@ import { User } from "lightning-accounts"
 import logger from "../../utils/logger"
 import { PLAYER_TIMEOUT_GRACE } from "../constants"
 
+const log = logger.child({ class: "UserSession" })
+
 export interface IUserData {
   key: string
   name: string
@@ -63,14 +65,14 @@ export function UserSession(key: string, username: string, session: string) {
     waitReconnection(room, timeout) {
       return new Promise<void>((resolve, reject) => {
         userSession.resolveWaitingPromises(room)
-        logger.debug(
+        log.trace(
           userSession.getPublicInfo(),
           `User disconnected or left, waiting for ${timeout}ms to reconnect`
         )
         userSession.reconnectTimeouts.set(
           room,
           setTimeout(() => {
-            logger.debug(userSession.getPublicInfo(), WAIT_RECONNECTION_ABANDON_DEBUG_MSG)
+            log.trace(userSession.getPublicInfo(), WAIT_RECONNECTION_ABANDON_DEBUG_MSG)
             reject()
             userSession.reconnectPromises.delete(room)
           }, timeout + PLAYER_TIMEOUT_GRACE)

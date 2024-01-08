@@ -4,7 +4,7 @@ import { EAnswerCommand, EEnvidoAnswerCommand, ESayCommand } from "../src/types"
 
 describe("Trucoshi Lib", () => {
   it("should play an entire match of 6", (done) => {
-    const trucoshi = Lobby()
+    const trucoshi = Lobby("testmatch1")
 
     const promises = [
       trucoshi.addPlayer("lukini", "lukini", "lukini").then((player) => player.setReady(true)),
@@ -36,7 +36,7 @@ describe("Trucoshi Lib", () => {
 
   it("should play 100 random matches of 2, 4 or 6 players in parallel", (done) => {
     const playGame = (finished) => {
-      const trucoshi = Lobby()
+      const trucoshi = Lobby("testmatch2")
 
       const randomPlayersQuantity = [0, 2, 4]
 

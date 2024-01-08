@@ -1,6 +1,6 @@
 import { CARDS_HUMAN_READABLE, IRound, Lobby } from "../../lib"
 ;(async () => {
-  const trucoshi = Lobby()
+  const trucoshi = Lobby("testmatch1")
 
   const promises = [
     trucoshi.addPlayer("lukini", "lukini", "lukini").then((player) => player.setReady(true)),
