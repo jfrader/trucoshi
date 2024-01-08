@@ -182,25 +182,34 @@ describe("Socket Server", () => {
     expect(match0?.winner?.points.buenas).to.be.greaterThanOrEqual(9)
   })
 
-  it("should play a random match of 6", async () => {
-    await playRandomMatch(clients)
+  it("should play a random match of 2 players", async () => {
+    clients.forEach((c) => c.removeAllListeners())
+    await playRandomMatch(clients.slice(0, 2))
   })
 
-  it("should play a random match of 4", async () => {
+  it("should play a random match of 4 players", async () => {
+    clients.forEach((c) => c.removeAllListeners())
     await playRandomMatch(clients.slice(0, 4))
   })
 
-  xit("should play 3 matches in parallel", (done) => {
+  it("should play a random match of 6 players", async () => {
+    clients.forEach((c) => c.removeAllListeners())
+    await playRandomMatch(clients)
+  })
+
+  it("should play 5 matches in parallel", (done) => {
+    clients.forEach((c) => c.removeAllListeners())
     const promises: Array<() => Promise<void>> = []
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 5; i++) {
       promises.push(() => playRandomMatch(clients))
     }
 
     Promise.all(promises.map((p) => p())).then(() => done())
   })
 
-  it("should play 5 matches in series", async () => {
-    for (let i = 0; i < 5; i++) {
+  it("should play 10 matches in series", async () => {
+    clients.forEach((c) => c.removeAllListeners())
+    for (let i = 0; i < 10; i++) {
       await playRandomMatch(clients)
     }
   })
