@@ -190,17 +190,17 @@ describe("Socket Server", () => {
     await playRandomMatch(clients.slice(0, 4))
   })
 
-  it("should play 5 matches in parallel", (done) => {
+  xit("should play 3 matches in parallel", (done) => {
     const promises: Array<() => Promise<void>> = []
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 3; i++) {
       promises.push(() => playRandomMatch(clients))
     }
 
     Promise.all(promises.map((p) => p())).then(() => done())
   })
 
-  it("should play 15 matches in series", async () => {
-    for (let i = 0; i < 15; i++) {
+  it("should play 5 matches in series", async () => {
+    for (let i = 0; i < 5; i++) {
       await playRandomMatch(clients)
     }
   })

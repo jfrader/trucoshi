@@ -213,9 +213,6 @@ export function Envido(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITa
         envido.winner = teams[envido.winningPlayer.teamIdx]
       }
 
-      const { answered, finished, answer, winner } = envido
-      log.debug({ answered, finished, answer, winner: !!winner }, "jejejejejejejejeje")
-
       return envido
     },
     sayAnswer(player, answer) {
