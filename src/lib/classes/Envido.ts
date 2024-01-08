@@ -9,8 +9,11 @@ import {
   IPlayer,
   ITeam,
 } from "../../types"
+import logger from "../../utils/logger"
 import { getMaxNumberIndex } from "../utils"
 import { ITable } from "./Table"
+
+const log = logger.child({ class: "Envido" })
 
 export interface IEnvido {
   started: boolean
@@ -101,8 +104,7 @@ export const EnvidoCalculator: IEnvidoCalculator = {
 }
 
 function* envidoTurnGeneratorSequence(envido: IEnvido) {
-  let i = 0
-  while (i < envido.players.length && (envido.answer === null || envido.winner === null)) {
+  while (envido.answer === null || envido.winner === null) {
     const player = envido.players[envido.turn]
     envido.setCurrentPlayer(player)
     if (player.disabled) {
@@ -114,8 +116,6 @@ function* envidoTurnGeneratorSequence(envido: IEnvido) {
     } else {
       envido.setTurn(envido.turn + 1)
     }
-
-    i++
 
     yield envido
   }
@@ -212,6 +212,9 @@ export function Envido(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITa
         envido.finished = true
         envido.winner = teams[envido.winningPlayer.teamIdx]
       }
+
+      const { answered, finished, answer, winner } = envido
+      log.debug({ answered, finished, answer, winner: !!winner }, "jejejejejejejejeje")
 
       return envido
     },

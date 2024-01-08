@@ -148,7 +148,10 @@ export const GameLoop = (match: IMatch) => {
 
       winner = match.winner
 
-      log.debug({ matchId: match.id, winnerIdx: winner.id }, "Gameloop match found a winner!")
+      log.debug(
+        { matchId: match.id, winnerIdx: winner.id, points: winner.points },
+        "Gameloop match found a winner!"
+      )
 
       gameloop.winner = winner
       gameloop.currentPlayer = null
