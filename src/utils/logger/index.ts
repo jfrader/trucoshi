@@ -6,13 +6,12 @@ dotenv.config()
 
 const transport = pino.transport({
   target: "pino-pretty",
-  options: { destination: 1, colorize: true },
-  
-  levels: {
-    
-  },
+  options: { colorize: true },
 })
 
-const logger = pino({ level: process.env.NODE_DEBUG_LEVEL }, transport)
+const logger = pino(
+  { level: process.env.NODE_DEBUG_LEVEL },
+  transport
+)
 
 export default logger

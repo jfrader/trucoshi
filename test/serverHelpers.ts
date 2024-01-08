@@ -5,18 +5,22 @@ import {
   EClientEvent,
   ECommand,
   EEnvidoAnswerCommand,
+  EMatchState,
   EServerEvent,
   ICard,
   IPublicMatch,
   ServerToClientEvents,
 } from "../src/types"
 import { Socket } from "socket.io-client"
+import logger from "../src/utils/logger"
 
 export const playRandomMatch = async (
   clients: Socket<ServerToClientEvents, ClientToServerEvents>[]
 ) => {
   let matchId: string | undefined
   let matches: IPublicMatch[] = []
+
+  clients.forEach((c) => c.removeAllListeners())
 
   let winningResolve = () => {}
   const WinnerPromise = new Promise<void>((res) => {
@@ -137,6 +141,11 @@ export const playRandomMatch = async (
       if (i === 0) {
         if (match.winner) {
           winningResolve()
+        } else {
+          if (match.state === EMatchState.FINISHED) {
+            logger.fatal(new Error("FATALITY"), "WTF")
+            process.exit(1)
+          }
         }
       }
     })
