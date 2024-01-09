@@ -143,7 +143,7 @@ describe("Socket Server", () => {
       clients[1].emit(EClientEvent.JOIN_MATCH, matchId as string, 1, ({ success, match }) => {
         expect(success).to.equal(true)
         expect(match?.matchSessionId).to.equal(matchId)
-        expect(Boolean(match?.players.find((player) => player.id === "player1"))).to.equal(true)
+        expect(Boolean(match?.players.find((player) => player.name === "player1"))).to.equal(true)
         match1 = match
         res()
       })

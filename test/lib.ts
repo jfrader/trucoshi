@@ -7,12 +7,12 @@ describe("Trucoshi Lib", () => {
     const trucoshi = Lobby("testmatch1")
 
     const promises = [
-      trucoshi.addPlayer("lukini", "lukini", "lukini").then((player) => player.setReady(true)),
-      trucoshi.addPlayer("denoph", "denoph", "denoph").then((player) => player.setReady(true)),
-      trucoshi.addPlayer("guada", "guada", "guada").then((player) => player.setReady(true)),
-      trucoshi.addPlayer("juli", "juli", "juli").then((player) => player.setReady(true)),
-      trucoshi.addPlayer("day", "day", "day").then((player) => player.setReady(true)),
-      trucoshi.addPlayer("fran", "fran", "fran").then((player) => player.setReady(true)),
+      trucoshi.addPlayer(1, "lukini", "lukini", "lukini").then((player) => player.setReady(true)),
+      trucoshi.addPlayer(2, "denoph", "denoph", "denoph").then((player) => player.setReady(true)),
+      trucoshi.addPlayer(3, "guada", "guada", "guada").then((player) => player.setReady(true)),
+      trucoshi.addPlayer(4, "juli", "juli", "juli").then((player) => player.setReady(true)),
+      trucoshi.addPlayer(5, "day", "day", "day").then((player) => player.setReady(true)),
+      trucoshi.addPlayer(6, "fran", "fran", "fran").then((player) => player.setReady(true)),
     ]
 
     Promise.allSettled(promises).then(() => {
@@ -22,12 +22,12 @@ describe("Trucoshi Lib", () => {
           if (!play.player) {
             return
           }
-          const randomIdx = Math.round(Math.random() * (play.player.hand.length))
+          const randomIdx = Math.round(Math.random() * play.player.hand.length)
           play.use(randomIdx, play.player.hand[randomIdx])
         })
-        .onWinner(async (winner, teams) => {
+        .onWinner(async (winner) => {
           expect(winner).to.haveOwnProperty("players")
-          expect(teams.find((team) => team.players.at(0)?.key === winner.players.at(0)?.key))
+          expect(winner.points.buenas).to.be.greaterThanOrEqual(9)
           done()
         })
         .begin()
@@ -41,12 +41,13 @@ describe("Trucoshi Lib", () => {
       const randomPlayersQuantity = [0, 2, 4]
 
       const promises = [
-        () => trucoshi.addPlayer("luk", "luk", "luk").then((player) => player.setReady(true)),
-        () => trucoshi.addPlayer("deno", "deno", "deno").then((player) => player.setReady(true)),
-        () => trucoshi.addPlayer("guada", "guada", "guada").then((player) => player.setReady(true)),
-        () => trucoshi.addPlayer("juli", "juli", "juli").then((player) => player.setReady(true)),
-        () => trucoshi.addPlayer("day", "day", "day").then((player) => player.setReady(true)),
-        () => trucoshi.addPlayer("fran", "fran", "fran").then((player) => player.setReady(true)),
+        () => trucoshi.addPlayer(1, "luk", "luk", "luk").then((player) => player.setReady(true)),
+        () => trucoshi.addPlayer(2, "deno", "deno", "deno").then((player) => player.setReady(true)),
+        () =>
+          trucoshi.addPlayer(3, "guada", "guada", "guada").then((player) => player.setReady(true)),
+        () => trucoshi.addPlayer(4, "juli", "juli", "juli").then((player) => player.setReady(true)),
+        () => trucoshi.addPlayer(5, "day", "day", "day").then((player) => player.setReady(true)),
+        () => trucoshi.addPlayer(6, "fran", "fran", "fran").then((player) => player.setReady(true)),
       ]
 
       promises.splice(0, randomPlayersQuantity[Math.floor(Math.random() * 3)])
@@ -68,7 +69,7 @@ describe("Trucoshi Lib", () => {
                 return
               }
 
-              const randomIdx = Math.floor(Math.random() * (play.player.envido.length))
+              const randomIdx = Math.floor(Math.random() * play.player.envido.length)
               play.say(play.player.envido[randomIdx] || 0, play.player)
               return
             }
@@ -87,7 +88,7 @@ describe("Trucoshi Lib", () => {
             }
 
             if (Math.random() > 0.51) {
-              let randomIdx = Math.floor(Math.random() * (play.player.commands.length))
+              let randomIdx = Math.floor(Math.random() * play.player.commands.length)
 
               let i = 0
               while (
@@ -95,7 +96,7 @@ describe("Trucoshi Lib", () => {
                 i < 5 &&
                 play.player.commands[randomIdx] === ESayCommand.MAZO
               ) {
-                randomIdx = Math.floor(Math.random() * (play.player.commands.length))
+                randomIdx = Math.floor(Math.random() * play.player.commands.length)
                 i++
               }
 
@@ -103,12 +104,12 @@ describe("Trucoshi Lib", () => {
               return
             }
 
-            const randomIdx = Math.floor(Math.random() * (play.player.hand.length))
+            const randomIdx = Math.floor(Math.random() * play.player.hand.length)
             play.use(randomIdx, play.player.hand[randomIdx])
           })
-          .onWinner(async (winner, teams) => {
+          .onWinner(async (winner) => {
             expect(winner).to.haveOwnProperty("players")
-            expect(teams.find((team) => team.players.at(0)?.key === winner.players.at(0)?.key))
+            expect(winner.points.buenas).to.be.greaterThanOrEqual(9)
             finished()
           })
           .begin()

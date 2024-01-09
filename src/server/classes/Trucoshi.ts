@@ -27,11 +27,9 @@ import {
   PLAYER_TIMEOUT_GRACE,
 } from "../constants"
 import { Chat, IChat } from "./Chat"
-import { IMatchTable } from "./MatchTable"
+import { IMatchTable, MatchTable } from "./MatchTable"
 import { IUserSession, ISocketMatchState, UserSession, IUserData } from "./UserSession"
 import logger from "../../utils/logger"
-import { IStore, Store } from "../../store/classes/Store"
-import { prismaClient } from "../../store/client"
 import { User } from "lightning-accounts"
 import { getPublicKey } from "../../utils/config/lightningAccounts"
 
@@ -39,7 +37,7 @@ import { createAdapter } from "@socket.io/redis-adapter"
 
 import { accountsApi } from "../../accounts/client"
 import { createClient } from "redis"
-import { EMatchState } from "@prisma/client"
+import { EMatchState, Prisma, PrismaClient } from "@prisma/client"
 
 const log = logger.child({ class: "Trucoshi" })
 
@@ -91,7 +89,7 @@ export type TrucoshiSocket = Socket<
 export interface ITrucoshi {
   io: TrucoshiServer
   httpServer: HttpServer
-  store: IStore
+  store: PrismaClient
   chat: IChat
   tables: MatchTableMap // sessionId, table
   sessions: TMap<string, IUserSession> // sessionId, user
@@ -137,7 +135,9 @@ export interface ITrucoshi {
     player: IPlayer,
     command: ECommand | number
   ): Promise<ECommand | number>
-  startMatch(matchSessionId: string): Promise<void>
+  createMatchTable(matchSessionId: string, userSession: IUserSession): Promise<IMatchTable>
+  joinMatch(table: IMatchTable, userSession: IUserSession, teamIdx?: 0 | 1): Promise<IPlayer>
+  startMatch(matchSessionId: string, userSession: IUserSession): Promise<void>
   setTurnTimeout(
     table: IMatchTable,
     player: IPlayer,
@@ -184,7 +184,7 @@ export const Trucoshi = ({
     }
   )
 
-  const store = Store(prismaClient)
+  const store = new PrismaClient()
   const chat = Chat(io)
 
   const sessions = new TMap<string, IUserSession>() // sessionId (token), user
@@ -426,7 +426,7 @@ export const Trucoshi = ({
             }
 
             if (!playerSocket.data.matches) {
-              log.error({ player: player.id }, "Player socket doesn't have data.matches!")
+              log.error({ player: player.name }, "Player socket doesn't have data.matches!")
               return
             }
 
@@ -515,7 +515,7 @@ export const Trucoshi = ({
     async resetSocketsMatchState(table) {
       await server.getTableSockets(table, async (playerSocket, player) => {
         if (!playerSocket.data.matches) {
-          return log.error({ player: player?.id }, "Player socket doesn't have data.matches!!!")
+          return log.error({ player: player?.name }, "Player socket doesn't have data.matches!!!")
         }
         playerSocket.data.matches.set(table.matchSessionId, {
           isWaitingForPlay: false,
@@ -583,7 +583,7 @@ export const Trucoshi = ({
               "Player abandoned"
             )
             table.playerAbandoned(player)
-            chat.system(`${player.id} se retiro de la partida.`)
+            chat.system(`${player.name} se retiro de la partida.`)
             onTimeout()
           })
           .finally(() => server.emitMatchUpdate(table).catch(log.error))
@@ -721,10 +721,7 @@ export const Trucoshi = ({
     },
     onHandFinished(table, hand) {
       if (!hand) {
-        log.error(
-          { matchId: table.matchSessionId },
-          "Hand finished but there's no previous hand!"
-        )
+        log.error({ matchId: table.matchSessionId }, "Hand finished but there's no previous hand!")
         return Promise.resolve()
       }
 
@@ -768,44 +765,161 @@ export const Trucoshi = ({
         }, MATCH_FINISHED_CLEANUP_TIMEOUT)
       })
     },
-    async startMatch(matchSessionId) {
-      try {
-        const table = server.tables.getOrThrow(matchSessionId)
+    async createMatchTable(matchSessionId, userSession) {
+      const table = MatchTable(matchSessionId, userSession.session)
 
-        server
-          .resetSocketsMatchState(table)
-          .catch((e) => log.error(e, "Reset sockets match state failed"))
+      log.silent(userSession.getPublicInfo(), "User has created a new match table", table)
 
-        if (table && !table.lobby.gameLoop) {
-          table.lobby
-            .startMatch()
-            .onHandFinished(server.onHandFinished.bind(this, table))
-            .onTurn(server.onTurn.bind(null, table))
-            .onEnvido(server.onEnvido.bind(null, table))
-            .onTruco(server.onTruco.bind(null, table))
-            .onWinner(server.onWinner.bind(null, table))
-            .begin()
-            .then(() => log.silent(table.getPublicMatchInfo(), "Match finished"))
-            .catch((e) => log.error(e, "Lobby match loop failed"))
+      userSession.ownedMatches.add(matchSessionId)
 
-          server.tables.set(matchSessionId as string, table)
+      await table.lobby.addPlayer(
+        userSession.account?.id,
+        userSession.key,
+        userSession.account?.name || userSession.name,
+        userSession.session,
+        0,
+        true
+      )
 
-          server
-            .getTableSockets(table, async (playerSocket, player) => {
-              if (player) {
-                playerSocket.emit(
-                  EServerEvent.UPDATE_ACTIVE_MATCHES,
-                  server.getSessionActiveMatches(player.session)
-                )
-              }
-            })
-            .catch(console.error)
+      const ownerAccountId = userSession.account?.id
 
-          return
-        }
-      } catch (e) {
-        log.error(e, "Start match error")
+      const dbMatch = await server.store.match.create({
+        data: {
+          ownerAccountId,
+          sessionId: matchSessionId,
+          options: table.lobby.options as unknown as Prisma.JsonObject,
+        },
+      })
+
+      table.setMatchId(dbMatch.id)
+
+      return table
+    },
+    async joinMatch(table, userSession, teamIdx) {
+      const player = await table.lobby.addPlayer(
+        userSession.account?.id,
+        userSession.key,
+        userSession.account?.name || userSession.name,
+        userSession.session,
+        teamIdx,
+        userSession.ownedMatches.has(table.matchSessionId)
+      )
+
+      return player
+    },
+    async startMatch(matchSessionId, userSession) {
+      const table = server.tables.getOrThrow(matchSessionId)
+
+      server
+        .resetSocketsMatchState(table)
+        .catch((e) => log.error(e, "Reset sockets match state failed"))
+
+      if (!table) {
+        throw new Error("MatchTable not found")
       }
+
+      if (table.lobby.gameLoop) {
+        throw new Error("MatchTable gameloop already exists")
+      }
+
+      const ownerSession = server.sessions.getOrThrow(table.ownerSession)
+
+      const ownerAccountId =
+        userSession.account && ownerSession.account?.id === userSession.account.id
+          ? userSession.account.id
+          : undefined
+
+      const dbMatch = await server.store.match.update({
+        data: {
+          ownerAccountId,
+          sessionId: matchSessionId,
+          state: EMatchState.STARTED,
+          options: table.lobby.options as unknown as Prisma.JsonObject,
+          players: {
+            create: table.lobby.players.map((player, idx) => {
+              player.setIdx(idx)
+              return {
+                idx,
+                name: player.name,
+                accountId: player.accountId,
+                teamIdx: player.teamIdx,
+              }
+            }),
+          },
+        },
+        where: {
+          id: table.matchId,
+        },
+        include: {
+          players: true,
+        },
+      })
+
+      table.lobby.players.forEach((player, idx) => {
+        const dbPlayer = dbMatch.players.find((p) => p.idx === idx)
+        if (!dbPlayer) {
+          throw new Error("Player not found in DB!")
+        }
+        player.setMatchPlayerId(dbPlayer.id)
+      })
+
+      table.lobby
+        .startMatch()
+        .onHandFinished(async (hand) => {
+          if (hand) {
+            await server.store.matchHand.create({
+              data: {
+                trucoWinnerIdx: hand.trucoWinnerIdx,
+                envidoWinnerIdx: hand.envidoWinnerIdx,
+                florWinnerIdx: hand.florWinnerIdx,
+                idx: hand.idx,
+                rounds: hand.roundsLog as unknown as Prisma.JsonArray,
+                results: hand.points as unknown as Prisma.JsonObject,
+                match: {
+                  connect: {
+                    id: table.matchId,
+                  },
+                },
+              },
+              select: { id: true },
+            })
+          }
+
+          return server.onHandFinished(table, hand)
+        })
+        .onTurn(server.onTurn.bind(null, table))
+        .onEnvido(server.onEnvido.bind(null, table))
+        .onTruco(server.onTruco.bind(null, table))
+        .onWinner(async (winnerTeam, points) => {
+          await server.store.match.update({
+            data: {
+              state: EMatchState.FINISHED,
+              results: points as unknown as Prisma.JsonArray,
+            },
+            where: {
+              id: table.matchId,
+            },
+            select: { id: true },
+          })
+
+          return server.onWinner(table, winnerTeam)
+        })
+        .begin()
+        .then(() => log.silent(table.getPublicMatchInfo(), "Match finished"))
+        .catch((e) => log.error(e, "Lobby match loop failed"))
+
+      server.tables.set(matchSessionId as string, table)
+
+      server
+        .getTableSockets(table, async (playerSocket, player) => {
+          if (player) {
+            playerSocket.emit(
+              EServerEvent.UPDATE_ACTIVE_MATCHES,
+              server.getSessionActiveMatches(player.session)
+            )
+          }
+        })
+        .catch(console.error)
     },
     emitSocketMatch(socket, matchId) {
       if (!matchId) {

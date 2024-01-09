@@ -138,7 +138,7 @@ export const playRandomMatch = async (
           expect(success).to.equal(true)
           expect(match?.matchSessionId).to.equal(matchId)
 
-          expect(Boolean(match?.players.find((player) => player.id === "player" + i))).to.equal(
+          expect(Boolean(match?.players.find((player) => player.name === "player" + i))).to.equal(
             true
           )
 

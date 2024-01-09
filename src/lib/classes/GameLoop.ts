@@ -1,10 +1,10 @@
 import logger from "../../utils/logger"
-import { ECommand, EHandState, ICard, IPlayer, ITeam } from "../../types"
+import { ECommand, EHandState, ICard, IPlayer, ITeam, ITeamPoints } from "../../types"
 import { IHand } from "./Hand"
 import { IMatch } from "./Match"
 import { IPlayInstance } from "./Play"
 
-export type IWinnerCallback = (winner: ITeam, teams: [ITeam, ITeam]) => Promise<void>
+export type IWinnerCallback = (winner: ITeam, points: [ITeamPoints, ITeamPoints]) => Promise<void>
 export type ITurnCallback = (play: IPlayInstance) => Promise<void>
 export type ITrucoCallback = (play: IPlayInstance) => Promise<void>
 export type IHandFinishedCallback = (hand: IHand | null) => Promise<void>
@@ -98,7 +98,7 @@ export const GameLoop = (match: IMatch) => {
             {
               matchId: match.id,
               state: play.state,
-              player: play.player.id,
+              player: play.player.name,
             },
             "Game new turn started"
           )
@@ -157,7 +157,19 @@ export const GameLoop = (match: IMatch) => {
       gameloop.currentPlayer = null
 
       try {
-        await gameloop._onWinner(winner, match.teams)
+        await gameloop._onWinner(
+          winner,
+          match.teams.reduce(
+            (prev, curr, idx) => {
+              prev[idx] = curr.points
+              return prev
+            },
+            [
+              { malas: 0, buenas: 0, winner: false },
+              { malas: 0, buenas: 0, winner: false },
+            ] as [ITeamPoints, ITeamPoints]
+          )
+        )
       } catch (e) {
         log.error(e, "Gameloop onWinner callback error")
       }

@@ -55,7 +55,7 @@ export type IPublicChatRoom = Pick<IChatRoom, "id" | "messages">
 export interface IChatMessage {
   id: string
   date: number
-  user: { id: string; key: string }
+  user: { name: string; key: string }
   system?: boolean
   command?: boolean
   card?: boolean
@@ -336,7 +336,7 @@ export interface IHandPoints {
 
 export type IPublicPlayer = Pick<
   IPlayer,
-  | "id"
+  | "name"
   | "key"
   | "disabled"
   | "abandoned"
@@ -369,16 +369,19 @@ export type IPublicPlayer = Pick<
 export type IPublicTeam = Pick<ITeam, "points" | "id" | "name"> & { players: Array<IPublicPlayer> }
 
 export interface IPlayer {
+  idx: number
   teamIdx: number
-  id: string
+  accountId: number | undefined
+  matchPlayerId: number | undefined
+  name: string
   key: string
   session: string
   hand: Array<ICard>
+  usedHand: Array<ICard>
+  prevHand: Array<ICard>
   envido: Array<number>
   _commands: Set<ECommand>
   get commands(): Array<ECommand>
-  usedHand: Array<ICard>
-  prevHand: Array<ICard>
   isTurn: boolean
   turnExpiresAt: number | null // Date.now()
   turnExtensionExpiresAt: number | null // Date.now()
@@ -390,6 +393,8 @@ export interface IPlayer {
   ready: boolean
   resetCommands(): void
   calculateEnvido(): Array<number>
+  setIdx(idx: number): void
+  setMatchPlayerId(id: number): void
   setTurn(turn: boolean): void
   setTurnExpiration(...args: [number, number | null] | [null, null]): void
   setEnvidoTurn(turn: boolean): void

@@ -10,6 +10,7 @@ import {
 } from "../../types"
 
 export interface IMatchTable {
+  matchId?: number
   ownerSession: string
   matchSessionId: string
   lobby: ILobby
@@ -22,6 +23,7 @@ export interface IMatchTable {
   playerDisconnected(player: IPlayer): void
   playerReconnected(player: IPlayer): void
   playerAbandoned(player: IPlayer): void
+  setMatchId(id: number): void
 }
 
 export function MatchTable(
@@ -33,6 +35,9 @@ export function MatchTable(
     ownerSession,
     matchSessionId,
     lobby: Lobby(matchSessionId, options),
+    setMatchId(id) {
+      table.matchId = id
+    },
     state() {
       table.lobby.calculateReady()
       if (table.lobby.gameLoop?.winner) {
@@ -73,7 +78,7 @@ export function MatchTable(
         lobby: { players, options },
       } = table
       return {
-        ownerId: players.find((player) => player.isOwner)?.id as string,
+        ownerId: players.find((player) => player.isOwner)?.name as string,
         matchSessionId,
         options,
         players: players.length,
