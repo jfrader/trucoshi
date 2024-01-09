@@ -56,7 +56,7 @@ describe("Socket Server", () => {
 
         Promise.all(promises).then(() => done())
       },
-      { redis: false, lightningAccounts: false }
+      { redis: false, lightningAccounts: false, store: false }
     )
   })
 
