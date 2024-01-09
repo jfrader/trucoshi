@@ -10,21 +10,9 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id           Int           @id @default(autoincrement())
-  accountId    Int           @unique
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  match        Match[]
-  matchPlayers MatchPlayer[]
-  stats        UserStats?
-}
-
 model UserStats {
   id        Int  @id @default(autoincrement())
-  user      User @relation(fields: [userId], references: [id])
-  userId    Int  @unique
-  accountId Int  @unique
+  accountId Int? @unique
   win       Int  @default(0)
   loss      Int  @default(0)
   satsBet   Int  @default(0)
@@ -34,12 +22,11 @@ model UserStats {
 
 model Match {
   id             Int           @id @default(autoincrement())
+  sessionId      String
   state          EMatchState   @default(UNREADY)
-  owner          User          @relation(fields: [ownerId], references: [id])
-  ownerId        Int
-  ownerAccountId Int
+  ownerAccountId Int?
   options        Json          @default("{}")
-  results        Json          @default("{ \"0\": { \"buenas\": 0, \"malas\": 0 },\"1\": { \"buenas\": 0, \"malas\": 0 } }")
+  results        Json          @default("[{\"buenas\": 0,\"malas\": 0 },{ \"buenas\": 0,\"malas\": 0 }]")
   players        MatchPlayer[]
   hands          MatchHand[]
   bet            MatchBet?
@@ -55,26 +42,28 @@ model MatchBet {
 }
 
 model MatchHand {
-  id        Int   @id @default(autoincrement())
-  idx       Int
-  rounds    Json  @default("[[]]")
-  results   Json  @default("{ \"0\": { \"buenas\": 0, \"malas\": 0 },\"1\": { \"buenas\": 0, \"malas\": 0 } }")
-  matchId   Int
-  match     Match @relation(fields: [matchId], references: [id])
-  winnerIdx Int
+  id              Int   @id @default(autoincrement())
+  idx             Int
+  rounds          Json  @default("[[]]")
+  results         Json  @default("[0, 0]")
+  matchId         Int
+  match           Match @relation(fields: [matchId], references: [id])
+  trucoWinnerIdx  Int?
+  envidoWinnerIdx Int?
+  florWinnerIdx   Int?
 }
 
 model MatchPlayer {
-  id           Int   @id @default(autoincrement())
-  user         User  @relation(fields: [userId], references: [id])
-  userId       Int   @unique
-  accountId    Int
+  id           Int    @id @default(autoincrement())
+  idx          Int
+  name         String @default("Satoshi")
+  accountId    Int?
   teamIdx      Int
-  satsPaid     Int   @default(0)
-  satsReceived Int   @default(0)
-  payRequestId Int
+  satsPaid     Int    @default(0)
+  satsReceived Int    @default(0)
+  payRequestId Int?
   matchId      Int
-  match        Match @relation(fields: [matchId], references: [id])
+  match        Match  @relation(fields: [matchId], references: [id])
 }
 
 enum EMatchState {

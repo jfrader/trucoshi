@@ -78,7 +78,7 @@ export function PlayInstance(hand: IHand, prevHand: IHand | null, teams: [ITeam,
       }
       busy = true
 
-      log.debug({ card, player: hand.currentPlayer?.id, hand: hand.currentPlayer?.hand })
+      log.debug({ card, player: hand.currentPlayer?.name, hand: hand.currentPlayer?.hand })
 
       const result = play(hand.use, idx, card)
       if (result) {
@@ -92,7 +92,7 @@ export function PlayInstance(hand: IHand, prevHand: IHand | null, teams: [ITeam,
       }
       busy = true
 
-      log.debug({ command, player: player.id, envido: player.envido, commands: player.commands })
+      log.debug({ command, player: player.name, envido: player.envido, commands: player.commands })
 
       try {
         if (player.disabled) {

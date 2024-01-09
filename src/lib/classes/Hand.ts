@@ -9,7 +9,6 @@ import {
   ESayCommand,
   ETrucoCommand,
   ICard,
-  IDeck,
   IHandCommands,
   IHandPoints,
   IPlayer,
@@ -24,6 +23,12 @@ import { ITruco, Truco } from "./Truco"
 
 const log = logger.child({ class: "Hand" })
 
+export type IHandRoundLog = {
+  player: number
+  card?: ICard
+  command?: ECommand | number
+}
+
 export interface IHand {
   idx: number
   state: EHandState
@@ -33,10 +38,17 @@ export interface IHand {
   truco: ITruco
   envido: IEnvido
   rounds: Array<IRound>
+  roundsLog: [IHandRoundLog[], IHandRoundLog[], IHandRoundLog[]]
+  trucoWinnerIdx?: 0 | 1
+  envidoWinnerIdx?: 0 | 1
+  florWinnerIdx?: 0 | 1
   _currentPlayer: IPlayer | null
   get currentPlayer(): IPlayer | null
   set currentPlayer(player: IPlayer | null)
   currentRound: IRound | null
+  setTrucoWinner(teamIdx: 0 | 1): void
+  setEnvidoWinner(teamIdx: 0 | 1): void
+  setFlorWinner(teamIdx: 0 | 1): void
   say(command: ECommand, player: IPlayer): ECommand | null
   sayEnvidoPoints(player: IPlayer, points: number): number
   use(idx: number, card: ICard, burn?: boolean): ICard | null
@@ -53,6 +65,7 @@ export interface IHand {
   setCurrentPlayer(player: IPlayer | null): IPlayer | null
   setState(state: EHandState): EHandState
   getNextTurn(): IteratorResult<IHand, IHand | void>
+  addLog(roundIdx: number, log: IHandRoundLog): void
 }
 
 function* handTurnGeneratorSequence(match: IMatch, hand: IHand) {
@@ -137,10 +150,12 @@ function* handTurnGeneratorSequence(match: IMatch, hand: IHand) {
 
     if (winnerTeamIdx !== null) {
       hand.addPoints(winnerTeamIdx, hand.truco.state)
+      hand.setTrucoWinner(winnerTeamIdx)
       hand.setState(EHandState.FINISHED)
     }
 
-    if (hand.state === EHandState.FINISHED && hand.envido.winner) {
+    if (hand.state === EHandState.FINISHED && hand.envido.winner && hand.envido.winningPlayer) {
+      hand.setEnvidoWinner(hand.envido.winningPlayer.teamIdx as 0 | 1)
       hand.addPoints(hand.envido.winner.id, hand.envido.getPointsToGive())
     }
 
@@ -163,9 +178,13 @@ export function Hand(match: IMatch, idx: number) {
   const hand: IHand = {
     idx,
     started: false,
+    trucoWinnerIdx: undefined,
+    envidoWinnerIdx: undefined,
+    florWinnerIdx: undefined,
     turn: Number(match.table.forehandIdx),
     state: EHandState.WAITING_PLAY,
     rounds: [],
+    roundsLog: [[], [], []],
     envido: Envido(match.teams, match.options, match.table),
     truco: Truco(match.teams),
     setTurnCommands() {
@@ -191,6 +210,9 @@ export function Hand(match: IMatch, idx: number) {
 
       return player
     },
+    addLog(roundIdx, log) {
+      hand.roundsLog[roundIdx].push(log)
+    },
     play(prevHand) {
       return PlayInstance(hand, prevHand, match.teams)
     },
@@ -205,6 +227,7 @@ export function Hand(match: IMatch, idx: number) {
       try {
         commands[command](hand, player)
         hand.started = true
+        hand.addLog(hand.rounds.length - 1, { player: player.idx, command })
         return command
       } catch (e) {
         log.error(e, "Error on executing hand command")
@@ -213,6 +236,7 @@ export function Hand(match: IMatch, idx: number) {
     },
     sayEnvidoPoints(player, points) {
       const { winner } = hand.envido.sayPoints(player, points)
+      hand.addLog(hand.rounds.length - 1, { player: player.idx, command: points })
       if (winner) {
         hand.endEnvido()
       }
@@ -234,6 +258,9 @@ export function Hand(match: IMatch, idx: number) {
       if (playerCard) {
         hand.started = true
         const card = round.use(PlayedCard(player, playerCard, burn))
+
+        hand.addLog(hand.rounds.length - 1, { player: player.idx, card })
+
         hand.nextTurn()
         return card
       }
@@ -248,6 +275,15 @@ export function Hand(match: IMatch, idx: number) {
       }
 
       hand.currentRound?.nextTurn()
+    },
+    setTrucoWinner(idx) {
+      hand.trucoWinnerIdx = idx
+    },
+    setEnvidoWinner(idx) {
+      hand.envidoWinnerIdx = idx
+    },
+    setFlorWinner(idx) {
+      hand.florWinnerIdx = idx
     },
     getNextTurn() {
       const player = roundsGenerator.next()

@@ -13,10 +13,10 @@ export interface IChat {
   delete(id: string): void
 }
 
-const ChatUser = (id: string) => {
+const ChatUser = (name: string) => {
   return {
-    id,
-    key: id,
+    name,
+    key: name,
   }
 }
 
@@ -137,7 +137,7 @@ export const Chat = (io: TrucoshiServer) => {
       const chatroom = chat.rooms.get(matchId)
 
       if (chatroom) {
-        chatroom.send({ id, key }, message)
+        chatroom.send({ name: id, key }, message)
       }
       callback()
     })

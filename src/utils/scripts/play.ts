@@ -31,7 +31,7 @@ const command = (
 
 const playCommand = (play: IPlayInstance) =>
   command(
-    `${play.player?.id} elije una carta [${play.player?.hand.map(
+    `${play.player?.name} elije una carta [${play.player?.hand.map(
       (_c, i) => i + 1
     )}]: ${JSON.stringify(play.player?.hand)}\n`,
     async (idx) => {
@@ -45,7 +45,7 @@ const playCommand = (play: IPlayInstance) =>
       console.log(
         play.rounds && play.rounds.length
           ? play.rounds.map((round: IRound) =>
-              round.cards.length ? round.cards.map((c) => [c.player.id, c.card]) : ""
+              round.cards.length ? round.cards.map((c) => [c.player.name, c.card]) : ""
             )
           : ""
       )
@@ -59,7 +59,7 @@ const sayCommand = (play: IPlayInstance, canPlay: boolean) => {
   }
   const commandsArr = Array.from(play.player?._commands?.values())
   return command(
-    `${play.state} ${play.player?.id} elije una accion [${canPlay ? "0," : ""}${commandsArr.map(
+    `${play.state} ${play.player?.name} elije una accion [${canPlay ? "0," : ""}${commandsArr.map(
       (_c, i) => i + 1
     )}]: ${
       canPlay ? JSON.stringify(["CARTA", ...(commandsArr || [])]) : JSON.stringify(commandsArr)
@@ -88,7 +88,7 @@ const sayCommand = (play: IPlayInstance, canPlay: boolean) => {
 const sayPoints = (play: IPlayInstance) =>
   command(
     "Canta los puntos " +
-      play.player?.id +
+      play.player?.name +
       ", puede cantar: " +
       play.player?.envido.map((e) => e + ", "),
     async (line, close) => {
@@ -107,10 +107,18 @@ const sayPoints = (play: IPlayInstance) =>
   const trucoshi = Lobby("testmatch2")
 
   const promises = [
-    trucoshi.addPlayer("lukini", "lukini", "lukini").then((player) => player.setReady(true)),
-    trucoshi.addPlayer("denoph", "denoph", "denoph").then((player) => player.setReady(true)),
-    trucoshi.addPlayer("guada", "guada", "guada").then((player) => player.setReady(true)),
-    trucoshi.addPlayer("juli", "juli", "juli").then((player) => player.setReady(true)),
+    trucoshi
+      .addPlayer(undefined, "lukini", "lukini", "lukini")
+      .then((player) => player.setReady(true)),
+    trucoshi
+      .addPlayer(undefined, "denoph", "denoph", "denoph")
+      .then((player) => player.setReady(true)),
+    trucoshi
+      .addPlayer(undefined, "guada", "guada", "guada")
+      .then((player) => player.setReady(true)),
+    trucoshi
+      .addPlayer(undefined, "juliana", "juliana", "juliana")
+      .then((player) => player.setReady(true)),
   ]
 
   await Promise.allSettled(promises)
@@ -127,7 +135,7 @@ const sayPoints = (play: IPlayInstance) =>
       await sayCommand(play, false)()
     })
     .onTurn(async (play) => {
-      const name = play.player?.id.toUpperCase()
+      const name = play.player?.name.toUpperCase()
       console.log(`=== Mano ${play.handIdx} === Ronda ${play.roundIdx} === Turno de ${name} ===`)
 
       play.teams.map((team, id) =>
@@ -137,22 +145,17 @@ const sayPoints = (play: IPlayInstance) =>
       console.log(
         play.rounds && play.rounds.length
           ? play.rounds.map((round: IRound) =>
-              round.cards.length ? round.cards.map((c) => [c.player.id, CARDS_HUMAN_READABLE[c.card] || 'xx']) : ""
+              round.cards.length
+                ? round.cards.map((c) => [c.player.name, CARDS_HUMAN_READABLE[c.card] || "xx"])
+                : ""
             )
           : ""
       )
 
       await sayCommand(play, true)()
     })
-    .onWinner(async (winner: ITeam, teams: [ITeam, ITeam]) => {
-      teams.map((t, i) =>
-        console.log(
-          `Equipo ${i}: ${t.players.map((p) => ` ${p.id}`)} === ${t.points.malas} malas ${
-            t.points.buenas
-          } buenas`
-        )
-      )
-      console.log(`\nEquipo Ganador:${winner?.players.map((p) => ` ${p.id}`)}`)
+    .onWinner(async (winner: ITeam) => {
+      console.log(`\nEquipo Ganador:${winner?.players.map((p) => ` ${p.name}`)}`)
     })
     .begin()
 })()

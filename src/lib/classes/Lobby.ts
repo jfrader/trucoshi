@@ -30,7 +30,7 @@ export interface IPrivateLobby {
   options: ILobbyOptions
   gameLoop?: IGameLoop
   lastTeamIdx: 0 | 1
-  _players: Array<IPlayer | { id?: undefined; session?: undefined; teamIdx?: undefined }>
+  _players: Array<IPlayer | { name?: undefined; session?: undefined; teamIdx?: undefined }>
   get players(): Array<IPlayer>
   teams: Array<ITeam>
   table: ITable | null
@@ -39,8 +39,9 @@ export interface IPrivateLobby {
   ready: boolean
   started: boolean
   addPlayer(
+    id: number | undefined,
     key: string,
-    id: string,
+    name: string,
     session: string,
     teamIdx?: 0 | 1,
     isOwner?: boolean
@@ -83,7 +84,7 @@ export function Lobby(matchId: string, options: Partial<ILobbyOptions> = {}): IL
     lastTeamIdx: 1,
     _players: [],
     get players() {
-      return lobby._players.filter((player) => Boolean(player && player.id)) as IPlayer[]
+      return lobby._players.filter((player) => Boolean(player && player.name)) as IPlayer[]
     },
     teams: [],
     queue: Queue(),
@@ -104,13 +105,14 @@ export function Lobby(matchId: string, options: Partial<ILobbyOptions> = {}): IL
     calculateFull() {
       return calculateLobbyFullness(lobby)
     },
-    async addPlayer(key, id, session, teamIdx, isOwner) {
+    async addPlayer(accountId, key, name, session, teamIdx, isOwner) {
       let player: IPlayer | null = null
       await lobby.queue.queue(() => {
         try {
           player = addPlayerToLobby({
+            accountId,
             lobby,
-            id,
+            name,
             session,
             key,
             isOwner,
@@ -179,6 +181,7 @@ const startLobbyMatch = (matchId: string, lobby: IPrivateLobby) => {
   }
 
   lobby.table = Table(lobby.players)
+
   lobby.gameLoop = GameLoop(Match(matchId, lobby.table, lobby.teams, lobby.options))
 
   lobby.started = true
@@ -207,23 +210,25 @@ const calculateLobbyReadyness = (lobby: IPrivateLobby) => {
 }
 
 const addPlayerToLobby = ({
+  accountId,
   lobby,
-  id,
+  name: name,
   session,
   key,
   teamIdx,
   isOwner,
   teamSize,
 }: {
+  accountId: number | undefined
   lobby: IPrivateLobby
-  id: string
+  name: string
   session: string
   key: string
   teamIdx?: 0 | 1
   isOwner?: boolean
   teamSize: number
 }) => {
-  const playerParams = { id, key, teamIdx, isOwner }
+  const playerParams = { accountId, name, key, teamIdx, isOwner }
   log.silent(playerParams, "Adding player to match started")
   const exists = lobby.players.find((player) => player.session === session)
   const hasMovedSlots = Boolean(exists)
@@ -259,8 +264,9 @@ const addPlayerToLobby = ({
     throw new Error(GAME_ERROR.TEAM_IS_FULL)
   }
   const player = Player(
+    accountId,
     key,
-    id,
+    name,
     teamIdx !== undefined ? teamIdx : Number(!lobby.lastTeamIdx),
     isOwner
   )
@@ -270,7 +276,7 @@ const addPlayerToLobby = ({
 
   // Find team available slot
   for (let i = 0; i < lobby._players.length; i++) {
-    if (!lobby._players[i].id) {
+    if (!lobby._players[i].name) {
       if (player.teamIdx === 0 && i % 2 === 0) {
         lobby._players[i] = player
         break
@@ -285,9 +291,9 @@ const addPlayerToLobby = ({
   if (hasMovedSlots) {
     // Reorder other players to fit possible empty slot left by this player
     for (let i = 0; i < lobby._players.length; i++) {
-      if (!lobby._players[i].id) {
+      if (!lobby._players[i].name) {
         for (let j = i + 2; j < lobby._players.length; j = j + 2) {
-          if (lobby._players[j].id) {
+          if (lobby._players[j].name) {
             const p = { ...lobby._players[j] }
             lobby._players[j] = {}
             lobby._players[i] = p

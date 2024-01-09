@@ -1,11 +1,20 @@
 import { IPlayer } from "../../types"
 import { BURNT_CARD } from "../constants"
 
-export function Player(key: string, id: string, teamIdx: number, isOwner: boolean = false) {
+export function Player(
+  accountId: number | undefined,
+  key: string,
+  name: string,
+  teamIdx: number,
+  isOwner: boolean = false
+) {
   const player: IPlayer = {
+    idx: -1,
     key,
-    id,
-    session: '',
+    accountId,
+    matchPlayerId: undefined,
+    name,
+    session: "",
     teamIdx,
     hand: [],
     _commands: new Set(),
@@ -26,6 +35,12 @@ export function Player(key: string, id: string, teamIdx: number, isOwner: boolea
     },
     resetCommands() {
       player._commands = new Set()
+    },
+    setIdx(idx) {
+      player.idx = idx
+    },
+    setMatchPlayerId(id) {
+      player.matchPlayerId = id
     },
     setTurn(turn) {
       if (!turn) {
@@ -102,7 +117,7 @@ const getPublicPlayer = (
   userSession?: string
 ): ReturnType<IPlayer["getPublicPlayer"]> => {
   const {
-    id,
+    name,
     key,
     abandoned,
     disabled,
@@ -127,7 +142,7 @@ const getPublicPlayer = (
     : { isMe, hand: hand.map(() => BURNT_CARD) }
 
   return {
-    id,
+    name,
     key,
     abandoned,
     teamIdx,

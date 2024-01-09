@@ -3,12 +3,12 @@ import { CARDS_HUMAN_READABLE, IRound, Lobby } from "../../lib"
   const trucoshi = Lobby("testmatch1")
 
   const promises = [
-    trucoshi.addPlayer("lukini", "lukini", "lukini").then((player) => player.setReady(true)),
-    trucoshi.addPlayer("denoph", "denoph", "denoph").then((player) => player.setReady(true)),
-    trucoshi.addPlayer("guada", "guada", "guada").then((player) => player.setReady(true)),
-    trucoshi.addPlayer("juli", "juli", "juli").then((player) => player.setReady(true)),
-    trucoshi.addPlayer("day", "day", "day").then((player) => player.setReady(true)),
-    trucoshi.addPlayer("fran", "fran", "fran").then((player) => player.setReady(true)),
+    trucoshi.addPlayer(1, "lukini", "lukini", "lukini").then((player) => player.setReady(true)),
+    trucoshi.addPlayer(2, "denoph", "denoph", "denoph").then((player) => player.setReady(true)),
+    trucoshi.addPlayer(3, "guada", "guada", "guada").then((player) => player.setReady(true)),
+    trucoshi.addPlayer(4, "juli", "juli", "juli").then((player) => player.setReady(true)),
+    trucoshi.addPlayer(5, "day", "day", "day").then((player) => player.setReady(true)),
+    trucoshi.addPlayer(6, "fran", "fran", "fran").then((player) => player.setReady(true)),
   ]
 
   await Promise.allSettled(promises)
@@ -19,7 +19,7 @@ import { CARDS_HUMAN_READABLE, IRound, Lobby } from "../../lib"
       if (!play.player) {
         return
       }
-      const name = play.player?.id.toUpperCase()
+      const name = play.player?.name.toUpperCase()
       console.log(`=== Mano ${play.handIdx} === Ronda ${play.roundIdx} === Turno de ${name} ===`)
       play.teams.map((team, id) =>
         console.log(`=== Team ${id} = ${team.points.malas} malas ${team.points.buenas} buenas ===`)
@@ -27,7 +27,7 @@ import { CARDS_HUMAN_READABLE, IRound, Lobby } from "../../lib"
       console.log(
         play.rounds && play.rounds.length
           ? play.rounds.map((round: IRound) =>
-              round.cards.length ? round.cards.map((c) => [c.player.id, c.card]) : ""
+              round.cards.length ? round.cards.map((c) => [c.player.name, c.card]) : ""
             )
           : ""
       )
@@ -41,7 +41,7 @@ import { CARDS_HUMAN_READABLE, IRound, Lobby } from "../../lib"
         play.rounds && play.rounds.length
           ? play.rounds.map((round: IRound) =>
               round.cards.length
-                ? round.cards.map((c) => [c.player.id, CARDS_HUMAN_READABLE[c.card] || "xx"])
+                ? round.cards.map((c) => [c.player.name, CARDS_HUMAN_READABLE[c.card] || "xx"])
                 : ""
             )
           : ""
@@ -49,14 +49,7 @@ import { CARDS_HUMAN_READABLE, IRound, Lobby } from "../../lib"
     })
     .onWinner(async (winner, teams) => {
       console.log("\n")
-      teams.map((t, i) =>
-        console.log(
-          `Equipo ${i}: ${t.players.map((p) => ` ${p.id}`)} === ${t.points.malas} malas ${
-            t.points.buenas
-          } buenas`
-        )
-      )
-      console.log(`\nEquipo Ganador:${winner.players.map((p) => ` ${p.id}`)}`)
+      console.log(`\nEquipo Ganador:${winner.players.map((p) => ` ${p.name}`)}`)
     })
     .begin()
 })()
