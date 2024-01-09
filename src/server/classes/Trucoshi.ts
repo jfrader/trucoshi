@@ -89,7 +89,7 @@ export type TrucoshiSocket = Socket<
 export interface ITrucoshi {
   io: TrucoshiServer
   httpServer: HttpServer
-  store: PrismaClient
+  store?: PrismaClient
   chat: IChat
   tables: MatchTableMap // sessionId, table
   sessions: TMap<string, IUserSession> // sessionId, user
@@ -155,7 +155,7 @@ export interface ITrucoshi {
   resetSocketsMatchState(table: IMatchTable): Promise<void>
   listen: (
     callback: (io: TrucoshiServer) => void,
-    options?: { redis: boolean; lightningAccounts: boolean }
+    options?: { redis?: boolean; lightningAccounts?: boolean; store?: boolean }
   ) => Promise<TrucoshiServer>
 }
 
@@ -184,7 +184,6 @@ export const Trucoshi = ({
     }
   )
 
-  const store = new PrismaClient()
   const chat = Chat(io)
 
   const sessions = new TMap<string, IUserSession>() // sessionId (token), user
@@ -193,7 +192,7 @@ export const Trucoshi = ({
 
   const server: ITrucoshi = {
     sessions,
-    store,
+    store: undefined,
     tables,
     turns,
     io,
@@ -201,7 +200,11 @@ export const Trucoshi = ({
     chat,
     async listen(
       callback,
-      { redis = true, lightningAccounts = true } = { redis: true, lightningAccounts: true }
+      { redis = true, lightningAccounts = true, store = true } = {
+        redis: true,
+        lightningAccounts: true,
+        store: true,
+      }
     ) {
       if (lightningAccounts) {
         try {
@@ -216,9 +219,19 @@ export const Trucoshi = ({
         try {
           await Promise.all([pubClient.connect(), subClient.connect()])
           io.adapter(createAdapter(pubClient, subClient))
-          log.info("Connected to redis")
+          log.info("Connected to Redis")
         } catch (e) {
           log.error(e, "Failed to connect to Redis")
+        }
+      }
+
+      if (store) {
+        server.store = new PrismaClient()
+        try {
+          await server.store.$connect()
+          log.info("Connected to Postgres")
+        } catch (e) {
+          log.error(e, "Failed to connect to Postgres")
         }
       }
 
@@ -781,17 +794,20 @@ export const Trucoshi = ({
         true
       )
 
-      const ownerAccountId = userSession.account?.id
+      if (server.store) {
+        const ownerAccountId = userSession.account?.id
 
-      const dbMatch = await server.store.match.create({
-        data: {
-          ownerAccountId,
-          sessionId: matchSessionId,
-          options: table.lobby.options as unknown as Prisma.JsonObject,
-        },
-      })
+        const dbMatch = await server.store.match.create({
+          data: {
+            ownerAccountId,
+            sessionId: matchSessionId,
+            options: table.lobby.options as unknown as Prisma.JsonObject,
+          },
+          select: { id: true },
+        })
 
-      table.setMatchId(dbMatch.id)
+        table.setMatchId(dbMatch.id)
+      }
 
       return table
     },
@@ -829,44 +845,46 @@ export const Trucoshi = ({
           ? userSession.account.id
           : undefined
 
-      const dbMatch = await server.store.match.update({
-        data: {
-          ownerAccountId,
-          sessionId: matchSessionId,
-          state: EMatchState.STARTED,
-          options: table.lobby.options as unknown as Prisma.JsonObject,
-          players: {
-            create: table.lobby.players.map((player, idx) => {
-              player.setIdx(idx)
-              return {
-                idx,
-                name: player.name,
-                accountId: player.accountId,
-                teamIdx: player.teamIdx,
-              }
-            }),
+      if (server.store) {
+        const dbMatch = await server.store.match.update({
+          data: {
+            ownerAccountId,
+            sessionId: matchSessionId,
+            state: EMatchState.STARTED,
+            options: table.lobby.options as unknown as Prisma.JsonObject,
+            players: {
+              create: table.lobby.players.map((player, idx) => {
+                player.setIdx(idx)
+                return {
+                  idx,
+                  name: player.name,
+                  accountId: player.accountId,
+                  teamIdx: player.teamIdx,
+                }
+              }),
+            },
           },
-        },
-        where: {
-          id: table.matchId,
-        },
-        include: {
-          players: true,
-        },
-      })
+          where: {
+            id: table.matchId,
+          },
+          include: {
+            players: true,
+          },
+        })
 
-      table.lobby.players.forEach((player, idx) => {
-        const dbPlayer = dbMatch.players.find((p) => p.idx === idx)
-        if (!dbPlayer) {
-          throw new Error("Player not found in DB!")
-        }
-        player.setMatchPlayerId(dbPlayer.id)
-      })
+        table.lobby.players.forEach((player, idx) => {
+          const dbPlayer = dbMatch.players.find((p) => p.idx === idx)
+          if (!dbPlayer) {
+            throw new Error("Player not found in DB!")
+          }
+          player.setMatchPlayerId(dbPlayer.id)
+        })
+      }
 
       table.lobby
         .startMatch()
         .onHandFinished(async (hand) => {
-          if (hand) {
+          if (server.store && hand) {
             await server.store.matchHand.create({
               data: {
                 trucoWinnerIdx: hand.trucoWinnerIdx,
@@ -891,16 +909,18 @@ export const Trucoshi = ({
         .onEnvido(server.onEnvido.bind(null, table))
         .onTruco(server.onTruco.bind(null, table))
         .onWinner(async (winnerTeam, points) => {
-          await server.store.match.update({
-            data: {
-              state: EMatchState.FINISHED,
-              results: points as unknown as Prisma.JsonArray,
-            },
-            where: {
-              id: table.matchId,
-            },
-            select: { id: true },
-          })
+          if (server.store) {
+            await server.store.match.update({
+              data: {
+                state: EMatchState.FINISHED,
+                results: points as unknown as Prisma.JsonArray,
+              },
+              where: {
+                id: table.matchId,
+              },
+              select: { id: true },
+            })
+          }
 
           return server.onWinner(table, winnerTeam)
         })
