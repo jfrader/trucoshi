@@ -3,7 +3,7 @@ import { ICard, IDeck, IPlayedCard, IPlayer, IPublicPlayer } from "../../types"
 import { BURNT_CARD, CARDS } from "../constants"
 import { shuffleArray } from "../utils"
 
-export function Deck(): IDeck {
+export function Deck(shuffle: boolean = true): IDeck {
   const deck: IDeck = {
     cards: Object.keys(CARDS) as Array<ICard>,
     usedCards: [],
@@ -26,7 +26,11 @@ export function Deck(): IDeck {
     },
   }
 
-  return deck.shuffle().shuffle()
+  if (shuffle) {
+    return deck.shuffle().shuffle()
+  }
+
+  return deck
 }
 
 export function PlayedCard(
@@ -42,7 +46,7 @@ export function PlayedCard(
 
   if (burn) {
     pc.card = BURNT_CARD
-    pc.key = randomUUID().substring(0, 12)
+    pc.key = randomUUID().substring(0, 8)
   }
 
   return pc

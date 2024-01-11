@@ -54,16 +54,17 @@ model MatchHand {
 }
 
 model MatchPlayer {
-  id           Int    @id @default(autoincrement())
-  idx          Int
-  name         String @default("Satoshi")
-  accountId    Int?
-  teamIdx      Int
-  satsPaid     Int    @default(0)
-  satsReceived Int    @default(0)
-  payRequestId Int?
-  matchId      Int
-  match        Match  @relation(fields: [matchId], references: [id])
+  id             Int    @id @default(autoincrement())
+  idx            Int?
+  name           String @default("Satoshi")
+  accountId      Int?
+  session        String
+  teamIdx        Int
+  satsPaid       Int    @default(0)
+  satsReceived   Int    @default(0)
+  payRequestId   Int?
+  matchId        Int
+  match          Match  @relation(fields: [matchId], references: [id])
 }
 
 enum EMatchState {

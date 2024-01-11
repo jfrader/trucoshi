@@ -14,7 +14,9 @@ export interface IMatchTable {
   ownerSession: string
   matchSessionId: string
   lobby: ILobby
+  busy: boolean
   state(): EMatchState
+  setBusy(busy: boolean): void
   isSessionPlaying(session: string): IPlayer | null
   getPreviousHand(hand: IHand): IMatchPreviousHand
   getHandRounds(hand: IHand): IPlayedCard[][]
@@ -34,9 +36,13 @@ export function MatchTable(
   const table: IMatchTable = {
     ownerSession,
     matchSessionId,
+    busy: false,
     lobby: Lobby(matchSessionId, options),
     setMatchId(id) {
       table.matchId = id
+    },
+    setBusy(busy) {
+      table.busy = busy
     },
     state() {
       table.lobby.calculateReady()
@@ -106,7 +112,11 @@ export function MatchTable(
   return table
 }
 
-const getPublicMatch = (table: IMatchTable, userSession?: string, freshHand: boolean = false) => {
+const getPublicMatch = (
+  table: IMatchTable,
+  userSession?: string,
+  freshHand: boolean = false
+): IPublicMatch => {
   const { lobby } = table
   const { gameLoop } = lobby
 

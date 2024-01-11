@@ -131,12 +131,19 @@ export type IHandCommands = {
   [key in ECommand]: (hand: IHand, player: IPlayer) => void
 }
 
+export type IEventCallback<T = {}> = (
+  args: {
+    success: boolean
+  } & T
+) => void
+
 export enum EServerEvent {
   PONG = "PONG",
   SET_SESSION = "SET_SESSION",
   PREVIOUS_HAND = "PREVIOUS_HAND",
   UPDATE_MATCH = "UPDATE_MATCH",
   WAITING_PLAY = "WAITING_PLAY",
+  KICK_PLAYER = "PLAYER_KICKED",
   UPDATE_ACTIVE_MATCHES = "UPDATE_ACTIVE_MATCHES",
   PLAYER_USED_CARD = "PLAYER_USED_CARD",
   PLAYER_SAID_COMMAND = "PLAYER_SAID_COMMAND",
@@ -144,11 +151,36 @@ export enum EServerEvent {
   UPDATE_CHAT = "UPDAET_CHAT",
 }
 
+export interface ServerToClientEvents {
+  [EServerEvent.PONG]: (serverTime: number, clientTime: number) => void
+  [EServerEvent.PREVIOUS_HAND]: (value: IMatchPreviousHand, callback: () => void) => void
+  [EServerEvent.UPDATE_CHAT]: (room: IPublicChatRoom, message?: IChatMessage) => void
+  [EServerEvent.UPDATE_ACTIVE_MATCHES]: (activeMatches: IPublicMatchInfo[]) => void
+  [EServerEvent.UPDATE_MATCH]: (match: IPublicMatch, callback?: () => void) => void
+  [EServerEvent.PLAYER_USED_CARD]: (match: IPublicMatch, card: IPlayedCard) => void
+  [EServerEvent.PLAYER_SAID_COMMAND]: (match: IPublicMatch, command: ISaidCommand) => void
+  [EServerEvent.KICK_PLAYER]: (match: IPublicMatch, session: string, reason?: string) => void
+  [EServerEvent.SET_SESSION]: (
+    userData: IUserData,
+    serverVersion: string,
+    activeMatches: Array<IPublicMatchInfo>
+  ) => void
+  [EServerEvent.WAITING_POSSIBLE_SAY]: (
+    match: IPublicMatch,
+    callback: (data: IWaitingSayData) => void
+  ) => void
+  [EServerEvent.WAITING_PLAY]: (
+    match: IPublicMatch,
+    callback: (data: IWaitingPlayData) => void
+  ) => void
+}
+
 export enum EClientEvent {
   LOGIN = "LOGIN",
   LOGOUT = "LOGOUT",
   LEAVE_MATCH = "LEAVE_MATCH",
   CREATE_MATCH = "CREATE_MATCH",
+  SET_MATCH_OPTIONS = "SET_MATCH_OPTIONS",
   LIST_MATCHES = "LIST_MATCHES",
   JOIN_MATCH = "JOIN_MATCH",
   START_MATCH = "START_MATCH",
@@ -159,87 +191,47 @@ export enum EClientEvent {
   SAY = "SAY",
 }
 
-export type IEventCallback<T = {}> = (
-  args: {
-    success: boolean
-  } & T
-) => void
-
-export interface ServerToClientEvents {
-  [EServerEvent.PONG]: (serverTime: number, clientTime: number) => void
-
-  [EServerEvent.SET_SESSION]: (
-    userData: IUserData,
-    serverVersion: string,
-    activeMatches: Array<IPublicMatchInfo>
-  ) => void
-
-  [EServerEvent.WAITING_POSSIBLE_SAY]: (
-    match: IPublicMatch,
-    callback: (data: IWaitingSayData) => void
-  ) => void
-
-  [EServerEvent.PREVIOUS_HAND]: (value: IMatchPreviousHand, callback: () => void) => void
-
-  [EServerEvent.UPDATE_CHAT]: (room: IPublicChatRoom, message?: IChatMessage) => void
-
-  [EServerEvent.UPDATE_ACTIVE_MATCHES]: (activeMatches: IPublicMatchInfo[]) => void
-
-  [EServerEvent.UPDATE_MATCH]: (match: IPublicMatch, callback?: () => void) => void
-
-  [EServerEvent.PLAYER_USED_CARD]: (match: IPublicMatch, card: IPlayedCard) => void
-
-  [EServerEvent.PLAYER_SAID_COMMAND]: (match: IPublicMatch, command: ISaidCommand) => void
-
-  [EServerEvent.WAITING_PLAY]: (
-    match: IPublicMatch,
-    callback: (data: IWaitingPlayData) => void
-  ) => void
-}
-
 export interface ClientToServerEvents {
-  [EClientEvent.LOGIN]: (
-    user: User,
-    identityToken: string,
-    callback: IEventCallback<{ activeMatches?: IPublicMatchInfo[] }>
-  ) => void
   [EClientEvent.LOGOUT]: (callback: IEventCallback<{}>) => void
-
   [EClientEvent.PING]: (clientTime: number) => void
-
   [EClientEvent.CHAT]: (matchId: string, msg: string, callback: () => void) => void
-
   [EClientEvent.LEAVE_MATCH]: (matchId: string) => void
-
   [EClientEvent.CREATE_MATCH]: (
     callback: IEventCallback<{ match?: IPublicMatch; activeMatches?: IPublicMatchInfo[] }>
   ) => void
-
-  [EClientEvent.START_MATCH]: (
-    matchId: string,
-    callback: IEventCallback<{ matchSessionId?: string }>
+  [EClientEvent.SET_MATCH_OPTIONS]: (
+    identityJwt: string | null,
+    matchSessionId: string,
+    options: Partial<ILobbyOptions>,
+    callback: IEventCallback<{ match?: IPublicMatch; activeMatches?: IPublicMatchInfo[] }>
   ) => void
-
-  [EClientEvent.FETCH_MATCH]: (
-    matchId: string,
-    callback: IEventCallback<{ match: IPublicMatch | null }>
-  ) => void
-
-  [EClientEvent.LIST_MATCHES]: (
-    filters: { state?: Array<EMatchState> },
-    callback: IEventCallback<{ matches: Array<IPublicMatchInfo> }>
-  ) => void
-
   [EClientEvent.SET_PLAYER_READY]: (
     matchSessionId: string,
     ready: boolean,
     callback: IEventCallback<{ match?: IPublicMatch }>
   ) => void
-
   [EClientEvent.JOIN_MATCH]: (
     matchSessionId: string,
     teamIdx: 0 | 1 | undefined,
     callback: IEventCallback<{ match?: IPublicMatch; activeMatches?: IPublicMatchInfo[] }>
+  ) => void
+  [EClientEvent.START_MATCH]: (
+    identityJwt: string | null,
+    matchId: string,
+    callback: IEventCallback<{ matchSessionId?: string }>
+  ) => void
+  [EClientEvent.FETCH_MATCH]: (
+    matchId: string,
+    callback: IEventCallback<{ match: IPublicMatch | null }>
+  ) => void
+  [EClientEvent.LIST_MATCHES]: (
+    filters: { state?: Array<EMatchState> },
+    callback: IEventCallback<{ matches: Array<IPublicMatchInfo> }>
+  ) => void
+  [EClientEvent.LOGIN]: (
+    user: User,
+    identityToken: string,
+    callback: IEventCallback<{ activeMatches?: IPublicMatchInfo[] }>
   ) => void
 }
 
@@ -284,6 +276,8 @@ export enum GAME_ERROR {
   INVALID_ENVIDO_POINTS = "INVALID_ENVIDO_POINTS",
   ENVIDO_NOT_ACCEPTED = "ENVIDO_NOT_ACCEPTED",
   INVALID_COMAND = "INVALID_COMAND",
+  INSUFFICIENT_BALANCE = "INSUFFICIENT_BALANCE",
+  GAME_REQUIRES_ACCOUNT = "GAME_REQUIRES_ACCOUNT",
 }
 
 export interface EnvidoState {
@@ -357,12 +351,14 @@ export type IPublicPlayer = Pick<
         commands: IPlayer["commands"]
         hasFlor: IPlayer["hasFlor"]
         envido: IPlayer["envido"]
+        payRequestId?: IPlayer["payRequestId"]
       }
     | {
         isMe?: false
         commands?: undefined
         hasFlor?: undefined
         envido?: undefined
+        payRequestId?: undefined
       }
   )
 
@@ -376,6 +372,7 @@ export interface IPlayer {
   name: string
   key: string
   session: string
+  payRequestId?: number
   hand: Array<ICard>
   usedHand: Array<ICard>
   prevHand: Array<ICard>
@@ -394,7 +391,8 @@ export interface IPlayer {
   resetCommands(): void
   calculateEnvido(): Array<number>
   setIdx(idx: number): void
-  setMatchPlayerId(id: number): void
+  setPayRequest(id?: number): void
+  setMatchPlayerId(id?: number): void
   setTurn(turn: boolean): void
   setTurnExpiration(...args: [number, number | null] | [null, null]): void
   setEnvidoTurn(turn: boolean): void
