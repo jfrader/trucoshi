@@ -66,7 +66,7 @@ export const GameLoop = (match: IMatch) => {
       return gameloop
     },
     async begin() {
-      log.debug(
+      log.warn(
         {
           matchId: match.id,
         },
@@ -94,7 +94,7 @@ export const GameLoop = (match: IMatch) => {
         gameloop.currentPlayer = play.player
 
         try {
-          log.debug(
+          log.warn(
             {
               matchId: match.id,
               state: play.state,
@@ -148,7 +148,7 @@ export const GameLoop = (match: IMatch) => {
 
       winner = match.winner
 
-      log.debug(
+      log.warn(
         { matchId: match.id, winnerIdx: winner.id, points: winner.points },
         "Gameloop match found a winner!"
       )

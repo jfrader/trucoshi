@@ -13,6 +13,7 @@ export function Player(
     key,
     accountId,
     matchPlayerId: undefined,
+    payRequestId: undefined,
     name,
     session: "",
     teamIdx,
@@ -41,6 +42,9 @@ export function Player(
     },
     setMatchPlayerId(id) {
       player.matchPlayerId = id
+    },
+    setPayRequest(id) {
+      player.payRequestId = id
     },
     setTurn(turn) {
       if (!turn) {
@@ -91,6 +95,7 @@ export function Player(
       return calculateEnvidoPointsArray(player)
     },
     abandon() {
+      player.disabled = true
       player.abandoned = true
     },
     setHand(hand) {
@@ -133,12 +138,12 @@ const getPublicPlayer = (
     ...privateProps
   } = player
 
-  const { session, commands, hasFlor, envido, hand } = privateProps
+  const { session, commands, hasFlor, envido, hand, payRequestId } = privateProps
 
   const isMe = Boolean(userSession && session === userSession)
 
   const meProps = isMe
-    ? { isMe, commands, hasFlor, envido, hand }
+    ? { isMe, commands, hasFlor, envido, hand, payRequestId }
     : { isMe, hand: hand.map(() => BURNT_CARD) }
 
   return {

@@ -53,7 +53,7 @@ function* matchTurnGeneratorSequence(match: IMatch) {
       if (value) {
         if (
           value.currentPlayer &&
-          (value.currentPlayer.disabled || value.currentPlayer.abandoned)
+          (value.currentPlayer.disabled)
         ) {
           value.nextTurn()
           continue
@@ -105,7 +105,7 @@ export function Match(
     prevHand: null,
     currentHand: null,
     play() {
-      log.silent(
+      log.trace(
         { players: table.players.map((p) => p.getPublicPlayer()) },
         "Attempting to get match next turn"
       )

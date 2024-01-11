@@ -124,7 +124,7 @@ export function Lobby(matchId: string, options: Partial<ILobbyOptions> = {}): IL
         }
       })
       if (player) {
-        log.silent({ player: (player as any).id }, "Adding player to match table lobby")
+        log.trace({ player: (player as any).id }, "Adding player to match table lobby")
         return player
       }
       throw new Error("Couldn't add player to match")
@@ -181,7 +181,6 @@ const startLobbyMatch = (matchId: string, lobby: IPrivateLobby) => {
   }
 
   lobby.table = Table(lobby.players)
-
   lobby.gameLoop = GameLoop(Match(matchId, lobby.table, lobby.teams, lobby.options))
 
   lobby.started = true
@@ -229,17 +228,17 @@ const addPlayerToLobby = ({
   teamSize: number
 }) => {
   const playerParams = { accountId, name, key, teamIdx, isOwner }
-  log.silent(playerParams, "Adding player to match started")
+  log.trace(playerParams, "Adding player to match started")
   const exists = lobby.players.find((player) => player.session === session)
   const hasMovedSlots = Boolean(exists)
   if (exists) {
     if (exists.teamIdx === teamIdx) {
-      log.silent(playerParams, "Adding player to match: Player already exists on the same team")
+      log.trace(playerParams, "Adding player to match: Player already exists on the same team")
       return exists
     }
     isOwner = exists.isOwner
 
-    log.silent(
+    log.trace(
       playerParams,
       "Adding player to match: Player already exists on a different team, removing player"
     )
@@ -247,12 +246,12 @@ const addPlayerToLobby = ({
   }
 
   if (lobby.started) {
-    log.silent(playerParams, "Adding player to match: Match already started! Cannot add player")
+    log.trace(playerParams, "Adding player to match: Match already started! Cannot add player")
     throw new Error(GAME_ERROR.MATCH_ALREADY_STARTED)
   }
 
   if (lobby.full) {
-    log.silent(playerParams, "Adding player to match: Lobby is full. Cannot add player")
+    log.trace(playerParams, "Adding player to match: Lobby is full. Cannot add player")
     throw new Error(GAME_ERROR.LOBBY_IS_FULL)
   }
 
@@ -260,7 +259,7 @@ const addPlayerToLobby = ({
     lobby.full ||
     lobby.players.filter((player) => player.teamIdx === teamIdx).length > teamSize
   ) {
-    log.silent(playerParams, "Adding player to match: Team is full. Cannot add player")
+    log.trace(playerParams, "Adding player to match: Team is full. Cannot add player")
     throw new Error(GAME_ERROR.TEAM_IS_FULL)
   }
   const player = Player(
@@ -307,7 +306,7 @@ const addPlayerToLobby = ({
   lobby.calculateFull()
   lobby.calculateReady()
 
-  log.silent({ playerParams, player: player.getPublicPlayer() }, "Added player to match")
+  log.trace({ playerParams, player: player.getPublicPlayer() }, "Added player to match")
 
   return player
 }

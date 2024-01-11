@@ -116,7 +116,7 @@ export const Chat = (io: TrucoshiServer) => {
     const userSocket = io.sockets.sockets.get(socketId)
 
     if (!userSocket || !userSocket.data.user) {
-      log.trace(
+      log.debug(
         { room, socketId },
         `Tried to JOIN room but there's no session data or no socket was found`
       )
@@ -147,7 +147,7 @@ export const Chat = (io: TrucoshiServer) => {
     const userSocket = io.sockets.sockets.get(socketId)
 
     if (!userSocket || !userSocket.data.user) {
-      log.trace(
+      log.debug(
         { room, socketId },
         `Tried to LEAVE room but there's no session data or no socket was found`
       )

@@ -1,8 +1,8 @@
 import { ExtendedError } from "socket.io/dist/namespace"
-import { ITrucoshi, MatchTable, TrucoshiSocket } from "../classes"
+import { ITrucoshi, TrucoshiSocket } from "../classes"
 import { EClientEvent, EServerEvent } from "../../types"
-import { randomUUID } from "crypto"
 import logger from "../../utils/logger"
+import { getWordsId } from "../../utils/string/getRandomWord"
 
 const log = logger.child({ middleware: "trucoshi" })
 
@@ -10,6 +10,15 @@ export const trucoshi =
   (server: ITrucoshi) => (socket: TrucoshiSocket, next: (err?: ExtendedError) => void) => {
     socket.on(EClientEvent.PING, (clientTime) => {
       socket.emit(EServerEvent.PONG, Date.now(), clientTime)
+    })
+
+    socket.on("disconnect", async () => {
+      if (socket.data.user) {
+        const user = socket.data.user
+        const tables = server.tables.findAll((table) => !!table.isSessionPlaying(user.session))
+
+        tables.forEach((table) => server.leaveMatch(table.matchSessionId, socket))
+      }
     })
 
     /**
@@ -26,12 +35,11 @@ export const trucoshi =
           throw new Error("Attempted to create a match without a user")
         }
 
-        log.trace(userSession.getPublicInfo(), "User creating new match...")
+        log.debug(userSession.getPublicInfo(), "User creating new match...")
 
-        let matchSessionId = randomUUID().substring(0, 8)
-
+        let matchSessionId = getWordsId()
         while (server.tables.get(matchSessionId)) {
-          matchSessionId = randomUUID().substring(0, 8)
+          matchSessionId = getWordsId()
         }
 
         const table = await server.createMatchTable(matchSessionId, userSession)
@@ -52,20 +60,49 @@ export const trucoshi =
     })
 
     /**
+     * Set Match Options
+     */
+    socket.on(
+      EClientEvent.SET_MATCH_OPTIONS,
+      async (identityJwt, matchSessionId, options, callback) => {
+        log.error({ identityJwt, options }, "SETTING MATCH OPTIONS")
+        try {
+          const userSession = server.sessions.getOrThrow(socket.data.user?.session)
+          const table = await server.setMatchOptions({
+            identityJwt,
+            matchSessionId,
+            userSession,
+            options,
+          })
+
+          server.emitMatchUpdate(table, [socket.id]).catch(log.error)
+          callback({
+            success: true,
+            match: table.getPublicMatch(userSession.session),
+            activeMatches: server.getSessionActiveMatches(userSession.session),
+          })
+        } catch (e) {
+          log.error(e, "Client event SET_MATCH_OPTIONS error")
+          callback({ success: false })
+        }
+      }
+    )
+
+    /**
      * Start Match
      */
-    socket.on(EClientEvent.START_MATCH, async (matchId, callback) => {
+    socket.on(EClientEvent.START_MATCH, async (identityJwt, matchSessionId, callback) => {
       try {
         const userSession = server.sessions.getOrThrow(socket.data.user?.session)
 
-        log.trace(userSession.getPublicInfo(), "User starting match...")
+        log.debug(userSession.getPublicInfo(), "User starting match...")
 
-        if (matchId && userSession.ownedMatches.has(matchId)) {
-          log.silent("Server starting match...")
-          await server.startMatch(matchId, userSession)
-          return callback({ success: true, matchSessionId: matchId })
+        if (matchSessionId && userSession.ownedMatches.has(matchSessionId)) {
+          log.trace("Server starting match...")
+          await server.startMatch({ identityJwt, matchSessionId, userSession })
+          return callback({ success: true, matchSessionId: matchSessionId })
         }
-        log.silent({ matchId }, "Match could not be started")
+        log.trace({ matchId: matchSessionId }, "Match could not be started")
         callback({ success: false })
       } catch (e) {
         log.error(e, "Client event START_MATCH error")
@@ -105,22 +142,18 @@ export const trucoshi =
     /**
      * Set Player Ready
      */
-    socket.on(EClientEvent.SET_PLAYER_READY, (matchId, ready, callback) => {
+    socket.on(EClientEvent.SET_PLAYER_READY, async (matchSessionId, ready, callback) => {
       try {
-        if (!socket.data.user) {
-          throw new Error("Session not found")
-        }
-        const table = server.tables.getOrThrow(matchId)
-
-        const player = table.lobby.players.find(
-          (player) => player && player.session === socket.data.user?.session
-        )
-        if (player) {
-          player.setReady(ready)
-          server.emitMatchUpdate(table, [socket.id]).catch(console.error)
-          return callback({ success: true, match: table.getPublicMatch(socket.data.user?.session) })
-        }
-        throw new Error("Player not found " + socket.data.user.name)
+        const userSession = server.sessions.getOrThrow(socket.data.user?.session)
+        const table = await server.setMatchPlayerReady({
+          matchSessionId,
+          ready,
+          userSession,
+        })
+        callback({
+          success: true,
+          match: table.getPublicMatch(userSession.session),
+        })
       } catch (e) {
         log.error(e, "Client event SET_PLAYER_READY error")
         callback({ success: false })
@@ -130,12 +163,13 @@ export const trucoshi =
     /**
      * Leave Match
      */
-    socket.on(EClientEvent.LEAVE_MATCH, (matchId) => {
-      log.silent({ matchId, socketId: socket.id }, "Client emitted LEAVE_MATCH event")
-      server
-        .leaveMatch(matchId, socket.id)
-        .then()
-        .catch((e) => log.error(e, "Client event LEAVE_MATCH error"))
+    socket.on(EClientEvent.LEAVE_MATCH, async (matchId) => {
+      log.trace({ matchId, socketId: socket.id }, "Client emitted LEAVE_MATCH event")
+      try {
+        server.leaveMatch(matchId, socket)
+      } catch (e) {
+        log.error(e, "Client event LEAVE_MATCH error")
+      }
     })
 
     /**
@@ -149,13 +183,12 @@ export const trucoshi =
     /**
      * Login
      */
-    socket.on(EClientEvent.LOGIN, (account, identityJwt, callback) => {
+    socket.on(EClientEvent.LOGIN, async (account, identityJwt, callback) => {
       try {
-        server.login(socket, account, identityJwt, ({ success }) => {
-          callback({
-            success,
-            activeMatches: server.getSessionActiveMatches(socket.data.user?.session),
-          })
+        await server.login({ socket, account, identityJwt })
+        callback({
+          success: true,
+          activeMatches: server.getSessionActiveMatches(socket.data.user?.session),
         })
       } catch (e) {
         log.error(e, "Client event LOGIN error")
@@ -167,7 +200,15 @@ export const trucoshi =
      * Logout
      */
     socket.on(EClientEvent.LOGOUT, (callback) => {
-      server.logout(socket, callback)
+      try {
+        server.logout(socket)
+        callback({
+          success: true,
+        })
+      } catch (e) {
+        log.error(e, "Client event LOGOUT error")
+        callback({ success: false })
+      }
     })
 
     /**

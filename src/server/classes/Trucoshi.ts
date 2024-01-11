@@ -10,8 +10,9 @@ import {
   EHandState,
   ESayCommand,
   EServerEvent,
+  GAME_ERROR,
   ICard,
-  IEventCallback,
+  ILobbyOptions,
   IPlayer,
   IPublicMatch,
   IPublicMatchInfo,
@@ -30,12 +31,12 @@ import { Chat, IChat } from "./Chat"
 import { IMatchTable, MatchTable } from "./MatchTable"
 import { IUserSession, ISocketMatchState, UserSession, IUserData } from "./UserSession"
 import logger from "../../utils/logger"
-import { User } from "lightning-accounts"
+import { PayRequest, User } from "lightning-accounts"
 import { getPublicKey } from "../../utils/config/lightningAccounts"
 
 import { createAdapter } from "@socket.io/redis-adapter"
 
-import { accountsApi } from "../../accounts/client"
+import { accountsApi, validateJwt } from "../../accounts/client"
 import { createClient } from "redis"
 import { EMatchState, Prisma, PrismaClient } from "@prisma/client"
 
@@ -100,15 +101,10 @@ export interface ITrucoshi {
     callback?: (playerSocket: TrucoshiSocket, player: IPlayer | null) => Promise<void>
   ): Promise<{ sockets: any[]; players: IPublicPlayer[]; spectators: any[] }>
   getSessionActiveMatches(session?: string): IPublicMatchInfo[]
-  login(
-    socket: TrucoshiSocket,
-    account: User,
-    identityJwt: string,
-    callback: IEventCallback<{}>
-  ): Promise<void>
-  logout(socket: TrucoshiSocket, callback: IEventCallback<{}>): void
+  login(input: { socket: TrucoshiSocket; account: User; identityJwt: string }): Promise<void>
+  logout(socket: TrucoshiSocket): void
   emitSocketSession(socket: TrucoshiSocket): Promise<void>
-  leaveMatch(matchId: string, socketId: string): Promise<void>
+  leaveMatch(matchId: string, socket: TrucoshiSocket): Promise<void>
   emitWaitingPossibleSay(
     play: IPlayInstance,
     table: IMatchTable,
@@ -122,22 +118,42 @@ export interface ITrucoshi {
   emitMatchUpdate(table: IMatchTable, skipSocketIds?: Array<string>): Promise<void>
   emitPreviousHand(hand: IHand, table: IMatchTable): Promise<void>
   emitSocketMatch(socket: TrucoshiSocket, currentMatchId: string | null): IPublicMatch | null
-  playCard(
-    table: IMatchTable,
-    play: IPlayInstance,
-    player: IPlayer,
-    cardIdx: number,
+  playCard(input: {
+    table: IMatchTable
+    play: IPlayInstance
+    player: IPlayer
+    cardIdx: number
     card: ICard
-  ): Promise<void>
-  sayCommand(
-    table: IMatchTable,
-    play: IPlayInstance,
-    player: IPlayer,
+  }): Promise<void>
+  sayCommand(input: {
+    table: IMatchTable
+    play: IPlayInstance
+    player: IPlayer
     command: ECommand | number
-  ): Promise<ECommand | number>
+  }): Promise<ECommand | number>
   createMatchTable(matchSessionId: string, userSession: IUserSession): Promise<IMatchTable>
+  setMatchOptions(input: {
+    identityJwt: string | null
+    matchSessionId: string
+    userSession: IUserSession
+    options: Partial<ILobbyOptions>
+  }): Promise<IMatchTable>
+  setMatchPlayerReady(input: {
+    matchSessionId: string
+    userSession: IUserSession
+    ready: boolean
+  }): Promise<IMatchTable>
+  checkUserSufficientBalance(input: {
+    identityJwt: string
+    account: User
+    satsPerPlayer: number
+  }): Promise<boolean>
   joinMatch(table: IMatchTable, userSession: IUserSession, teamIdx?: 0 | 1): Promise<IPlayer>
-  startMatch(matchSessionId: string, userSession: IUserSession): Promise<void>
+  startMatch(input: {
+    identityJwt: string | null
+    matchSessionId: string
+    userSession: IUserSession
+  }): Promise<void>
   setTurnTimeout(
     table: IMatchTable,
     player: IPlayer,
@@ -151,7 +167,7 @@ export interface ITrucoshi {
   onEnvido(table: IMatchTable, play: IPlayInstance, isPointsRounds: boolean): Promise<void>
   onWinner(table: IMatchTable, winner: ITeam): Promise<void>
   removePlayerAndCleanup(table: IMatchTable, player: IPlayer): void
-  cleanupMatchTable(table: IMatchTable): void
+  cleanupMatchTable(table: IMatchTable): Promise<void>
   resetSocketsMatchState(table: IMatchTable): Promise<void>
   listen: (
     callback: (io: TrucoshiServer) => void,
@@ -263,51 +279,34 @@ export const Trucoshi = ({
 
       return userSession
     },
-    async login(socket, me, identityJwt, callback) {
+    async login({ socket, account, identityJwt }) {
       if (!socket.data.user) {
-        return callback({ success: false })
+        throw new Error("Socket doesn't have user data")
       }
 
-      try {
-        let session = server.sessions.getOrThrow(socket.data.user.session)
-        const payload = jwt.verify(identityJwt, getPublicKey()) as JwtPayload
+      let session = server.sessions.getOrThrow(socket.data.user.session)
+      const payload = validateJwt(identityJwt, account)
 
-        if (!payload.sub || me.id !== Number(payload.sub)) {
-          return callback({ success: false })
-        }
+      const existingSession = server.sessions.find((s) => s.account?.id === payload.sub)
 
-        const existingSession = server.sessions.find((s) => s.account?.id === payload.sub)
+      const res = await accountsApi.users.usersDetail(String(payload.sub))
 
-        const res = await accountsApi.users.usersDetail(payload.sub)
-
-        if (existingSession) {
-          socket.data.user = existingSession.getUserData()
-          session = existingSession
-        }
-
-        session.setAccount(res.data)
-
-        log.info(res.data, "Logging in account")
-
-        return callback({ success: true })
-      } catch (e) {
-        log.trace(e, "Error loggin user in")
-        return callback({ success: false })
+      if (existingSession) {
+        socket.data.user = existingSession.getUserData()
+        session = existingSession
       }
+
+      session.setAccount(res.data)
+
+      log.info(res.data, "Logging in account")
     },
-    logout(socket, callback) {
+    logout(socket) {
       if (!socket.data.user) {
-        return callback({ success: false })
+        throw new Error("Socket doesn't have user data")
       }
 
-      try {
-        const session = server.sessions.getOrThrow(socket.data.user.session)
-        session.setAccount(null)
-        return callback({ success: true })
-      } catch (e) {
-        log.error(e, "Error logging user out")
-        return callback({ success: false })
-      }
+      const session = server.sessions.getOrThrow(socket.data.user.session)
+      session.setAccount(null)
     },
     async emitSocketSession(socket) {
       if (!socket.data.user) {
@@ -350,7 +349,7 @@ export const Trucoshi = ({
       return { sockets: playerSockets, spectators: spectatorSockets, players }
     },
     async emitMatchUpdate(table, skipSocketIds = []) {
-      log.silent(table.getPublicMatchInfo(), "Emitting match update to all sockets")
+      log.trace(table.getPublicMatchInfo(), "Emitting match update to all sockets")
       await server.getTableSockets(table, async (playerSocket, player) => {
         if (skipSocketIds.includes(playerSocket.id) || !playerSocket.data.user) {
           return
@@ -362,7 +361,7 @@ export const Trucoshi = ({
       })
     },
     async emitWaitingPossibleSay(play, table, freshHand = false) {
-      log.silent(
+      log.trace(
         { match: table.getPublicMatchInfo(), handIdx: play.handIdx },
         "Emitting match possible players say"
       )
@@ -383,7 +382,7 @@ export const Trucoshi = ({
               return
             }
 
-            log.silent(
+            log.trace(
               { match: table.getPublicMatchInfo(), player: player.getPublicPlayer() },
               "Emitting waiting possible say to a player"
             )
@@ -406,7 +405,7 @@ export const Trucoshi = ({
                   return
                 }
                 if (!play.waitingPlay) {
-                  log.silent(
+                  log.trace(
                     { match: table.getPublicMatchInfo(), player: player.getPublicPlayer() },
                     "Tried to say something but someone said something already"
                   )
@@ -414,7 +413,7 @@ export const Trucoshi = ({
                 }
                 const { command } = data
                 server
-                  .sayCommand(table, play, player, command)
+                  .sayCommand({ table, play, player, command })
                   .then((command) => {
                     resolve(command)
                     server.sessions.getOrThrow(player.session).reconnect(table.matchSessionId)
@@ -448,7 +447,7 @@ export const Trucoshi = ({
             }
 
             if (player.session === play.player?.session) {
-              log.silent(
+              log.trace(
                 {
                   match: table.getPublicMatchInfo(),
                   player: player.getPublicPlayer(),
@@ -464,7 +463,7 @@ export const Trucoshi = ({
                     return reject(new Error(EServerEvent.WAITING_PLAY + " callback returned empty"))
                   }
                   if (!play.waitingPlay) {
-                    log.silent(
+                    log.trace(
                       { match: table.getPublicMatchInfo(), player: player.getPublicPlayer() },
                       "Tried to play a card but play is not waiting a play"
                     )
@@ -472,7 +471,7 @@ export const Trucoshi = ({
                   }
                   const { cardIdx, card } = data
                   server
-                    .playCard(table, play, player, cardIdx, card)
+                    .playCard({ table, play, player, cardIdx, card })
                     .then(() => {
                       resolve("play")
                       server.sessions.getOrThrow(player.session).reconnect(table.matchSessionId)
@@ -485,13 +484,13 @@ export const Trucoshi = ({
           .catch(console.error)
       })
     },
-    sayCommand(table, play, player, command) {
+    sayCommand({ table, play, player, command }) {
       return new Promise<ECommand | number>((resolve, reject) => {
         if (command || command === 0) {
-          log.silent({ player, command }, "Attempt to say command")
+          log.trace({ player, command }, "Attempt to say command")
           const saidCommand = play.say(command, player)
           if (saidCommand || saidCommand === 0) {
-            log.silent({ player, command }, "Say command success")
+            log.trace({ player, command }, "Say command success")
             clearTimeout(server.turns.getOrThrow(table.matchSessionId).timeout)
 
             server.chat.rooms
@@ -508,13 +507,13 @@ export const Trucoshi = ({
         return reject(new Error("Undefined Command"))
       })
     },
-    playCard(table, play, player, cardIdx, card) {
+    playCard({ table, play, player, cardIdx, card }) {
       return new Promise<void>((resolve, reject) => {
         if (cardIdx !== undefined && card) {
-          log.silent({ player, card, cardIdx }, "Attempt to play card")
+          log.trace({ player, card, cardIdx }, "Attempt to play card")
           const playedCard = play.use(cardIdx, card)
           if (playedCard) {
-            log.silent({ player, card, cardIdx }, "Play card success")
+            log.trace({ player, card, cardIdx }, "Play card success")
             clearTimeout(server.turns.getOrThrow(table.matchSessionId).timeout)
 
             server.chat.rooms.getOrThrow(table.matchSessionId).card(player, playedCard)
@@ -537,7 +536,7 @@ export const Trucoshi = ({
       })
     },
     async emitPreviousHand(hand, table) {
-      log.silent(table.getPublicMatchInfo(), "Emitting previous hand to players")
+      log.trace(table.getPublicMatchInfo(), "Emitting previous hand to players")
 
       const previousHand = table.getPreviousHand(hand)
 
@@ -560,20 +559,20 @@ export const Trucoshi = ({
           .system(`${team.name}: +${previousHand.points[team.id]}`)
       })
 
-      log.silent(
+      log.trace(
         table.getPublicMatchInfo(),
         "Previous hand timeout has finished, all players settled for next hand"
       )
       await Promise.allSettled(promises)
     },
     setTurnTimeout(table, player, user, onReconnection, onTimeout) {
-      log.silent({ player, options: table.lobby.options }, "Setting turn timeout")
+      log.trace({ player, options: table.lobby.options }, "Setting turn timeout")
       player.setTurnExpiration(table.lobby.options.turnTime, table.lobby.options.abandonTime)
 
       const chat = server.chat.rooms.getOrThrow(table.matchSessionId)
 
       return setTimeout(() => {
-        log.silent(
+        log.trace(
           { match: table.getPublicMatchInfo(), player: player.getPublicPlayer() },
           "Turn timed out, disconnecting"
         )
@@ -583,7 +582,7 @@ export const Trucoshi = ({
         user
           .waitReconnection(table.matchSessionId, table.lobby.options.abandonTime)
           .then(() => {
-            log.silent(
+            log.trace(
               { match: table.getPublicMatchInfo(), player: player.getPublicPlayer() },
               "Player reconnected"
             )
@@ -591,7 +590,7 @@ export const Trucoshi = ({
             onReconnection()
           })
           .catch(() => {
-            log.silent(
+            log.trace(
               { match: table.getPublicMatchInfo(), player: player.getPublicPlayer() },
               "Player abandoned"
             )
@@ -603,7 +602,7 @@ export const Trucoshi = ({
       }, table.lobby.options.turnTime + PLAYER_TIMEOUT_GRACE)
     },
     onTurn(table, play) {
-      log.silent(
+      log.trace(
         { match: table.getPublicMatchInfo(), player: play.player, handIdx: play.handIdx },
         "Turn started"
       )
@@ -631,7 +630,7 @@ export const Trucoshi = ({
 
         const timeout = server.setTurnTimeout(table, player, user, turn, () =>
           server
-            .sayCommand(table, play, player, ESayCommand.MAZO)
+            .sayCommand({ table, play, player, command: ESayCommand.MAZO })
             .catch((e) => log.error(e, "Turn timeout retry say command MAZO failed"))
             .finally(resolve)
         )
@@ -644,7 +643,7 @@ export const Trucoshi = ({
       })
     },
     onTruco(table, play) {
-      log.silent(
+      log.trace(
         { match: table.getPublicMatchInfo(), player: play.player, handIdx: play.handIdx },
         "Truco answer turn started"
       )
@@ -670,7 +669,7 @@ export const Trucoshi = ({
 
         const timeout = server.setTurnTimeout(table, player, user, turn, () =>
           server
-            .sayCommand(table, play, player, EAnswerCommand.NO_QUIERO)
+            .sayCommand({ table, play, player, command: EAnswerCommand.NO_QUIERO })
             .catch((e) => log.error(e, "Truco turn timeout retry say command NO_QUIERO failed"))
             .finally(resolve)
         )
@@ -683,7 +682,7 @@ export const Trucoshi = ({
       })
     },
     onEnvido(table, play, isPointsRound) {
-      log.silent(
+      log.trace(
         {
           match: table.getPublicMatchInfo(),
           player: play.player,
@@ -715,12 +714,12 @@ export const Trucoshi = ({
         const timeout = server.setTurnTimeout(table, player, user, turn, () => {
           if (isPointsRound) {
             return server
-              .sayCommand(table, play, player, 0)
+              .sayCommand({ table, play, player, command: 0 })
               .catch((e) => log.error(e, "Envido turn timeout failed to say '0' points command"))
               .finally(resolve)
           }
           server
-            .sayCommand(table, play, player, EAnswerCommand.NO_QUIERO)
+            .sayCommand({ table, play, player, command: EAnswerCommand.NO_QUIERO })
             .catch((e) => log.error(e, "Envido turn timeout failed to say NO_QUIERO command"))
             .finally(resolve)
         })
@@ -738,7 +737,7 @@ export const Trucoshi = ({
         return Promise.resolve()
       }
 
-      log.silent(`Table hand finished - Table State: ${table.state()}`)
+      log.trace(`Table hand finished - Table State: ${table.state()}`)
 
       return new Promise<void>((resolve, reject) => {
         server
@@ -752,7 +751,7 @@ export const Trucoshi = ({
     },
     onWinner(table, winner) {
       return new Promise<void>((resolve) => {
-        log.silent(table.getPublicMatchInfo(), "Match has finished with a winner")
+        log.trace(table.getPublicMatchInfo(), "Match has finished with a winner")
 
         const chat = server.chat.rooms.getOrThrow(table.matchSessionId)
         chat.system(`${winner.name} es el equipo ganador!`)
@@ -763,7 +762,7 @@ export const Trucoshi = ({
             server.getTableSockets(table, async (playerSocket, player) => {
               if (player) {
                 const activeMatches = server.getSessionActiveMatches(player.session)
-                log.silent({ activeMatches }, "Match finished, updating active matches")
+                log.trace({ activeMatches }, "Match finished, updating active matches")
                 playerSocket.emit(EServerEvent.UPDATE_ACTIVE_MATCHES, activeMatches)
               }
             })
@@ -781,7 +780,7 @@ export const Trucoshi = ({
     async createMatchTable(matchSessionId, userSession) {
       const table = MatchTable(matchSessionId, userSession.session)
 
-      log.silent(userSession.getPublicInfo(), "User has created a new match table", table)
+      log.trace(userSession.getPublicInfo(), "User has created a new match table", table)
 
       userSession.ownedMatches.add(matchSessionId)
 
@@ -811,7 +810,192 @@ export const Trucoshi = ({
 
       return table
     },
+    async checkUserSufficientBalance({ identityJwt, account, satsPerPlayer }) {
+      const payload = validateJwt(identityJwt, account)
+
+      const wallet = await accountsApi.users.walletDetail(String(payload.sub))
+
+      if (wallet.data.balanceInSats < satsPerPlayer) {
+        throw new Error(GAME_ERROR.INSUFFICIENT_BALANCE)
+      }
+
+      return true
+    },
+    async setMatchOptions({ identityJwt, matchSessionId, userSession, options }) {
+      if (!userSession.ownedMatches.has(matchSessionId)) {
+        throw new Error("User is not the match owner, can't set options")
+      }
+
+      const table = server.tables.getOrThrow(matchSessionId)
+      if (table.lobby.started || table.busy) {
+        throw new Error("Match already started or is busy, can't set options")
+      }
+
+      let payRequests: PayRequest[] = []
+
+      if (options.satsPerPlayer && table.lobby.options.satsPerPlayer !== options.satsPerPlayer) {
+        if (options.satsPerPlayer > 0) {
+          if (!server.store) {
+            throw new Error("This server doesn't support bets")
+          }
+
+          if (!identityJwt || !userSession.account) {
+            log.fatal({ identityJwt, acc: userSession.account }, "ASD")
+            throw new Error("User is not logged in, can't set satsPerPlayer option")
+          }
+
+          await server.checkUserSufficientBalance({
+            identityJwt,
+            account: userSession.account,
+            satsPerPlayer: table.lobby.options.satsPerPlayer,
+          })
+
+          const guestSessions = table.lobby.players
+            .filter((player) => !player.accountId)
+            .map((u) => u.session)
+
+          guestSessions.forEach((session) => {
+            table.lobby.removePlayer(session)
+          })
+
+          server.getTableSockets(table, async (playerSocket) => {
+            if (playerSocket.data.user && guestSessions.includes(playerSocket.data.user?.session)) {
+              playerSocket.emit(
+                EServerEvent.KICK_PLAYER,
+                table.getPublicMatch(playerSocket.data.user.session),
+                playerSocket.data.user.session,
+                GAME_ERROR.GAME_REQUIRES_ACCOUNT
+              )
+            }
+          })
+
+          const prs = await accountsApi.wallet.payRequestMultipleCreate({
+            amountInSats: options.satsPerPlayer,
+            description: `Request to enter match ${matchSessionId} - Match ID: ${table.matchId}`,
+            meta: {
+              application: "trucoshi",
+              matchSessionId,
+              matchId: table.matchId,
+            },
+            receiverIds: table.lobby.players
+              .filter((p) => !!p.accountId)
+              .map((p) => p.accountId) as number[],
+          })
+
+          payRequests = prs.data
+        } else {
+          // @TODO: Cleanup databases
+        }
+      }
+
+      table.lobby.players.forEach((player) => {
+        player.setPayRequest(payRequests.find((pr) => pr.receiver?.id === player.accountId)?.id)
+        player.setReady(false)
+      })
+
+      table.lobby.setOptions(options)
+      return table
+    },
+    async setMatchPlayerReady({ matchSessionId, userSession, ready }) {
+      const table = server.tables.getOrThrow(matchSessionId)
+      const player = table.isSessionPlaying(userSession.session)
+
+      if (!player) {
+        throw new Error("Player not found in match, can't set ready status")
+      }
+
+      let pr: PayRequest | null = null
+
+      if (server.store) {
+        if (ready && table.lobby.options.satsPerPlayer > 0) {
+          if (!player.payRequestId) {
+            throw new Error("Player doesn't have a pay request ID!")
+          }
+
+          if (!userSession.account) {
+            throw new Error("User is not logged in, can't set ready in a match with sats")
+          }
+
+          const res = await accountsApi.wallet.payRequestDetail(String(player.payRequestId))
+          pr = res.data
+
+          if (!pr) {
+            throw new Error("Pay request not found!")
+          }
+
+          if (!pr.paid) {
+            throw new Error("Pay request has not been paid!")
+          }
+
+          table.setBusy(true)
+        }
+
+        const where = { matchId: table.matchId }
+        const dbPlayerExists = await server.store.matchPlayer.findFirst({
+          where: userSession.account
+            ? { accountId: userSession.account.id, ...where }
+            : { session: userSession.session, ...where },
+        })
+
+        const update = {
+          session: userSession.session,
+          accountId: userSession.account?.id,
+          name: userSession.name,
+          teamIdx: player.teamIdx,
+          satsPaid: pr?.amountInSats || 0,
+          payRequestId: pr?.id,
+        }
+
+        log.warn({ update }, "About to update or create match player")
+
+        if (dbPlayerExists) {
+          const dbPlayer = await server.store.matchPlayer.update({
+            where: { id: dbPlayerExists.id },
+            data: update,
+          })
+          player.setMatchPlayerId(dbPlayer.id)
+          log.warn({ dbPlayer }, "Updated match player")
+        } else {
+          const dbPlayer = await server.store.matchPlayer.create({
+            data: {
+              ...update,
+              match: {
+                connect: {
+                  id: table.matchId,
+                },
+              },
+            },
+          })
+          player.setMatchPlayerId(dbPlayer.id)
+          log.warn({ dbPlayer }, "Created match player")
+        }
+      }
+
+      player.setReady(ready)
+
+      return table
+    },
     async joinMatch(table, userSession, teamIdx) {
+      let pr: PayRequest | null = null
+      if (table.lobby.options.satsPerPlayer > 0) {
+        if (!userSession.account?.id) {
+          throw new Error("Player needs to be logged into an account to join this match")
+        }
+
+        const res = await accountsApi.wallet.payRequestCreate({
+          amountInSats: table.lobby.options.satsPerPlayer,
+          receiverId: userSession.account.id,
+          description: `Request to enter match ${table.matchSessionId} - Match ID: ${table.matchId}`,
+          meta: {
+            application: "trucoshi",
+            matchSessionId: table.matchSessionId,
+            matchId: table.matchId,
+          },
+        })
+
+        pr = res.data
+      }
+
       const player = await table.lobby.addPlayer(
         userSession.account?.id,
         userSession.key,
@@ -821,14 +1005,12 @@ export const Trucoshi = ({
         userSession.ownedMatches.has(table.matchSessionId)
       )
 
+      player.setPayRequest(pr?.id)
+
       return player
     },
-    async startMatch(matchSessionId, userSession) {
+    async startMatch({ identityJwt, matchSessionId, userSession }) {
       const table = server.tables.getOrThrow(matchSessionId)
-
-      server
-        .resetSocketsMatchState(table)
-        .catch((e) => log.error(e, "Reset sockets match state failed"))
 
       if (!table) {
         throw new Error("MatchTable not found")
@@ -836,6 +1018,33 @@ export const Trucoshi = ({
 
       if (table.lobby.gameLoop) {
         throw new Error("MatchTable gameloop already exists")
+      }
+
+      await server.resetSocketsMatchState(table)
+
+      const hasBet = table.lobby.options.satsPerPlayer > 0
+
+      if (hasBet) {
+        if (!identityJwt || !userSession.account) {
+          throw new Error("User is not logged in, can't start match!")
+        }
+
+        validateJwt(identityJwt, userSession.account)
+
+        const payRequestIds = table.lobby.players.map((player) => {
+          if (!player.payRequestId) {
+            throw new Error("One or more players don't have a pay request associated")
+          }
+          return player.payRequestId
+        })
+
+        const prs = await accountsApi.wallet.payRequestMultipleList({
+          payRequestIds,
+        })
+
+        if (prs.data.some((pr) => !pr.paid)) {
+          throw new Error("One or more players didn't pay their associated pay request")
+        }
       }
 
       const ownerSession = server.sessions.getOrThrow(table.ownerSession)
@@ -846,20 +1055,28 @@ export const Trucoshi = ({
           : undefined
 
       if (server.store) {
-        const dbMatch = await server.store.match.update({
+        await server.store.match.update({
           data: {
             ownerAccountId,
-            sessionId: matchSessionId,
             state: EMatchState.STARTED,
             options: table.lobby.options as unknown as Prisma.JsonObject,
+            bet: hasBet
+              ? {
+                  create: {
+                    allPlayersPaid: true,
+                    winnerAwarded: false,
+                    satsPerPlayer: table.lobby.options.satsPerPlayer,
+                  },
+                }
+              : undefined,
             players: {
-              create: table.lobby.players.map((player, idx) => {
+              update: table.lobby.players.map((player, idx) => {
                 player.setIdx(idx)
                 return {
-                  idx,
-                  name: player.name,
-                  accountId: player.accountId,
-                  teamIdx: player.teamIdx,
+                  where: { id: player.matchPlayerId },
+                  data: {
+                    idx,
+                  },
                 }
               }),
             },
@@ -870,14 +1087,6 @@ export const Trucoshi = ({
           include: {
             players: true,
           },
-        })
-
-        table.lobby.players.forEach((player, idx) => {
-          const dbPlayer = dbMatch.players.find((p) => p.idx === idx)
-          if (!dbPlayer) {
-            throw new Error("Player not found in DB!")
-          }
-          player.setMatchPlayerId(dbPlayer.id)
         })
       }
 
@@ -910,6 +1119,40 @@ export const Trucoshi = ({
         .onTruco(server.onTruco.bind(null, table))
         .onWinner(async (winnerTeam, points) => {
           if (server.store) {
+            if (!table.matchId) {
+              throw new Error("Match ID not found!")
+            }
+            const satsPerPlayer = table.lobby.options.satsPerPlayer
+            if (satsPerPlayer > 0) {
+              const pool = satsPerPlayer * table.lobby.players.length
+              const tax = Math.round(pool / 100) || 1
+              const prize = pool - tax
+              const amountInSats = Math.floor(prize / winnerTeam.players.length)
+
+              await server.store.$transaction(async (tx) => {
+                for (const player of winnerTeam.players) {
+                  if (!player.accountId) {
+                    throw new Error("Failed to pay bet prize to a user! Account ID missing!")
+                  }
+
+                  await accountsApi.wallet.payUser({
+                    amountInSats,
+                    userId: player.accountId,
+                  })
+
+                  await tx.matchPlayer.update({
+                    where: { id: player.matchPlayerId },
+                    data: { satsReceived: amountInSats },
+                  })
+                }
+
+                await tx.matchBet.update({
+                  where: { matchId: table.matchId },
+                  data: { winnerAwarded: true },
+                })
+              })
+            }
+
             await server.store.match.update({
               data: {
                 state: EMatchState.FINISHED,
@@ -925,7 +1168,7 @@ export const Trucoshi = ({
           return server.onWinner(table, winnerTeam)
         })
         .begin()
-        .then(() => log.silent(table.getPublicMatchInfo(), "Match finished"))
+        .then(() => log.trace(table.getPublicMatchInfo(), "Match finished"))
         .catch((e) => log.error(e, "Lobby match loop failed"))
 
       server.tables.set(matchSessionId as string, table)
@@ -968,7 +1211,7 @@ export const Trucoshi = ({
             play.state === EHandState.WAITING_PLAY &&
             socket.data.user.session === play.player.session
           ) {
-            log.silent(
+            log.trace(
               {
                 ...socket.data.user,
                 socket: socket.id,
@@ -977,7 +1220,7 @@ export const Trucoshi = ({
             )
             server.emitWaitingForPlay(play, currentTable).then(resolve).catch(log.error)
           } else {
-            log.silent(
+            log.trace(
               {
                 ...socket.data.user,
                 socket: socket.id,
@@ -991,31 +1234,74 @@ export const Trucoshi = ({
       }
       return null
     },
-    leaveMatch(matchId, socketId) {
-      return new Promise((resolve) => {
-        log.silent({ matchId, socketId }, "Socket trying to leave a match")
-        const playingMatch = _getPossiblePlayingMatch(matchId, socketId)
+    async leaveMatch(matchId, socket) {
+      try {
+        const userSession = server.sessions.getOrThrow(socket.data.user?.session)
 
-        if (!playingMatch) {
-          return resolve()
+        log.trace({ matchId, socket: socket.id }, "Socket trying to leave a match")
+
+        const table = server.tables.getOrThrow(matchId)
+        const player = table.isSessionPlaying(userSession.session)
+
+        if (!player) {
+          log.trace({ matchId, socket: socket.id }, "Socket left a match but isn't in it")
+          return
         }
-
-        if (!playingMatch.player || !playingMatch.user) {
-          log.silent({ matchId, socketId }, "Socket left a match but isn't a player")
-          return resolve()
-        }
-
-        const { table, player, user } = playingMatch
 
         if (table.state() === EMatchState.FINISHED) {
+          log.trace(
+            { matchId, socket: socket.id },
+            "Socket left a match that finished, cleaning up..."
+          )
           server.removePlayerAndCleanup(table, player)
-          return resolve()
+          return
         }
 
         if (player && table.state() !== EMatchState.STARTED) {
           table.playerDisconnected(player)
 
-          const userSession = server.sessions.getOrThrow(user.session)
+          log.warn(
+            { player: player.getPublicPlayer(), matchSessionId: table.matchSessionId },
+            "Socket left a match and it didn't start yet, checking..."
+          )
+
+          if (server.store && userSession.account && table.lobby.options.satsPerPlayer > 0) {
+            log.warn(
+              { player: player.getPublicPlayer(), matchSessionId: table.matchSessionId },
+              "Socket left a match lobby that had bets paid by the player, giving sats back..."
+            )
+
+            const dbPlayer = await server.store.matchPlayer.findFirst({
+              where: { accountId: userSession.account.id, matchId: table.matchId },
+            })
+
+            log.warn(
+              { dbPlayer, matchSessionId: table.matchSessionId },
+              "Found player possibly needs sats back"
+            )
+
+            if (dbPlayer && dbPlayer.accountId && dbPlayer.satsPaid > 0) {
+              const pr = await accountsApi.wallet.payRequestDetail(String(dbPlayer.payRequestId))
+              if (pr.data.paid) {
+                await accountsApi.wallet.payUser({
+                  amountInSats: pr.data.amountInSats,
+                  userId: dbPlayer.accountId,
+                })
+
+                log.warn(
+                  { matchSessionId: table.matchSessionId, satsPaid: dbPlayer.satsPaid },
+                  "Sent sats back to player"
+                )
+
+                await server.store.matchPlayer.delete({
+                  where: { id: dbPlayer.id },
+                })
+
+                server.removePlayerAndCleanup(table, player)
+              }
+            }
+            return
+          }
 
           userSession
             .waitReconnection(table.matchSessionId, PLAYER_LOBBY_TIMEOUT)
@@ -1028,7 +1314,9 @@ export const Trucoshi = ({
             })
             .finally(() => server.emitMatchUpdate(table).catch(log.error))
         }
-      })
+      } catch (e) {
+        log.error(e, "Failed to leave match!")
+      }
     },
     removePlayerAndCleanup(table, player) {
       try {
@@ -1040,39 +1328,75 @@ export const Trucoshi = ({
         log.error(e, "Error removing player and cleaning up")
       }
     },
-    cleanupMatchTable(table) {
-      const matchId = table.matchSessionId
+    async cleanupMatchTable(table) {
+      log.warn({ table: table.getPublicMatchInfo() }, "Cleaning up match table")
       try {
+        if (server.store && !table.lobby.started && table.lobby.options.satsPerPlayer > 0) {
+          for (const player of table.lobby.players) {
+            const dbPlayer = await server.store.matchPlayer.findFirst({
+              where: { accountId: player.accountId },
+            })
+
+            log.warn(
+              { table: table.getPublicMatchInfo(), dbPlayer },
+              "Cleaning up match table: Found MatchPlayer"
+            )
+
+            if (
+              dbPlayer &&
+              dbPlayer.accountId &&
+              dbPlayer.satsPaid > 0 &&
+              player.payRequestId === dbPlayer.payRequestId
+            ) {
+              const pr = await accountsApi.wallet.payRequestDetail(String(dbPlayer.payRequestId))
+              log.warn(
+                { table: table.getPublicMatchInfo(), pr: pr.data },
+                "Cleaning up match table: Found PayRequest"
+              )
+              if (pr.data.paid) {
+                await accountsApi.wallet.payUser({
+                  amountInSats: pr.data.amountInSats,
+                  userId: dbPlayer.accountId,
+                })
+              }
+            }
+          }
+
+          await server.store.$transaction(async (tx) => {
+            await tx.matchPlayer.deleteMany({ where: { matchId: table.matchId } })
+            await tx.match.delete({ where: { id: table.matchId } })
+          })
+        }
+
         for (const player of table.lobby.players) {
           const user = server.sessions.getOrThrow(player.session)
-          user.resolveWaitingPromises(matchId)
+          user.resolveWaitingPromises(table.matchSessionId)
           if (player.isOwner) {
-            user.ownedMatches.delete(matchId)
+            user.ownedMatches.delete(table.matchSessionId)
           }
         }
+
+        server.tables.delete(table.matchSessionId)
+        server.chat.delete(table.matchSessionId)
       } catch (e) {
         log.error(e, "Error cleaning up MatchTable")
-      } finally {
-        server.tables.delete(matchId)
-        server.chat.delete(matchId)
       }
     },
   }
+
   const _getPossiblePlayingMatch = (
-    room: any,
-    socketId: any
+    matchSessionId: string,
+    session: string
   ): { table: IMatchTable; player?: IPlayer; user?: IUserData } | null => {
-    const socket = server.io.sockets.sockets.get(socketId)
-
-    if (!socket || !socket.data.user) {
-      return null
-    }
-
-    const table = server.tables.get(room)
+    const table = server.tables.get(matchSessionId)
+    log.trace(
+      { session, matchSessionId, table },
+      "Trying to get match room to check if session is in it"
+    )
     if (table) {
-      const player = table.isSessionPlaying(socket.data.user.session)
+      const player = table.isSessionPlaying(session)
       if (player) {
-        return { table, player, user: socket.data.user }
+        return { table, player, user: server.sessions.getOrThrow(session).getUserData() }
       }
       return { table }
     }
@@ -1081,9 +1405,6 @@ export const Trucoshi = ({
 
   io.of("/").adapter.on("leave-room", (room, socketId) => {
     log.info({ room, socketId }, "Player socket left match room")
-    server
-      .leaveMatch(room, socketId)
-      .catch((e) => log.error(e, "Error leaving match from socket leaving room"))
   })
 
   io.of("/").adapter.on("join-room", (room, socketId) => {
@@ -1095,7 +1416,7 @@ export const Trucoshi = ({
 
     const userSession = server.sessions.getOrThrow(user.session)
 
-    log.trace({ matchId: room, socketId }, "Player socket joined match room")
+    log.debug({ matchId: room, socketId }, "Player socket joined match room")
 
     userSession.reconnect(table.matchSessionId)
   })

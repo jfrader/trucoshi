@@ -65,14 +65,14 @@ export function UserSession(key: string, username: string, session: string) {
     waitReconnection(room, timeout) {
       return new Promise<void>((resolve, reject) => {
         userSession.resolveWaitingPromises(room)
-        log.trace(
+        log.debug(
           userSession.getPublicInfo(),
           `User disconnected or left, waiting for ${timeout}ms to reconnect`
         )
         userSession.reconnectTimeouts.set(
           room,
           setTimeout(() => {
-            log.trace(userSession.getPublicInfo(), WAIT_RECONNECTION_ABANDON_DEBUG_MSG)
+            log.debug(userSession.getPublicInfo(), WAIT_RECONNECTION_ABANDON_DEBUG_MSG)
             reject()
             userSession.reconnectPromises.delete(room)
           }, timeout + PLAYER_TIMEOUT_GRACE)

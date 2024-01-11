@@ -1,4 +1,6 @@
-import { Api } from "lightning-accounts"
+import { Api, User } from "lightning-accounts"
+import jwt, { JwtPayload } from "jsonwebtoken"
+import { getPublicKey } from "../utils/config/lightningAccounts"
 
 const api = new Api({
   baseURL: process.env.NODE_LIGHTNING_ACCOUNTS_URL,
@@ -10,4 +12,14 @@ const api = new Api({
   },
 })
 
-export { api as accountsApi }
+const validateJwt = (identityJwt: string, account: User): JwtPayload => {
+  const payload = jwt.verify(identityJwt, getPublicKey()) as JwtPayload
+
+  if (!payload.sub || account.id !== Number(payload.sub)) {
+    throw new Error("JWT payload doesn't have account id or is not valid")
+  }
+
+  return payload
+}
+
+export { api as accountsApi, validateJwt }
