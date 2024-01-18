@@ -155,7 +155,6 @@ export const playRandomMatch = async (
   let tidx: 0 | 1 = 0
   for (const joinPromise of joinPromises) {
     await joinPromise(tidx)
-    await new Promise((res) => setTimeout(res, 50))
     tidx = Number(!tidx) as 0 | 1
   }
 
