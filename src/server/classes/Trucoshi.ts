@@ -1,4 +1,3 @@
-import jwt, { JwtPayload } from "jsonwebtoken"
 import { randomUUID } from "crypto"
 import { createServer, Server as HttpServer } from "http"
 import { Server, Socket } from "socket.io"
@@ -32,7 +31,6 @@ import { IMatchTable, MatchTable } from "./MatchTable"
 import { IUserSession, ISocketMatchState, UserSession, IUserData } from "./UserSession"
 import logger from "../../utils/logger"
 import { PayRequest, User } from "lightning-accounts"
-import { getPublicKey } from "../../utils/config/lightningAccounts"
 
 import { createAdapter } from "@socket.io/redis-adapter"
 
@@ -167,6 +165,7 @@ export interface ITrucoshi {
   onEnvido(table: IMatchTable, play: IPlayInstance, isPointsRounds: boolean): Promise<void>
   onWinner(table: IMatchTable, winner: ITeam): Promise<void>
   removePlayerAndCleanup(table: IMatchTable, player: IPlayer): void
+  deletePlayerAndReturnBet(table: IMatchTable, player: IPlayer): Promise<void>
   cleanupMatchTable(table: IMatchTable): Promise<void>
   resetSocketsMatchState(table: IMatchTable): Promise<void>
   listen: (
@@ -249,6 +248,104 @@ export const Trucoshi = ({
         } catch (e) {
           log.error(e, "Failed to connect to Postgres")
         }
+
+        try {
+          const unpaidMatches = await server.store.match.findMany({
+            where: {
+              bet: { satsPerPlayer: { gt: 0 }, winnerAwarded: false },
+            },
+            include: { bet: true, players: true },
+          })
+
+          if (unpaidMatches.length > 0) {
+            log.error(
+              { unpaidMatchesLength: unpaidMatches.length },
+              "Found matches that had outstanding bets, trying to repay players entrance sats..."
+            )
+          }
+
+          for (const match of unpaidMatches) {
+            log.debug(
+              { matchId: match.id, sessionId: match.sessionId },
+              "Trying to repay bets to players on this match..."
+            )
+            // Returning bets to all players if wasnt awarded and server is starting
+            // Should also check if one of the teams won and give the award to its players
+            for (const player of match.players) {
+              if (
+                player.accountId &&
+                player.satsPaid > 0 &&
+                player.satsReceived < player.satsPaid
+              ) {
+                const amountInSats = player.satsPaid - player.satsReceived
+
+                if (!amountInSats) {
+                  log.debug(
+                    {
+                      matchId: match.id,
+                      sessionId: match.sessionId,
+                      playerAccountId: player.accountId,
+                      satsPaid: player.satsPaid,
+                      satsReceived: player.satsReceived,
+                      amountInSats,
+                    },
+                    "Nothing to pay to this player"
+                  )
+                  continue
+                }
+
+                log.debug(
+                  {
+                    matchId: match.id,
+                    sessionId: match.sessionId,
+                    playerAccountId: player.accountId,
+                    amountInSats,
+                  },
+                  "Looking for paid pay request"
+                )
+
+                const pr = await accountsApi.wallet.payRequestDetail(String(player.payRequestId))
+
+                log.debug(
+                  {
+                    isPaid: pr.data.paid,
+                    payRequestId: pr.data.id,
+                  },
+                  "Found Pay Request..."
+                )
+
+                if (pr.data.paid) {
+                  log.debug(
+                    {
+                      isPaid: pr.data.paid,
+                      payRequestId: pr.data.id,
+                    },
+                    "It's paid, so paying user now..."
+                  )
+
+                  server.store.$transaction(async (tx) => {
+                    await tx.matchPlayer.update({
+                      where: { id: player.id },
+                      data: { satsReceived: amountInSats },
+                    })
+
+                    await accountsApi.wallet.payUser({
+                      amountInSats,
+                      userId: player.accountId!,
+                    })
+                  })
+                }
+              }
+            }
+
+            await server.store.matchBet.update({
+              where: { id: match.bet?.id },
+              data: { winnerAwarded: true },
+            })
+          }
+        } catch (e) {
+          log.error(e, "Failed to repay unpaid matches")
+        }
       }
 
       io.listen(port)
@@ -306,6 +403,7 @@ export const Trucoshi = ({
       }
 
       const session = server.sessions.getOrThrow(socket.data.user.session)
+      server.sessions.delete(session.session)
       session.setAccount(null)
     },
     async emitSocketSession(socket) {
@@ -832,9 +930,10 @@ export const Trucoshi = ({
       }
 
       let payRequests: PayRequest[] = []
+      const satsPerPlayer = options.satsPerPlayer
 
-      if (options.satsPerPlayer && table.lobby.options.satsPerPlayer !== options.satsPerPlayer) {
-        if (options.satsPerPlayer > 0) {
+      if (satsPerPlayer && table.lobby.options.satsPerPlayer !== satsPerPlayer) {
+        if (satsPerPlayer > 0) {
           if (!server.store) {
             throw new Error("This server doesn't support bets")
           }
@@ -847,7 +946,7 @@ export const Trucoshi = ({
           await server.checkUserSufficientBalance({
             identityJwt,
             account: userSession.account,
-            satsPerPlayer: table.lobby.options.satsPerPlayer,
+            satsPerPlayer,
           })
 
           const guestSessions = table.lobby.players
@@ -869,22 +968,46 @@ export const Trucoshi = ({
             }
           })
 
-          const prs = await accountsApi.wallet.payRequestMultipleCreate({
-            amountInSats: options.satsPerPlayer,
-            description: `Request to enter match ${matchSessionId} - Match ID: ${table.matchId}`,
-            meta: {
-              application: "trucoshi",
-              matchSessionId,
-              matchId: table.matchId,
-            },
-            receiverIds: table.lobby.players
-              .filter((p) => !!p.accountId)
-              .map((p) => p.accountId) as number[],
-          })
+          await server.store.$transaction(async (tx) => {
+            await tx.match.update({
+              data: {
+                options: table.lobby.options as unknown as Prisma.JsonObject,
+                bet:
+                  satsPerPlayer > 0
+                    ? {
+                        create: {
+                          allPlayersPaid: false,
+                          winnerAwarded: false,
+                          satsPerPlayer: table.lobby.options.satsPerPlayer,
+                        },
+                      }
+                    : undefined,
+              },
+              where: {
+                id: table.matchId,
+              },
+              include: {
+                bet: true,
+              },
+            })
 
-          payRequests = prs.data
+            const prs = await accountsApi.wallet.payRequestsCreate({
+              amountInSats: satsPerPlayer,
+              description: `Request to enter match ${matchSessionId} - Match ID: ${table.matchId}`,
+              meta: {
+                application: "trucoshi",
+                matchSessionId,
+                matchId: table.matchId,
+              },
+              receiverIds: table.lobby.players
+                .filter((p) => !!p.accountId)
+                .map((p) => p.accountId) as number[],
+            })
+            payRequests = prs.data
+          })
         } else {
-          // @TODO: Cleanup databases
+          // @TODO: Cleanup databases from bet and payback old bet if removing sats or changing amount
+          // (not actually possible yet due to lobby.busy flag)
         }
       }
 
@@ -946,7 +1069,7 @@ export const Trucoshi = ({
           payRequestId: pr?.id,
         }
 
-        log.warn({ update }, "About to update or create match player")
+        log.debug({ update }, "About to update or create match player")
 
         if (dbPlayerExists) {
           const dbPlayer = await server.store.matchPlayer.update({
@@ -954,7 +1077,7 @@ export const Trucoshi = ({
             data: update,
           })
           player.setMatchPlayerId(dbPlayer.id)
-          log.warn({ dbPlayer }, "Updated match player")
+          log.debug({ dbPlayer }, "Updated match player")
         } else {
           const dbPlayer = await server.store.matchPlayer.create({
             data: {
@@ -967,7 +1090,7 @@ export const Trucoshi = ({
             },
           })
           player.setMatchPlayerId(dbPlayer.id)
-          log.warn({ dbPlayer }, "Created match player")
+          log.debug({ dbPlayer }, "Created match player")
         }
       }
 
@@ -1038,7 +1161,7 @@ export const Trucoshi = ({
           return player.payRequestId
         })
 
-        const prs = await accountsApi.wallet.payRequestMultipleList({
+        const prs = await accountsApi.wallet.payRequestsList({
           payRequestIds,
         })
 
@@ -1062,7 +1185,7 @@ export const Trucoshi = ({
             options: table.lobby.options as unknown as Prisma.JsonObject,
             bet: hasBet
               ? {
-                  create: {
+                  update: {
                     allPlayersPaid: true,
                     winnerAwarded: false,
                     satsPerPlayer: table.lobby.options.satsPerPlayer,
@@ -1124,33 +1247,41 @@ export const Trucoshi = ({
             }
             const satsPerPlayer = table.lobby.options.satsPerPlayer
             if (satsPerPlayer > 0) {
-              const pool = satsPerPlayer * table.lobby.players.length
-              const tax = Math.round(pool / 100) || 1
-              const prize = pool - tax
-              const amountInSats = Math.floor(prize / winnerTeam.players.length)
+              try {
+                const pool = satsPerPlayer * table.lobby.players.length
+                const tax = Math.round(pool / 100) || 1
+                const prize = pool - tax
+                const amountInSats = Math.floor(prize / winnerTeam.players.length)
 
-              await server.store.$transaction(async (tx) => {
+                logger.debug({ pool, tax, prize, amountInSats }, "Paying winner award")
+
                 for (const player of winnerTeam.players) {
                   if (!player.accountId) {
-                    throw new Error("Failed to pay bet prize to a user! Account ID missing!")
+                    continue
                   }
+                  await server.store.$transaction(async (tx) => {
+                    await tx.matchPlayer.update({
+                      where: { id: player.matchPlayerId },
+                      data: { satsReceived: amountInSats },
+                    })
 
-                  await accountsApi.wallet.payUser({
-                    amountInSats,
-                    userId: player.accountId,
-                  })
-
-                  await tx.matchPlayer.update({
-                    where: { id: player.matchPlayerId },
-                    data: { satsReceived: amountInSats },
+                    await accountsApi.wallet.payUser({
+                      amountInSats,
+                      userId: player.accountId!,
+                    })
                   })
                 }
-
-                await tx.matchBet.update({
+              } catch (e) {
+                log.fatal(e, "ON WINNER: Failed to pay awards!")
+              }
+              try {
+                await server.store.matchBet.update({
                   where: { matchId: table.matchId },
                   data: { winnerAwarded: true },
                 })
-              })
+              } catch (e) {
+                log.fatal(e, "ON WINNER: Failed to update bet after paying awards!")
+              }
             }
 
             await server.store.match.update({
@@ -1234,6 +1365,86 @@ export const Trucoshi = ({
       }
       return null
     },
+    async deletePlayerAndReturnBet(table, player) {
+      try {
+        if (!server.store) {
+          return
+        }
+
+        if (!player.accountId) {
+          return
+        }
+
+        log.debug(
+          { player: player.getPublicPlayer(), matchSessionId: table.matchSessionId },
+          "Socket left a match lobby that had bets paid by the player, giving sats back..."
+        )
+
+        const dbPlayer = await server.store.matchPlayer.findFirst({
+          where: {
+            accountId: player.accountId,
+            matchId: table.matchId,
+            payRequestId: player.payRequestId,
+          },
+        })
+
+        if (!dbPlayer) {
+          throw new Error(
+            `Player with account id: ${player.accountId} and pay request id: ${player.payRequestId} not found in the db for match id ${table.matchId}!`
+          )
+        }
+
+        log.debug(
+          { dbPlayer, matchSessionId: table.matchSessionId },
+          "Found player possibly needs sats back"
+        )
+
+        if (dbPlayer && dbPlayer.accountId && dbPlayer.satsPaid > 0) {
+          const amountInSats = dbPlayer.satsPaid - dbPlayer.satsReceived
+          if (!amountInSats) {
+            log.debug(
+              {
+                matchId: table.matchId,
+                sessionId: table.matchSessionId,
+                playerAccountId: player.accountId,
+                satsPaid: dbPlayer.satsPaid,
+                satsReceived: dbPlayer.satsReceived,
+                amountInSats,
+              },
+              "Nothing to pay to this player"
+            )
+            return
+          }
+          const pr = await accountsApi.wallet.payRequestDetail(String(dbPlayer.payRequestId))
+          if (pr.data.paid) {
+            await server.store.$transaction(async (tx) => {
+              await tx.matchPlayer.delete({
+                where: { id: dbPlayer.id },
+              })
+
+              await accountsApi.wallet.payUser({
+                amountInSats: pr.data.amountInSats,
+                userId: dbPlayer.accountId!,
+              })
+
+              log.info(
+                {
+                  matchId: table.matchId,
+                  sessionId: table.matchSessionId,
+                  playerAccountId: player.accountId,
+                  satsPaid: dbPlayer.satsPaid,
+                  satsReceived: dbPlayer.satsReceived,
+                  amountInSats,
+                },
+                "Sent sats from bet back to player"
+              )
+            })
+          }
+        }
+      } catch (e) {
+        log.fatal(e, "Failed to return bet sats to player!")
+      }
+    },
     async leaveMatch(matchId, socket) {
       try {
         const userSession = server.sessions.getOrThrow(socket.data.user?.session)
@@ -1260,46 +1471,14 @@ export const Trucoshi = ({
         if (player && table.state() !== EMatchState.STARTED) {
           table.playerDisconnected(player)
 
-          log.warn(
+          log.debug(
             { player: player.getPublicPlayer(), matchSessionId: table.matchSessionId },
             "Socket left a match and it didn't start yet, checking..."
           )
 
           if (server.store && userSession.account && table.lobby.options.satsPerPlayer > 0) {
-            log.warn(
-              { player: player.getPublicPlayer(), matchSessionId: table.matchSessionId },
-              "Socket left a match lobby that had bets paid by the player, giving sats back..."
-            )
-
-            const dbPlayer = await server.store.matchPlayer.findFirst({
-              where: { accountId: userSession.account.id, matchId: table.matchId },
-            })
-
-            log.warn(
-              { dbPlayer, matchSessionId: table.matchSessionId },
-              "Found player possibly needs sats back"
-            )
-
-            if (dbPlayer && dbPlayer.accountId && dbPlayer.satsPaid > 0) {
-              const pr = await accountsApi.wallet.payRequestDetail(String(dbPlayer.payRequestId))
-              if (pr.data.paid) {
-                await accountsApi.wallet.payUser({
-                  amountInSats: pr.data.amountInSats,
-                  userId: dbPlayer.accountId,
-                })
-
-                log.warn(
-                  { matchSessionId: table.matchSessionId, satsPaid: dbPlayer.satsPaid },
-                  "Sent sats back to player"
-                )
-
-                await server.store.matchPlayer.delete({
-                  where: { id: dbPlayer.id },
-                })
-
-                server.removePlayerAndCleanup(table, player)
-              }
-            }
+            await server.deletePlayerAndReturnBet(table, player)
+            server.removePlayerAndCleanup(table, player)
             return
           }
 
@@ -1322,48 +1501,27 @@ export const Trucoshi = ({
       try {
         const lobby = table.lobby.removePlayer(player.session as string)
         if (lobby.isEmpty()) {
-          server.cleanupMatchTable(table)
+          server
+            .cleanupMatchTable(table)
+            .catch((e) => log.error(e, "Failed to cleanup match table!"))
         }
       } catch (e) {
         log.error(e, "Error removing player and cleaning up")
       }
     },
     async cleanupMatchTable(table) {
-      log.warn({ table: table.getPublicMatchInfo() }, "Cleaning up match table")
+      log.debug({ table: table.getPublicMatchInfo() }, "Cleaning up match table")
       try {
-        if (server.store && !table.lobby.started && table.lobby.options.satsPerPlayer > 0) {
+        const shouldReturnBets = table.state() !== EMatchState.FINISHED
+        if (server.store && shouldReturnBets && table.lobby.options.satsPerPlayer > 0) {
           for (const player of table.lobby.players) {
-            const dbPlayer = await server.store.matchPlayer.findFirst({
-              where: { accountId: player.accountId },
-            })
-
-            log.warn(
-              { table: table.getPublicMatchInfo(), dbPlayer },
-              "Cleaning up match table: Found MatchPlayer"
-            )
-
-            if (
-              dbPlayer &&
-              dbPlayer.accountId &&
-              dbPlayer.satsPaid > 0 &&
-              player.payRequestId === dbPlayer.payRequestId
-            ) {
-              const pr = await accountsApi.wallet.payRequestDetail(String(dbPlayer.payRequestId))
-              log.warn(
-                { table: table.getPublicMatchInfo(), pr: pr.data },
-                "Cleaning up match table: Found PayRequest"
-              )
-              if (pr.data.paid) {
-                await accountsApi.wallet.payUser({
-                  amountInSats: pr.data.amountInSats,
-                  userId: dbPlayer.accountId,
-                })
-              }
+            if (player.payRequestId) {
+              await server.deletePlayerAndReturnBet(table, player)
             }
           }
 
           await server.store.$transaction(async (tx) => {
-            await tx.matchPlayer.deleteMany({ where: { matchId: table.matchId } })
+            await tx.matchBet.deleteMany({ where: { matchId: table.matchId } })
             await tx.match.delete({ where: { id: table.matchId } })
           })
         }
@@ -1404,7 +1562,7 @@ export const Trucoshi = ({
   }
 
   io.of("/").adapter.on("leave-room", (room, socketId) => {
-    log.info({ room, socketId }, "Player socket left match room")
+    log.trace({ room, socketId }, "Player socket left match room")
   })
 
   io.of("/").adapter.on("join-room", (room, socketId) => {
