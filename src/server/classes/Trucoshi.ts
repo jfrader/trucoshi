@@ -1401,6 +1401,7 @@ export const Trucoshi = ({
 
         if (dbPlayer && dbPlayer.accountId && dbPlayer.satsPaid > 0) {
           const amountInSats = dbPlayer.satsPaid - dbPlayer.satsReceived
+
           if (!amountInSats) {
             log.debug(
               {
@@ -1426,7 +1427,7 @@ export const Trucoshi = ({
                 amountInSats: pr.data.amountInSats,
                 userId: dbPlayer.accountId!,
               })
-
+            
               log.info(
                 {
                   matchId: table.matchId,
@@ -1439,6 +1440,8 @@ export const Trucoshi = ({
                 "Sent sats from bet back to player"
               )
             })
+          } else {
+            throw new Error("Pay request wasn't marked as paid")
           }
         }
       } catch (e) {

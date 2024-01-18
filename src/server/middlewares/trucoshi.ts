@@ -163,12 +163,14 @@ export const trucoshi =
     /**
      * Leave Match
      */
-    socket.on(EClientEvent.LEAVE_MATCH, async (matchId) => {
+    socket.on(EClientEvent.LEAVE_MATCH, async (matchId, callback) => {
       log.trace({ matchId, socketId: socket.id }, "Client emitted LEAVE_MATCH event")
       try {
-        server.leaveMatch(matchId, socket)
+        await server.leaveMatch(matchId, socket)
+        callback?.({ success: true })
       } catch (e) {
         log.error(e, "Client event LEAVE_MATCH error")
+        callback?.({ success: false })
       }
     })
 

@@ -318,7 +318,6 @@ describe("E2E", () => {
     let tidx: 0 | 1 = 0
     for (const joinPromise of joinPromises) {
       await joinPromise(tidx)
-      await new Promise((res) => setTimeout(res, 50))
       tidx = Number(!tidx) as 0 | 1
     }
 
@@ -360,7 +359,7 @@ describe("E2E", () => {
 
     expect(winner?.points.buenas).to.be.greaterThanOrEqual(9)
 
-    for (const [idx, client] of clients.entries()) {
+    for (const [idx] of clients.entries()) {
       const res = await apis[idx].auth.getAuth({ headers: { Cookie: cookies[idx] } })
 
       if (winner?.id === matches[idx].me?.teamIdx) {
@@ -368,6 +367,121 @@ describe("E2E", () => {
       } else {
         expect(res.data.wallet?.balanceInSats).to.equal(balances[idx] - 10)
       }
+    }
+  })
+
+  it("should bet and return bets when they leave match", async () => {
+    let matchId: string | undefined
+    let matches: IPublicMatch[] = []
+
+    const checkMatch = (i, match) => {
+      if (matches[i] && match?.matchSessionId !== matches[i].matchSessionId) {
+        return false
+      }
+
+      return true
+    }
+
+    await new Promise<void>((res, rej) => {
+      clients[0].emit(EClientEvent.CREATE_MATCH, ({ match }) => {
+        if (!checkMatch(0, match)) {
+          return
+        }
+        expect(Boolean(match?.matchSessionId)).to.equal(true)
+        matchId = match?.matchSessionId
+        if (!match) {
+          return rej("Match not found create match")
+        }
+        matches[0] = match
+        res()
+      })
+    })
+
+    await new Promise<void>((resolve, reject) => {
+      clients[0].emit(
+        EClientEvent.SET_MATCH_OPTIONS,
+        identities[0],
+        matches[0].matchSessionId,
+        { satsPerPlayer: 10 },
+        ({ success, match }) => {
+          if (success && match) {
+            matches[0] = match
+            return resolve()
+          }
+          reject(new Error("Failed to set match bet"))
+        }
+      )
+    })
+
+    const joinPromises = clients.map((c, i) => {
+      const sendReady = (matchId: any, j: number, me?: IPublicPlayer | null) => {
+        return new Promise<void>((resolve, reject) => {
+          const prid = matches[j].me?.payRequestId
+          if (!prid) {
+            logger.error({ ...matches[j].me, wtf: true })
+            return reject(new Error("Pay request not found!"))
+          }
+
+          apis[j].wallet
+            .payRequest(String(prid), { headers: { Cookie: cookies[i] } })
+            .then(() => {
+              c.emit(EClientEvent.SET_PLAYER_READY, matchId, true, ({ success, match }) => {
+                if (!checkMatch(i, match)) {
+                  return
+                }
+                if (!match) {
+                  return reject("Match not found ready")
+                }
+                matches[i] = match
+                expect(success).to.equal(true)
+                resolve()
+              })
+            })
+            .catch((e) => {
+              logger.fatal(e)
+              process.exit(1)
+            })
+        })
+      }
+
+      if (i === 0) {
+        return () => sendReady(matchId, 0)
+      }
+      return (teamIdx: 0 | 1) =>
+        new Promise<void>((res, rej) => {
+          c.emit(EClientEvent.JOIN_MATCH, matchId as string, teamIdx, ({ success, match }) => {
+            if (!checkMatch(i, match)) {
+              return
+            }
+            expect(success).to.equal(true)
+            expect(match?.matchSessionId).to.equal(matchId)
+
+            if (!match) {
+              return rej("Match not found join match")
+            }
+            matches[i] = match
+
+            sendReady(matchId, i).then(res)
+          })
+        })
+    })
+
+    let tidx: 0 | 1 = 0
+    for (const joinPromise of joinPromises) {
+      await joinPromise(tidx)
+      tidx = Number(!tidx) as 0 | 1
+    }
+
+    for (const [i, c] of clients.entries()) {
+      await new Promise<void>((resolve) => {
+        c.emit(EClientEvent.LEAVE_MATCH, matchId as string, () => {
+          resolve()
+        })
+      })
+
+      const res = await apis[i].auth.getAuth({ headers: { Cookie: cookies[i] } })
+
+      expect(res.data.wallet?.balanceInSats).to.equal(balances[i])
     }
   })
 })
