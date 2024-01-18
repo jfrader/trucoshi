@@ -22,49 +22,58 @@ model UserStats {
 
 model Match {
   id             Int           @id @default(autoincrement())
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
   sessionId      String
   state          EMatchState   @default(UNREADY)
   ownerAccountId Int?
   options        Json          @default("{}")
   results        Json          @default("[{\"buenas\": 0,\"malas\": 0 },{ \"buenas\": 0,\"malas\": 0 }]")
+  winnerIdx      Int?
   players        MatchPlayer[]
   hands          MatchHand[]
   bet            MatchBet?
 }
 
 model MatchBet {
-  id             Int     @id @default(autoincrement())
-  match          Match   @relation(fields: [matchId], references: [id])
-  matchId        Int     @unique
+  id             Int      @id @default(autoincrement())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  match          Match    @relation(fields: [matchId], references: [id])
+  matchId        Int      @unique
   satsPerPlayer  Int
   allPlayersPaid Boolean
   winnerAwarded  Boolean
 }
 
 model MatchHand {
-  id              Int   @id @default(autoincrement())
+  id              Int      @id @default(autoincrement())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
   idx             Int
-  rounds          Json  @default("[[]]")
-  results         Json  @default("[0, 0]")
+  rounds          Json     @default("[[]]")
+  results         Json     @default("[0, 0]")
   matchId         Int
-  match           Match @relation(fields: [matchId], references: [id])
+  match           Match    @relation(fields: [matchId], references: [id])
   trucoWinnerIdx  Int?
   envidoWinnerIdx Int?
   florWinnerIdx   Int?
 }
 
 model MatchPlayer {
-  id             Int    @id @default(autoincrement())
-  idx            Int?
-  name           String @default("Satoshi")
-  accountId      Int?
-  session        String
-  teamIdx        Int
-  satsPaid       Int    @default(0)
-  satsReceived   Int    @default(0)
-  payRequestId   Int?
-  matchId        Int
-  match          Match  @relation(fields: [matchId], references: [id])
+  id           Int      @id @default(autoincrement())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  idx          Int?
+  name         String   @default("Satoshi")
+  accountId    Int?
+  session      String
+  teamIdx      Int
+  satsPaid     Int      @default(0)
+  satsReceived Int      @default(0)
+  payRequestId Int?
+  matchId      Int
+  match        Match    @relation(fields: [matchId], references: [id])
 }
 
 enum EMatchState {
