@@ -1245,6 +1245,19 @@ export const Trucoshi = ({
             if (!table.matchId) {
               throw new Error("Match ID not found!")
             }
+
+            await server.store.match.update({
+              data: {
+                state: EMatchState.FINISHED,
+                results: points as unknown as Prisma.JsonArray,
+                winnerIdx: winnerTeam.id,
+              },
+              where: {
+                id: table.matchId,
+              },
+              select: { id: true },
+            })
+
             const satsPerPlayer = table.lobby.options.satsPerPlayer
             if (satsPerPlayer > 0) {
               try {
@@ -1283,17 +1296,6 @@ export const Trucoshi = ({
                 log.fatal(e, "ON WINNER: Failed to update bet after paying awards!")
               }
             }
-
-            await server.store.match.update({
-              data: {
-                state: EMatchState.FINISHED,
-                results: points as unknown as Prisma.JsonArray,
-              },
-              where: {
-                id: table.matchId,
-              },
-              select: { id: true },
-            })
           }
 
           return server.onWinner(table, winnerTeam)
@@ -1427,7 +1429,7 @@ export const Trucoshi = ({
                 amountInSats: pr.data.amountInSats,
                 userId: dbPlayer.accountId!,
               })
-            
+
               log.info(
                 {
                   matchId: table.matchId,
