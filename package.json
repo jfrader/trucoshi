@@ -10,15 +10,20 @@
   },
   "scripts": {
     "start": "nodemon",
+    "start:e2e": "dotenv -e .env.e2e -- nodemon",
     "profiler": "yarn build && node --prof ./bin/trucoshi-server",
     "build": "yarn run rimraf ./build && yarn run tsc --project . && yarn build:dist",
     "build:dist": "yarn run rimraf ./dist && yarn run tsc --project ./tsconfig.dist.json",
     "prepublishOnly": "yarn test && yarn build:dist",
-    "test": "NODE_DEBUG_LEVEL=error ts-mocha --exit ./test/**/*.ts -t 50000",
+    "test": "dotenv -e .env.e2e -- yarn db:e2e:push --force-reset && dotenv -e .env.e2e -- ts-mocha --exit ./test/**/*.ts -t 50000",
     "cli:autoplay": "yarn run ts-node src/cli/autoplay",
     "cli:play": "yarn run ts-node src/cli/play",
-    "prisma:types": "yarn prisma generate",
-    "prisma:migrate": "npx prisma migrate dev"
+    "db:push": "prisma db push",
+    "db:studio": "prisma studio",
+    "db:migrate": "prisma migrate dev",
+    "db:e2e:push": "dotenv -e .env.e2e -- prisma db push",
+    "db:e2e:studio": "dotenv -e .env.e2e -- prisma studio",
+    "db:e2e:migrate": "dotenv -e .env.e2e -- prisma migrate dev"
   },
   "devDependencies": {
     "@types/chai": "^4.3.4",
@@ -48,7 +53,9 @@
     "@types/pino": "^7.0.5",
     "@types/redis": "^4.0.11",
     "axios": "^1.6.3",
+    "axios-cookiejar-support": "^5.0.0",
     "dotenv": "^16.0.3",
+    "dotenv-cli": "^7.3.0",
     "form-data": "^4.0.0",
     "jsonwebtoken": "^9.0.2",
     "lightning-accounts": "^2.0.0",
