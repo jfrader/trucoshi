@@ -194,7 +194,7 @@ export const Trucoshi = ({
       cors: {
         credentials: true,
         origin,
-        methods: ["GET", "POST"],
+        methods: ["GET", "PATCH", "POST", "PUT"],
       },
     }
   )
