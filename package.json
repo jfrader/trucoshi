@@ -1,6 +1,6 @@
 {
   "name": "trucoshi",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "main": "dist/types.js",
   "license": "GPL-3.0",
   "paths": {
@@ -58,7 +58,7 @@
     "dotenv-cli": "^7.3.0",
     "form-data": "^4.0.0",
     "jsonwebtoken": "^9.0.2",
-    "lightning-accounts": "^2.0.0",
+    "lightning-accounts": "2.0.1",
     "path-scurry": "^1.9.2",
     "pino": "^8.11.0",
     "pino-pretty": "^10.0.0",
