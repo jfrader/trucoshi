@@ -1,17 +1,13 @@
 {
   "name": "trucoshi",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Lightning Truco Server",
   "main": "dist/types.js",
   "license": "GPL-3.0",
   "author": "Fran <jfrader.com>",
   "keywords": [
     "bitcoin",
-    "lightning",
-    "satoshi",
-    "api",
-    "accounts",
-    "integration"
+    "lightning"
   ],
   "paths": {
     "trucoshi": [
