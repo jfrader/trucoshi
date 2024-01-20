@@ -1459,7 +1459,7 @@ export const Trucoshi = ({
           }
           const pr = await accountsApi.wallet.payRequestDetail(String(player.payRequestId))
 
-          logger.debug({ pr, player }, "Found pay request, checking if paid to return sats...")
+          logger.debug({ pr: pr.data, player }, "Found pay request, checking if paid to return sats...")
 
           if (pr.data.paid) {
             await server.store.$transaction(async (tx) => {
