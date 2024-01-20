@@ -1,6 +1,6 @@
-import { EMatchState } from "@prisma/client"
 import { IHand, ILobby, Lobby } from "../../lib"
 import {
+  EMatchState,
   ILobbyOptions,
   IMatchPreviousHand,
   IPlayedCard,
