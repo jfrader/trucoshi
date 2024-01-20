@@ -36,7 +36,7 @@ import { createAdapter } from "@socket.io/redis-adapter"
 
 import { accountsApi, validateJwt } from "../../accounts/client"
 import { createClient } from "redis"
-import { EMatchState, Prisma, PrismaClient } from "@prisma/client"
+import { EMatchState, MatchPlayer, Prisma, PrismaClient } from "@prisma/client"
 
 const log = logger.child({ class: "Trucoshi" })
 
@@ -165,7 +165,7 @@ export interface ITrucoshi {
   onEnvido(table: IMatchTable, play: IPlayInstance, isPointsRounds: boolean): Promise<void>
   onWinner(table: IMatchTable, winner: ITeam): Promise<void>
   removePlayerAndCleanup(table: IMatchTable, player: IPlayer): Promise<void>
-  deletePlayerAndReturnBet(table: IMatchTable, player: IPlayer): Promise<void>
+  deletePlayerAndReturnBet(table: IMatchTable, player: MatchPlayer): Promise<void>
   cleanupMatchTable(table: IMatchTable): Promise<void>
   resetSocketsMatchState(table: IMatchTable): Promise<void>
   listen: (
@@ -194,7 +194,7 @@ export const Trucoshi = ({
       cors: {
         credentials: true,
         origin,
-        methods: ["GET", "PATCH", "POST", "PUT"],
+        methods: ["GET", "POST"],
       },
     }
   )
@@ -1259,7 +1259,7 @@ export const Trucoshi = ({
             }
 
             await server.store.$transaction(async (tx) => {
-              await tx.match.update({
+              const dbMatch = await tx.match.update({
                 data: {
                   state: EMatchState.FINISHED,
                   results: points as unknown as Prisma.JsonArray,
@@ -1268,14 +1268,38 @@ export const Trucoshi = ({
                 where: {
                   id: table.matchId,
                 },
-                select: { id: true },
+                include: { bet: true },
               })
 
               for (const player of table.lobby.players) {
                 if (!player.accountId) {
                   continue
                 }
-                // update userStats
+
+                const isWinner = winnerTeam.players
+                  .filter((p) => !p.abandoned)
+                  .findIndex((p) => p.accountId === player.accountId)
+
+                const satsBet = dbMatch.bet?.satsPerPlayer || 0
+
+                await server.store?.userStats.upsert({
+                  where: { accountId: player.accountId },
+                  create: {
+                    accountId: player.accountId,
+                    loss: isWinner ? 0 : 1,
+                    win: isWinner ? 1 : 0,
+                    satsBet,
+                    satsLost: isWinner ? 0 : satsBet,
+                    satsWon: isWinner ? satsBet : 0,
+                  },
+                  update: {
+                    loss: { increment: isWinner ? 0 : 1 },
+                    win: { increment: isWinner ? 1 : 0 },
+                    satsBet: { increment: satsBet },
+                    satsLost: { increment: isWinner ? 0 : satsBet },
+                    satsWon: { increment: isWinner ? satsBet : 0 },
+                  },
+                })
               }
             })
 
@@ -1412,7 +1436,7 @@ export const Trucoshi = ({
         }
 
         log.debug(
-          { player: player.getPublicPlayer(), matchSessionId: table.matchSessionId },
+          { player, matchSessionId: table.matchSessionId },
           "Socket left a match lobby that had bets paid by the player, giving sats back..."
         )
 
@@ -1516,7 +1540,10 @@ export const Trucoshi = ({
           )
 
           if (server.store && userSession.account && table.lobby.options.satsPerPlayer > 0) {
-            await server.deletePlayerAndReturnBet(table, player)
+            const dbPlayer = await server.store.matchPlayer.findUniqueOrThrow({
+              where: { id: player.matchPlayerId },
+            })
+            await server.deletePlayerAndReturnBet(table, dbPlayer)
             return server.removePlayerAndCleanup(table, player)
           }
 
@@ -1552,13 +1579,18 @@ export const Trucoshi = ({
       try {
         const shouldReturnBets = table.state() !== EMatchState.FINISHED
         if (server.store && shouldReturnBets && table.lobby.options.satsPerPlayer > 0) {
-          for (const player of table.lobby.players) {
-            if (player.payRequestId) {
-              await server.deletePlayerAndReturnBet(table, player)
-            }
-          }
-
           await server.store.$transaction(async (tx) => {
+            const dbMatch = await tx.match.findUniqueOrThrow({
+              where: { id: table.matchId },
+              include: { players: true },
+            })
+
+            for (const player of dbMatch.players) {
+              if (player.payRequestId) {
+                await server.deletePlayerAndReturnBet(table, player)
+              }
+            }
+
             await tx.matchBet.deleteMany({ where: { matchId: table.matchId } })
             await tx.match.delete({ where: { id: table.matchId } })
           })
