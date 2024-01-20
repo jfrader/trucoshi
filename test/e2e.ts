@@ -195,7 +195,7 @@ describe("E2E", () => {
             return
           }
 
-          if (match.me.commands.includes(EEnvidoAnswerCommand.SON_BUENAS) && Math.random() > 0.52) {
+          if (match.me.commands.includes(EEnvidoAnswerCommand.SON_BUENAS) && Math.random() > 0.55) {
             return callback({ command: EEnvidoAnswerCommand.SON_BUENAS })
           }
 
@@ -206,7 +206,7 @@ describe("E2E", () => {
         }
 
         if (
-          (Math.random() > 0.49 || match.me?.commands?.includes(EAnswerCommand.QUIERO)) &&
+          (Math.random() > 0.88 || match.me?.commands?.includes(EAnswerCommand.QUIERO)) &&
           match.me?.commands?.length
         ) {
           const rndIdx = Math.floor(Math.random() * match.me.commands.length)

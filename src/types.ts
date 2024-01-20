@@ -142,6 +142,7 @@ export enum EServerEvent {
   SET_SESSION = "SET_SESSION",
   PREVIOUS_HAND = "PREVIOUS_HAND",
   UPDATE_MATCH = "UPDATE_MATCH",
+  MATCH_DELETED = "MATCH_DELETED",
   WAITING_PLAY = "WAITING_PLAY",
   KICK_PLAYER = "PLAYER_KICKED",
   UPDATE_ACTIVE_MATCHES = "UPDATE_ACTIVE_MATCHES",
@@ -160,6 +161,7 @@ export interface ServerToClientEvents {
   [EServerEvent.PLAYER_USED_CARD]: (match: IPublicMatch, card: IPlayedCard) => void
   [EServerEvent.PLAYER_SAID_COMMAND]: (match: IPublicMatch, command: ISaidCommand) => void
   [EServerEvent.KICK_PLAYER]: (match: IPublicMatch, session: string, reason?: string) => void
+  [EServerEvent.MATCH_DELETED]: (matchSessionId: string) => void
   [EServerEvent.SET_SESSION]: (
     userData: IUserData,
     serverVersion: string,

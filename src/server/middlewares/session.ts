@@ -31,6 +31,7 @@ export const session = (server: ITrucoshi) => {
 
     const name = socket.handshake.auth.name
     const sessionID = socket.handshake.auth.sessionID
+
     if (sessionID) {
       const session = server.sessions.get(sessionID)
       if (session) {

@@ -123,12 +123,16 @@ export const Chat = (io: TrucoshiServer) => {
       return
     }
 
-    const { name: id, key } = userSocket.data.user
+    const { name, key, account } = userSocket.data.user
+
+    const id = account?.name || name
 
     const chatroom = chat.rooms.get(room)
 
-    chatroom?.system(`${id} entro a la sala`)
-    if (chatroom) log.info(`${id} entro a la sala ${room}`)
+    if (chatroom) {
+      log.info(`${id} entro a la sala ${room}`)
+      chatroom.system(`${id} entro a la sala`)
+    }
 
     userSocket.on(EClientEvent.CHAT, (matchId, message, callback) => {
       if (matchId !== room || !userSocket.data.user) {

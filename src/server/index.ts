@@ -16,14 +16,6 @@ let version = ""
 dotenv.config()
 
 export default () => {
-  process.on("unhandledRejection", (reason, promise) => {
-    logger.fatal({ reason, promise }, "UNHANDLED REJECTION!")
-  })
-
-  process.on("uncaughtException", (reason, promise) => {
-    logger.fatal({ reason, promise }, "UNCAUGHT EXCEPTION!")
-  })
-
   try {
     const data = readFileSync(__dirname + "/../../package.json", "utf8")
     const pkg = JSON.parse(data)
@@ -35,8 +27,8 @@ export default () => {
 
   logger.info("Starting Trucoshi " + process.env.NODE_ENV + " server version " + version)
 
-  const PORT = process.env.NODE_PORT || 4001
-  const ORIGIN = process.env.NODE_ORIGIN || "http://localhost:3000"
+  const PORT = process.env.NODE_PORT || 2992
+  const ORIGIN = process.env.NODE_ORIGIN || "http://localhost:2991"
 
   const server = Trucoshi({ port: Number(PORT), origin: [ORIGIN], serverVersion: version })
 
@@ -45,5 +37,31 @@ export default () => {
 
     io.use(session(server))
     io.use(trucoshi(server))
+
+    const exitHandler = () => {
+      if (server) {
+        server.io.close(() => {
+          logger.info("Server closed")
+          process.exit(1)
+        })
+      } else {
+        process.exit(1)
+      }
+    }
+
+    const unexpectedErrorHandler = (error: unknown) => {
+      logger.error(error)
+      exitHandler()
+    }
+
+    process.on("uncaughtException", unexpectedErrorHandler)
+    process.on("unhandledRejection", unexpectedErrorHandler)
+
+    process.on("SIGTERM", () => {
+      logger.info("SIGTERM received")
+      if (server) {
+        server.io.close()
+      }
+    })
   })
 }

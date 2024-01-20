@@ -221,11 +221,9 @@ export const trucoshi =
         return callback({ success: false, match: null })
       }
 
-      server.chat.rooms.get(matchId)?.socket.emit(socket.id)
       const match = server.emitSocketMatch(socket, matchId)
 
       callback({ success: Boolean(match), match })
-      server.chat.rooms.get(matchId)?.socket.emit(socket.id)
     })
 
     next()
