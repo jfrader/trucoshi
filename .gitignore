@@ -6,4 +6,6 @@ build
 isolate*.log
 processed*.txt
 
-.env
+# Environment varibales
+.env*
+!.env*.example
