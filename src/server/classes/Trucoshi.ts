@@ -1437,30 +1437,11 @@ export const Trucoshi = ({
 
         log.debug(
           { player, matchSessionId: table.matchSessionId },
-          "Socket left a match lobby that had bets paid by the player, giving sats back..."
+          "Socket left a match lobby that had bets paid by the player, giving sats back if needed..."
         )
 
-        const dbPlayer = await server.store.matchPlayer.findFirst({
-          where: {
-            accountId: player.accountId,
-            matchId: table.matchId,
-            payRequestId: player.payRequestId,
-          },
-        })
-
-        if (!dbPlayer) {
-          throw new Error(
-            `Player with account id: ${player.accountId} and pay request id: ${player.payRequestId} not found in the db for match id ${table.matchId}!`
-          )
-        }
-
-        log.debug(
-          { dbPlayer, matchSessionId: table.matchSessionId },
-          "Found player possibly needs sats back"
-        )
-
-        if (dbPlayer && dbPlayer.accountId && dbPlayer.satsPaid > 0) {
-          const amountInSats = dbPlayer.satsPaid - dbPlayer.satsReceived
+        if (player && player.accountId && player.satsPaid > 0) {
+          const amountInSats = player.satsPaid - player.satsReceived
 
           if (!amountInSats) {
             log.debug(
@@ -1468,24 +1449,27 @@ export const Trucoshi = ({
                 matchId: table.matchId,
                 sessionId: table.matchSessionId,
                 playerAccountId: player.accountId,
-                satsPaid: dbPlayer.satsPaid,
-                satsReceived: dbPlayer.satsReceived,
+                satsPaid: player.satsPaid,
+                satsReceived: player.satsReceived,
                 amountInSats,
               },
               "Nothing to pay to this player"
             )
             return
           }
-          const pr = await accountsApi.wallet.payRequestDetail(String(dbPlayer.payRequestId))
+          const pr = await accountsApi.wallet.payRequestDetail(String(player.payRequestId))
+
+          logger.debug({ pr, player }, "Found pay request, checking if paid to return sats...")
+
           if (pr.data.paid) {
             await server.store.$transaction(async (tx) => {
               await tx.matchPlayer.delete({
-                where: { id: dbPlayer.id },
+                where: { id: player.id },
               })
 
               await accountsApi.wallet.payUser({
                 amountInSats: pr.data.amountInSats,
-                userId: dbPlayer.accountId!,
+                userId: player.accountId!,
                 description: `Returning bet from leaving match ID: ${table.matchId}`,
               })
 
@@ -1494,8 +1478,8 @@ export const Trucoshi = ({
                   matchId: table.matchId,
                   sessionId: table.matchSessionId,
                   playerAccountId: player.accountId,
-                  satsPaid: dbPlayer.satsPaid,
-                  satsReceived: dbPlayer.satsReceived,
+                  satsPaid: player.satsPaid,
+                  satsReceived: player.satsReceived,
                   amountInSats,
                 },
                 "Sent sats from bet back to player"
