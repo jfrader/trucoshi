@@ -1,24 +1,22 @@
 # Trucoshi
 
+Bitcoin Lightning "Truco" Server
+
 ### English
-
-Work in progress
-
-Pretends to be an Argentinian Truco game socket server that allows you to put Satoshis on the table ;)
 
 Try current demo at [Trucoshi](https://trucoshi.com)
 
 ### Spanish
-
-En construccion
-
-Pretende ser un server basado en sockets del juego de Truco Argentino que te permita poner unos Satoshis en la mesa ;)
 
 Proba la demo actual en [Trucoshi](https://trucoshi.com)
 
 # Client
 
 [Trucoshi React Client](https://github.com/jfrader/trucoshi-client)
+
+# Accounts
+
+[Lightning Accounts](https://github.com/jfrader/lightning-accounts)
 
 ### Installation
 
@@ -46,14 +44,16 @@ Proba la demo actual en [Trucoshi](https://trucoshi.com)
     [x] Irse al mazo
     [x] Cantar truco
     [x] Cantar envido
-    [] Cantar flor
     [x] Socket server
     [x] Unit tests
-    [] Bitcoin Lightning integration
+    [x] Bitcoin Lightning integration
+    [ ] Cantar flor
+    [ ] Historial de partidas
+    [ ] Torneos
 
 # Donations
 
-Donate Bitcoin at [jfrader.com](https://jfrader.com)
+Donate Bitcoin at [geyser.fund/project/trucoshi](https://geyser.fund/project/trucoshi)
 
 # License
 
