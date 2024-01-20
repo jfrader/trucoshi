@@ -1,11 +1,15 @@
 import { User } from "lightning-accounts"
 import { CARDS, IHand } from "./lib"
 import { IUserData } from "./server"
-import { EMatchState } from "@prisma/client"
 
 export { CARDS, CARDS_HUMAN_READABLE, BURNT_CARD } from "./lib/constants"
 
-export { EMatchState }
+export enum EMatchState {
+  UNREADY = "UNREADY",
+  READY = "READY",
+  STARTED = "STARTED",
+  FINISHED = "FINISHED",
+}
 
 export interface ILobbyOptions {
   maxPlayers: 2 | 4 | 6
