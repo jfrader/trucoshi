@@ -1,6 +1,6 @@
 {
   "name": "trucoshi",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "main": "dist/types.js",
   "license": "GPL-3.0",
   "paths": {
@@ -39,6 +39,8 @@
   },
   "files": [
     "node_modules/.prisma/client/*",
+    "dist/lib/index.js",
+    "dist/lib/index.d.ts",
     "dist/lib/constants.js",
     "dist/lib/constants.d.ts",
     "dist/types.js",
