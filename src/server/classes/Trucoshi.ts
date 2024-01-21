@@ -1276,9 +1276,10 @@ export const Trucoshi = ({
                   continue
                 }
 
-                const isWinner = winnerTeam.players
-                  .filter((p) => !p.abandoned)
-                  .findIndex((p) => p.accountId === player.accountId)
+                const isWinner =
+                  winnerTeam.players
+                    .filter((p) => !p.abandoned)
+                    .findIndex((p) => p.accountId === player.accountId) !== -1
 
                 const satsBet = dbMatch.bet?.satsPerPlayer || 0
 
@@ -1459,7 +1460,10 @@ export const Trucoshi = ({
           }
           const pr = await accountsApi.wallet.payRequestDetail(String(player.payRequestId))
 
-          logger.debug({ pr: pr.data, player }, "Found pay request, checking if paid to return sats...")
+          logger.debug(
+            { pr: pr.data, player },
+            "Found pay request, checking if paid to return sats..."
+          )
 
           if (pr.data.paid) {
             await server.store.$transaction(async (tx) => {
