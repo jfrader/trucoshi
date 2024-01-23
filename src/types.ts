@@ -1,6 +1,7 @@
 import { User } from "lightning-accounts"
 import { CARDS, IHand } from "./lib"
 import { IUserData } from "./server"
+import { SocketError } from "./server/classes/SocketError"
 
 export { CARDS, CARDS_HUMAN_READABLE, BURNT_CARD } from "./lib/constants"
 
@@ -138,6 +139,7 @@ export type IHandCommands = {
 export type IEventCallback<T = {}> = (
   args: {
     success: boolean
+    error?: SocketError
   } & T
 ) => void
 
@@ -274,6 +276,9 @@ export class TMap<K, V> extends Map<K, V> {
 }
 
 export enum GAME_ERROR {
+  UNEXPECTED_ERROR = "UNEXPECTED_ERROR",
+  FORBIDDEN = "FORBIDDEN",
+  NOT_FOUND = "NOT_FOUND",
   MATCH_ALREADY_STARTED = "MATCH_ALREADY_STARTED",
   LOBBY_IS_FULL = "LOBBY_IS_FULL",
   UNEXPECTED_TEAM_SIZE = "UNEXPECTED_TEAM_SIZE",

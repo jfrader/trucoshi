@@ -37,6 +37,7 @@ import { createAdapter } from "@socket.io/redis-adapter"
 import { accountsApi, validateJwt } from "../../accounts/client"
 import { createClient } from "redis"
 import { EMatchState, MatchPlayer, Prisma, PrismaClient } from "@prisma/client"
+import { SocketError } from "./SocketError"
 
 const log = logger.child({ class: "Trucoshi" })
 
@@ -945,7 +946,7 @@ export const Trucoshi = ({
 
           if (!identityJwt || !userSession.account) {
             log.error({ identityJwt, acc: userSession.account }, "Failed to save options")
-            throw new Error("User is not logged in, can't set satsPerPlayer option")
+            throw new SocketError("FORBIDDEN", "Inicia sesion para usar sats!")
           }
 
           await server.checkUserSufficientBalance({
@@ -1041,7 +1042,7 @@ export const Trucoshi = ({
           }
 
           if (!userSession.account) {
-            throw new Error("User is not logged in, can't set ready in a match with sats")
+            throw new SocketError("GAME_REQUIRES_ACCOUNT", "Necesitas iniciar sesion para usar sats")
           }
 
           const res = await accountsApi.wallet.payRequestDetail(String(player.payRequestId))

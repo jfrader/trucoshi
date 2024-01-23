@@ -1,5 +1,5 @@
 import { ExtendedError } from "socket.io/dist/namespace"
-import { ITrucoshi, TrucoshiSocket } from "../classes"
+import { ITrucoshi, SocketError, TrucoshiSocket, isSocketError } from "../classes"
 import { EClientEvent, EServerEvent } from "../../types"
 import logger from "../../utils/logger"
 import { getWordsId } from "../../utils/string/getRandomWord"
@@ -55,7 +55,7 @@ export const trucoshi =
         })
       } catch (e) {
         log.error(e)
-        return callback({ success: false })
+        return callback({ success: false, error: isSocketError(e) })
       }
     })
 
@@ -83,7 +83,7 @@ export const trucoshi =
           })
         } catch (e) {
           log.error(e, "Client event SET_MATCH_OPTIONS error")
-          callback({ success: false })
+          callback({ success: false, error: isSocketError(e) })
         }
       }
     )
@@ -103,10 +103,10 @@ export const trucoshi =
           return callback({ success: true, matchSessionId: matchSessionId })
         }
         log.trace({ matchId: matchSessionId }, "Match could not be started")
-        callback({ success: false })
+        throw new SocketError("FORBIDDEN")
       } catch (e) {
         log.error(e, "Client event START_MATCH error")
-        callback({ success: false })
+        callback({ success: false, error: isSocketError(e) })
       }
     })
 
@@ -132,10 +132,10 @@ export const trucoshi =
             activeMatches: server.getSessionActiveMatches(userSession.session),
           })
         }
-        throw new Error("Table not found")
+        throw new SocketError("NOT_FOUND")
       } catch (e) {
         log.error(e, "Client event JOIN_MATCH error")
-        callback({ success: false })
+        callback({ success: false, error: isSocketError(e) })
       }
     })
 
@@ -156,7 +156,7 @@ export const trucoshi =
         })
       } catch (e) {
         log.error(e, "Client event SET_PLAYER_READY error")
-        callback({ success: false })
+        callback({ success: false, error: isSocketError(e) })
       }
     })
 
@@ -170,7 +170,7 @@ export const trucoshi =
         callback?.({ success: true })
       } catch (e) {
         log.error(e, "Client event LEAVE_MATCH error")
-        callback?.({ success: false })
+        callback?.({ success: false, error: isSocketError(e) })
       }
     })
 
@@ -194,7 +194,7 @@ export const trucoshi =
         })
       } catch (e) {
         log.error(e, "Client event LOGIN error")
-        callback({ success: false })
+        callback({ success: false, error: isSocketError(e) })
       }
     })
 
@@ -209,7 +209,7 @@ export const trucoshi =
         })
       } catch (e) {
         log.error(e, "Client event LOGOUT error")
-        callback({ success: false })
+        callback({ success: false, error: isSocketError(e) })
       }
     })
 
@@ -218,7 +218,7 @@ export const trucoshi =
      */
     socket.on(EClientEvent.FETCH_MATCH, (matchId, callback) => {
       if (!socket.data.user) {
-        return callback({ success: false, match: null })
+        return callback({ success: false, match: null, error: new SocketError() })
       }
 
       const match = server.emitSocketMatch(socket, matchId)
