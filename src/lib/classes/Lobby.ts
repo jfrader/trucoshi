@@ -12,6 +12,7 @@ import { ITable, Table } from "./Table"
 import { Team } from "./Team"
 import { IQueue, Queue } from "./Queue"
 import logger from "../../utils/logger"
+import { SocketError } from "../../server"
 
 const log = logger.child({ class: "Lobby" })
 
@@ -49,12 +50,7 @@ export interface IPrivateLobby {
   removePlayer(session: string): ILobby
   calculateReady(): boolean
   calculateFull(): boolean
-  setOptions(
-    options: Pick<
-      Partial<ILobbyOptions>,
-      "abandonTime" | "faltaEnvido" | "flor" | "handAckTime" | "matchPoint" | "turnTime"
-    >
-  ): void
+  setOptions(options: Partial<ILobbyOptions>): void
   isEmpty(): boolean
   startMatch(matchPoint?: 9 | 12 | 15): IGameLoop
 }
@@ -94,6 +90,17 @@ export function Lobby(matchId: string, options: Partial<ILobbyOptions> = {}): IL
     started: false,
     gameLoop: undefined,
     setOptions(value) {
+      if (lobby.started) {
+        return new SocketError(
+          "MATCH_ALREADY_STARTED",
+          "No se pudo actualizar las opciones, la partida ya empezo"
+        )
+      }
+
+      if (value.maxPlayers && value.maxPlayers < lobby.players.length) {
+        return new SocketError("FORBIDDEN", "Hay mas jugadores que espacio disponible")
+      }
+
       lobby.options = { ...lobby.options, ...value }
     },
     isEmpty() {

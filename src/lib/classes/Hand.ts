@@ -11,6 +11,7 @@ import {
   ICard,
   IHandCommands,
   IHandPoints,
+  IHandRoundLog,
   IPlayer,
 } from "../../types"
 import { checkHandWinner } from "../utils"
@@ -22,12 +23,6 @@ import { IRound, Round } from "./Round"
 import { ITruco, Truco } from "./Truco"
 
 const log = logger.child({ class: "Hand" })
-
-export type IHandRoundLog = {
-  player: number
-  card?: ICard
-  command?: ECommand | number
-}
 
 export interface IHand {
   idx: number
@@ -50,7 +45,7 @@ export interface IHand {
   setEnvidoWinner(teamIdx: 0 | 1): void
   setFlorWinner(teamIdx: 0 | 1): void
   say(command: ECommand, player: IPlayer): ECommand | null
-  sayEnvidoPoints(player: IPlayer, points: number): number
+  sayEnvidoPoints(player: IPlayer, points: number, log?: boolean): number
   use(idx: number, card: ICard, burn?: boolean): ICard | null
   finished: () => boolean
   setTurnCommands(): void
@@ -234,9 +229,11 @@ export function Hand(match: IMatch, idx: number) {
         return null
       }
     },
-    sayEnvidoPoints(player, points) {
+    sayEnvidoPoints(player, points, log = true) {
       const { winner } = hand.envido.sayPoints(player, points)
-      hand.addLog(hand.rounds.length - 1, { player: player.idx, command: points })
+      if (log) {
+        hand.addLog(hand.rounds.length - 1, { player: player.idx, command: points })
+      }
       if (winner) {
         hand.endEnvido()
       }
@@ -413,7 +410,7 @@ const commands: IHandCommands = {
   },
   [EEnvidoAnswerCommand.SON_BUENAS]: (hand, player) => {
     if (hand.state === EHandState.WAITING_ENVIDO_POINTS_ANSWER) {
-      hand.sayEnvidoPoints(player, 0)
+      hand.sayEnvidoPoints(player, 0, false)
     }
   },
   [ETrucoCommand.TRUCO]: trucoCommand,

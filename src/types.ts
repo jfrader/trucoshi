@@ -47,6 +47,7 @@ export interface IMatchPreviousHand {
 
 export interface IPublicMatch {
   options: ILobbyOptions
+  busy: boolean
   state: EMatchState
   winner: ITeam | null
   matchSessionId: string
@@ -457,6 +458,12 @@ export interface ITeamPoints {
   buenas: number
   malas: number
   winner: boolean
+}
+
+export type IHandRoundLog = {
+  player: number
+  card?: ICard
+  command?: ECommand | number
 }
 
 export type IPublicUser = Pick<User, "id" | "email" | "name" | "role">

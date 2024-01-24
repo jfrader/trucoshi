@@ -149,5 +149,6 @@ const getPublicMatch = (
     lastCard: gameLoop?.lastCard,
     freshHand,
     rounds,
+    busy: table.busy,
   }
 }

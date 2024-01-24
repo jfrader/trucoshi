@@ -938,13 +938,14 @@ export const Trucoshi = ({
 
       const table = server.tables.getOrThrow(matchSessionId)
       if (table.lobby.started || table.busy) {
-        throw new Error("Match already started or is busy, can't set options")
+        throw new Error("Match already started or already had bets setup, can't change options")
       }
 
       let payRequests: PayRequest[] = []
       const satsPerPlayer = options.satsPerPlayer
+      const currentSats = table.lobby.options.satsPerPlayer
 
-      if (satsPerPlayer && table.lobby.options.satsPerPlayer !== satsPerPlayer) {
+      if (satsPerPlayer !== undefined && currentSats !== satsPerPlayer) {
         if (satsPerPlayer > 0) {
           if (!server.store) {
             throw new Error("This server doesn't support bets")
@@ -987,10 +988,17 @@ export const Trucoshi = ({
                 bet:
                   satsPerPlayer > 0
                     ? {
-                        create: {
-                          allPlayersPaid: false,
-                          winnerAwarded: false,
-                          satsPerPlayer: table.lobby.options.satsPerPlayer,
+                        upsert: {
+                          create: {
+                            allPlayersPaid: false,
+                            winnerAwarded: false,
+                            satsPerPlayer: table.lobby.options.satsPerPlayer,
+                          },
+                          update: {
+                            allPlayersPaid: false,
+                            winnerAwarded: false,
+                            satsPerPlayer: table.lobby.options.satsPerPlayer,
+                          },
                         },
                       }
                     : undefined,
@@ -1017,10 +1025,14 @@ export const Trucoshi = ({
             })
             payRequests = prs.data
           })
+
+          table.lobby.setOptions(options)
         } else {
           // @TODO: Cleanup databases from bet and payback old bet if removing sats or changing amount
           // (not actually possible yet due to lobby.busy flag)
         }
+      } else {
+        table.lobby.setOptions(options)
       }
 
       table.lobby.players.forEach((player) => {
@@ -1028,7 +1040,6 @@ export const Trucoshi = ({
         player.setReady(false)
       })
 
-      table.lobby.setOptions(options)
       return table
     },
     async setMatchPlayerReady({ matchSessionId, userSession, ready }) {
@@ -1568,6 +1579,10 @@ export const Trucoshi = ({
     },
     async removePlayerAndCleanup(table, player) {
       try {
+        log.debug(
+          { table: table.getPublicMatchInfo(), player: player.getPublicPlayer() },
+          "Removing player from match"
+        )
         const lobby = table.lobby.removePlayer(player.session as string)
         if (lobby.isEmpty()) {
           await server.cleanupMatchTable(table)
