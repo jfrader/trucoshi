@@ -2,8 +2,19 @@ import { User } from "lightning-accounts"
 import { CARDS, IHand } from "./lib"
 import { IUserData } from "./server"
 import { SocketError } from "./server/classes/SocketError"
+import { Match, MatchBet, MatchHand, MatchPlayer, UserStats } from "@prisma/client"
 
 export { CARDS, CARDS_HUMAN_READABLE, BURNT_CARD } from "./lib/constants"
+
+export interface IMatchDetails extends Match {
+  players: Array<Pick<MatchPlayer, "id" | "accountId" | "teamIdx" | "name" | "idx">>
+  hands: Array<MatchHand>
+}
+export interface IAccountDetails {
+  stats: UserStats | null
+  account: User | null
+  matches: Array<Match>
+}
 
 export enum EMatchState {
   UNREADY = "UNREADY",
@@ -188,6 +199,8 @@ export enum EClientEvent {
   LOGOUT = "LOGOUT",
   LEAVE_MATCH = "LEAVE_MATCH",
   CREATE_MATCH = "CREATE_MATCH",
+  FETCH_ACCOUNT_DETAILS = "FETCH_ACCOUNT_DETAILS",
+  FETCH_MATCH_DETAILS = "FETCH_MATCH_DETAILS",
   SET_MATCH_OPTIONS = "SET_MATCH_OPTIONS",
   LIST_MATCHES = "LIST_MATCHES",
   JOIN_MATCH = "JOIN_MATCH",
@@ -225,12 +238,20 @@ export interface ClientToServerEvents {
   ) => void
   [EClientEvent.START_MATCH]: (
     identityJwt: string | null,
-    matchId: string,
+    matchSessionId: string,
     callback: IEventCallback<{ matchSessionId?: string }>
   ) => void
   [EClientEvent.FETCH_MATCH]: (
-    matchId: string,
+    matchSessionId: string,
     callback: IEventCallback<{ match: IPublicMatch | null }>
+  ) => void
+  [EClientEvent.FETCH_MATCH_DETAILS]: (
+    matchId: number,
+    callback: IEventCallback<{ match: IMatchDetails | null }>
+  ) => void
+  [EClientEvent.FETCH_ACCOUNT_DETAILS]: (
+    accountId: number,
+    callback: IEventCallback<IAccountDetails>
   ) => void
   [EClientEvent.LIST_MATCHES]: (
     filters: { state?: Array<EMatchState> },

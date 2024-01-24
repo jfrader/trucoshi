@@ -12,6 +12,7 @@ import {
   GAME_ERROR,
   ICard,
   ILobbyOptions,
+  IMatchDetails,
   IPlayer,
   IPublicMatch,
   IPublicMatchInfo,
@@ -36,7 +37,7 @@ import { createAdapter } from "@socket.io/redis-adapter"
 
 import { accountsApi, validateJwt } from "../../accounts/client"
 import { createClient } from "redis"
-import { EMatchState, MatchPlayer, Prisma, PrismaClient } from "@prisma/client"
+import { EMatchState, Match, MatchPlayer, Prisma, PrismaClient, UserStats } from "@prisma/client"
 import { SocketError } from "./SocketError"
 
 const log = logger.child({ class: "Trucoshi" })
@@ -168,6 +169,11 @@ export interface ITrucoshi {
   removePlayerAndCleanup(table: IMatchTable, player: IPlayer): Promise<void>
   deletePlayerAndReturnBet(table: IMatchTable, player: MatchPlayer): Promise<void>
   cleanupMatchTable(table: IMatchTable): Promise<void>
+  getAccountDetails(
+    socket: TrucoshiSocket,
+    accountId: number
+  ): Promise<{ stats: UserStats | null; matches: Array<Match>; account: User }>
+  getMatchDetails(socket: TrucoshiSocket, matchId: number): Promise<IMatchDetails>
   resetSocketsMatchState(table: IMatchTable): Promise<void>
   listen: (
     callback: (io: TrucoshiServer) => void,
@@ -1042,7 +1048,10 @@ export const Trucoshi = ({
           }
 
           if (!userSession.account) {
-            throw new SocketError("GAME_REQUIRES_ACCOUNT", "Necesitas iniciar sesion para usar sats")
+            throw new SocketError(
+              "GAME_REQUIRES_ACCOUNT",
+              "Necesitas iniciar sesion para usar sats"
+            )
           }
 
           const res = await accountsApi.wallet.payRequestDetail(String(player.payRequestId))
@@ -1391,7 +1400,12 @@ export const Trucoshi = ({
           })
         }
 
-        const userSession = server.sessions.getOrThrow(socket.data.user.session)
+        const userSession = server.sessions.get(socket.data.user.session)
+
+        if (!userSession) {
+          log.warn({ socket: socket.id, matchId }, "Session not found")
+          return null
+        }
 
         userSession.reconnect(currentTable.matchSessionId)
 
@@ -1560,6 +1574,85 @@ export const Trucoshi = ({
         }
       } catch (e) {
         log.error(e, "Error removing player and cleaning up")
+      }
+    },
+    async getMatchDetails(socket, matchId) {
+      if (!server.store) {
+        throw new SocketError("NOT_FOUND", "Este server no soporta historial")
+      }
+
+      const match = await server.store.match.findFirstOrThrow({
+        where: { id: matchId, state: EMatchState.FINISHED },
+        include: {
+          hands: true,
+          players: { select: { accountId: true, id: true, name: true, teamIdx: true, idx: true } },
+        },
+      })
+
+      const isPlayer =
+        match.players.findIndex((p) => p.accountId === socket.data.user?.account?.id) !== -1
+
+      return isPlayer
+        ? match
+        : {
+            ...match,
+            options: { ...(match.options as any), satsPerPlayer: 0 },
+          }
+    },
+    async getAccountDetails(socket, accountId) {
+      if (!server.store) {
+        throw new SocketError("NOT_FOUND", "Este server no soporta historial")
+      }
+
+      if (!accountId) {
+        throw new SocketError("UNEXPECTED_ERROR", "Missing account id")
+      }
+
+      const account = await accountsApi.users.usersDetail(String(accountId))
+
+      const isPlayer = socket.data.user?.account?.id === accountId
+
+      const matchPlayers = await server.store.matchPlayer.findMany({
+        where: { accountId },
+        include: {
+          match: {
+            include: {
+              bet: {
+                select: {
+                  id: true,
+                  satsPerPlayer: isPlayer,
+                },
+              },
+            },
+          },
+        },
+      })
+
+      const matches = matchPlayers
+        .map((m) =>
+          isPlayer
+            ? m.match
+            : { ...m.match, options: { ...(m.match.options as any), satsPerPlayer: undefined } }
+        )
+        .filter((m) => m.state === EMatchState.FINISHED)
+
+      const stats = await server.store.userStats.findFirst({
+        where: { accountId },
+        select: {
+          id: true,
+          accountId: true,
+          loss: true,
+          win: true,
+          satsBet: isPlayer,
+          satsLost: isPlayer,
+          satsWon: isPlayer,
+        },
+      })
+
+      return {
+        stats,
+        matches,
+        account: account.data,
       }
     },
     async cleanupMatchTable(table) {

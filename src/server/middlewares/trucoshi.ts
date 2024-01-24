@@ -216,14 +216,52 @@ export const trucoshi =
     /**
      * Fetch match with session
      */
-    socket.on(EClientEvent.FETCH_MATCH, (matchId, callback) => {
+    socket.on(EClientEvent.FETCH_MATCH, (matchSessionId, callback) => {
       if (!socket.data.user) {
         return callback({ success: false, match: null, error: new SocketError() })
       }
 
-      const match = server.emitSocketMatch(socket, matchId)
+      const match = server.emitSocketMatch(socket, matchSessionId)
 
       callback({ success: Boolean(match), match })
+    })
+
+    /**
+     * Fetch match details
+     */
+    socket.on(EClientEvent.FETCH_MATCH_DETAILS, async (matchId, callback) => {
+      try {
+        if (!socket.data.user) {
+          throw new SocketError("FORBIDDEN")
+        }
+
+        const match = await server.getMatchDetails(socket, matchId)
+        callback({ success: true, match })
+      } catch (e) {
+        return callback({ success: false, match: null, error: isSocketError(e) })
+      }
+    })
+
+    /**
+     * Fetch account details
+     */
+    socket.on(EClientEvent.FETCH_ACCOUNT_DETAILS, async (accountId, callback) => {
+      try {
+        if (!socket.data.user) {
+          throw new SocketError("FORBIDDEN")
+        }
+
+        const response = await server.getAccountDetails(socket, accountId)
+        callback({ success: true, ...response })
+      } catch (e) {
+        callback({
+          success: false,
+          matches: [],
+          stats: null,
+          account: null,
+          error: isSocketError(e),
+        })
+      }
     })
 
     next()
