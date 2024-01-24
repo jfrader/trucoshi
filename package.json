@@ -1,6 +1,6 @@
 {
   "name": "trucoshi",
-  "version": "2.5.0",
+  "version": "2.5.1",
   "description": "Lightning Truco Server",
   "main": "dist/types.js",
   "license": "GPL-3.0",
@@ -24,7 +24,7 @@
     "build": "yarn prisma generate --generator distClient && yarn run rimraf ./build && yarn run tsc --project .",
     "build:dist": "yarn run rimraf ./dist && yarn prisma generate --generator distClient && yarn run tsc --project ./tsconfig.dist.json",
     "prepublishOnly": "yarn test && yarn build:dist",
-    "test": "dotenv -e .env -- yarn db:e2e:push --force-reset && dotenv -e .env -- ts-mocha --exit ./test/**/*.ts -t 50000",
+    "test": "dotenv -e .env.e2e -- yarn db:e2e:push --force-reset && dotenv -e .env.e2e -- ts-mocha --exit ./test/**/*.ts -t 50000",
     "cli:autoplay": "yarn run ts-node src/cli/autoplay",
     "cli:play": "yarn run ts-node src/cli/play",
     "db:push": "prisma db push",
