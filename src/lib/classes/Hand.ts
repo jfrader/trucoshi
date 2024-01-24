@@ -154,8 +154,8 @@ function* handTurnGeneratorSequence(match: IMatch, hand: IHand) {
       hand.setState(EHandState.FINISHED)
     }
 
-    if (hand.state === EHandState.FINISHED && hand.envido.winner && hand.envido.winningPlayer) {
-      hand.setEnvidoWinner(hand.envido.winningPlayer.teamIdx as 0 | 1)
+    if (hand.state === EHandState.FINISHED && hand.envido.winner) {
+      hand.setEnvidoWinner(hand.envido.winner.id)
       hand.addPoints(hand.envido.winner.id, hand.envido.getPointsToGive())
     }
 
