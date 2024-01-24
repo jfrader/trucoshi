@@ -2,7 +2,7 @@ import { User } from "lightning-accounts"
 import { CARDS, IHand } from "./lib"
 import { IUserData } from "./server"
 import { SocketError } from "./server/classes/SocketError"
-import { Match, MatchBet, MatchHand, MatchPlayer, UserStats } from "@prisma/client"
+import { Match, MatchPlayer, MatchHand, UserStats } from "@trucoshi/prisma"
 
 export { CARDS, CARDS_HUMAN_READABLE, BURNT_CARD } from "./lib/constants"
 

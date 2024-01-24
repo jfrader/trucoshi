@@ -9,3 +9,5 @@ processed*.txt
 # Environment varibales
 .env*
 !.env*.example
+
+prisma/client

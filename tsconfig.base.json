@@ -11,8 +11,10 @@
     "esModuleInterop": true,
     "moduleResolution": "node",
     "resolveJsonModule": true,
-    "declaration": true
+    "declaration": true,
+    "paths": { "@trucoshi/prisma": ["./prisma/client"] }
   },
+
   "include": ["src/**/*", "etc/scripts/autoplay.ts", "etc/scripts/play.ts", "etc"],
   "exclude": ["node_modules", "dist", "test"]
 }

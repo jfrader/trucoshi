@@ -1,6 +1,6 @@
 {
   "name": "trucoshi",
-  "version": "2.3.1",
+  "version": "2.4.0",
   "description": "Lightning Truco Server",
   "main": "dist/types.js",
   "license": "GPL-3.0",
@@ -12,14 +12,17 @@
   "paths": {
     "trucoshi": [
       "./"
+    ],
+    "@trucoshi/prisma": [
+      "./prisma/client"
     ]
   },
   "scripts": {
     "start": "nodemon",
     "start:e2e": "yarn build && dotenv -e .env.e2e -- node ./bin/trucoshi-server ",
     "profiler": "yarn build && node --prof ./bin/trucoshi-server",
-    "build": "yarn run rimraf ./build && yarn run tsc --project . && yarn build:dist",
-    "build:dist": "yarn run rimraf ./dist && yarn run tsc --project ./tsconfig.dist.json",
+    "build": " yarn run rimraf ./build && yarn run tsc --project . && yarn build:dist",
+    "build:dist": "yarn run rimraf ./dist && yarn prisma generate --generator distClient && yarn run tsc --project ./tsconfig.dist.json",
     "prepublishOnly": "yarn test && yarn build:dist",
     "test": "dotenv -e .env.e2e -- yarn db:e2e:push --force-reset && dotenv -e .env.e2e -- ts-mocha --exit ./test/**/*.ts -t 50000",
     "cli:autoplay": "yarn run ts-node src/cli/autoplay",
@@ -44,7 +47,6 @@
     "ts-mocha": "^10.0.0"
   },
   "files": [
-    "node_modules/.prisma/client/*",
     "dist/lib/index.js",
     "dist/lib/index.d.ts",
     "dist/lib/constants.js",
@@ -52,7 +54,8 @@
     "dist/types.js",
     "dist/types.d.ts",
     "dist/server/constants.js",
-    "dist/server/constants.d.ts"
+    "dist/server/constants.d.ts",
+    "prisma/*"
   ],
   "dependencies": {
     "@prisma/client": "^4.14.1",
