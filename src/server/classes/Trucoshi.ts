@@ -943,10 +943,18 @@ export const Trucoshi = ({
 
       let payRequests: PayRequest[] = []
       const satsPerPlayer = options.satsPerPlayer
-      const currentSats = table.lobby.options.satsPerPlayer
+      const currentOptions = structuredClone(table.lobby.options)
 
-      if (satsPerPlayer !== undefined && currentSats !== satsPerPlayer) {
+      if (satsPerPlayer !== undefined && currentOptions.satsPerPlayer !== satsPerPlayer) {
         if (satsPerPlayer > 0) {
+          if (
+            process.env.NODE_MAX_BET &&
+            Number(process.env.NODE_MAX_BET) > 0 &&
+            satsPerPlayer > Number(process.env.NODE_MAX_BET)
+          ) {
+            throw new SocketError("FORBIDDEN", "Maximo " + process.env.NODE_MAX_BET + " sats")
+          }
+
           if (!server.store) {
             throw new Error("This server doesn't support bets")
           }
@@ -992,12 +1000,12 @@ export const Trucoshi = ({
                           create: {
                             allPlayersPaid: false,
                             winnerAwarded: false,
-                            satsPerPlayer: table.lobby.options.satsPerPlayer,
+                            satsPerPlayer,
                           },
                           update: {
                             allPlayersPaid: false,
                             winnerAwarded: false,
-                            satsPerPlayer: table.lobby.options.satsPerPlayer,
+                            satsPerPlayer,
                           },
                         },
                       }
@@ -1011,22 +1019,27 @@ export const Trucoshi = ({
               },
             })
 
-            const prs = await accountsApi.wallet.payRequestsCreate({
-              amountInSats: satsPerPlayer,
-              description: `Request to enter match ${matchSessionId} - Match ID: ${table.matchId}`,
-              meta: {
-                application: "trucoshi",
-                matchSessionId,
-                matchId: table.matchId,
-              },
-              receiverIds: table.lobby.players
-                .filter((p) => !!p.accountId)
-                .map((p) => p.accountId) as number[],
-            })
-            payRequests = prs.data
-          })
+            table.lobby.setOptions(options)
 
-          table.lobby.setOptions(options)
+            try {
+              const prs = await accountsApi.wallet.payRequestsCreate({
+                amountInSats: satsPerPlayer,
+                description: `Request to enter match ${matchSessionId} - Match ID: ${table.matchId}`,
+                meta: {
+                  application: "trucoshi",
+                  matchSessionId,
+                  matchId: table.matchId,
+                },
+                receiverIds: table.lobby.players
+                  .filter((p) => !!p.accountId)
+                  .map((p) => p.accountId) as number[],
+              })
+              payRequests = prs.data
+            } catch (e) {
+              table.lobby.setOptions(currentOptions)
+              throw e
+            }
+          })
         } else {
           // @TODO: Cleanup databases from bet and payback old bet if removing sats or changing amount
           // (not actually possible yet due to lobby.busy flag)
@@ -1067,6 +1080,8 @@ export const Trucoshi = ({
 
           const res = await accountsApi.wallet.payRequestDetail(String(player.payRequestId))
           pr = res.data
+
+          log.debug({ pr }, "Found PR for setting player ready")
 
           if (!pr) {
             throw new Error("Pay request not found!")
@@ -1128,6 +1143,7 @@ export const Trucoshi = ({
     },
     async joinMatch(table, userSession, teamIdx) {
       let prId: number | undefined
+      let matchPlayerId: number | undefined
       if (table.lobby.options.satsPerPlayer > 0) {
         if (!userSession.account?.id) {
           throw new Error("Player needs to be logged into an account to join this match")
@@ -1135,6 +1151,7 @@ export const Trucoshi = ({
 
         const currentPlayer = table.isSessionPlaying(userSession.session)
         if (currentPlayer) {
+          matchPlayerId = currentPlayer.matchPlayerId
           prId = currentPlayer.payRequestId
         } else {
           const res = await accountsApi.wallet.payRequestCreate({
@@ -1162,6 +1179,7 @@ export const Trucoshi = ({
       )
 
       player.setPayRequest(prId)
+      player.setMatchPlayerId(matchPlayerId)
 
       return player
     },
