@@ -18,6 +18,7 @@ import {
   IPublicMatchInfo,
   IPublicPlayer,
   ITeam,
+  IUserData,
   IWaitingPlayData,
   ServerToClientEvents,
   TMap,
@@ -29,7 +30,7 @@ import {
 } from "../constants"
 import { Chat, IChat } from "./Chat"
 import { IMatchTable, MatchTable } from "./MatchTable"
-import { IUserSession, ISocketMatchState, UserSession, IUserData } from "./UserSession"
+import { IUserSession, ISocketMatchState, UserSession } from "./UserSession"
 import logger from "../../utils/logger"
 import { PayRequest, User } from "lightning-accounts"
 
@@ -395,7 +396,6 @@ export const Trucoshi = ({
 
       const session =
         server.sessions.find((s) => s.account?.id === payload.sub) ||
-        server.sessions.get(socket.data.user.session) ||
         server.createUserSession(socket)
 
       const res = await accountsApi.users.usersDetail(String(payload.sub))
@@ -1731,6 +1731,7 @@ export const Trucoshi = ({
 
         server.tables.delete(matchSessionId)
         server.chat.delete(matchSessionId)
+        server.turns.delete(matchSessionId)
         log.debug({ matchSessionId }, "Deleted Match Table")
       } catch (e) {
         log.error(e, "Error cleaning up MatchTable")

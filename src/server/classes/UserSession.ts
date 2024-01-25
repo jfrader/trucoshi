@@ -1,15 +1,9 @@
 import { User } from "lightning-accounts"
 import logger from "../../utils/logger"
 import { PLAYER_TIMEOUT_GRACE } from "../constants"
+import { IUserData } from "../../types"
 
 const log = logger.child({ class: "UserSession" })
-
-export interface IUserData {
-  key: string
-  name: string
-  session: string
-  account: User | null
-}
 
 export interface IUserSession extends IUserData {
   _name: string

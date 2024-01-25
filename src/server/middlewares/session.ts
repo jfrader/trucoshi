@@ -22,7 +22,6 @@ export const session = (server: ITrucoshi) => {
         if (isDisconnected) {
           const userSession = server.sessions.get(socket.data.user.session)
           if (userSession) {
-            userSession.setAccount(null)
             userSession.disconnect()
           }
         }

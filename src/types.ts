@@ -1,6 +1,5 @@
 import { User } from "lightning-accounts"
 import { CARDS, IHand } from "./lib"
-import { IUserData } from "./server"
 import { SocketError } from "./server/classes/SocketError"
 import { Match, MatchPlayer, MatchHand, UserStats } from "@trucoshi/prisma"
 
@@ -21,6 +20,13 @@ export enum EMatchState {
   READY = "READY",
   STARTED = "STARTED",
   FINISHED = "FINISHED",
+}
+
+export interface IUserData {
+  key: string
+  name: string
+  session: string
+  account: User | null
 }
 
 export interface ILobbyOptions {
