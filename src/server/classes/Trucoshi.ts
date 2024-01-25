@@ -1106,8 +1106,14 @@ export const Trucoshi = ({
           accountId: userSession.account?.id,
           name: userSession.name,
           teamIdx: player.teamIdx,
-          satsPaid: pr?.amountInSats || 0,
-          payRequestId: pr?.id,
+        } as Pick<
+          MatchPlayer,
+          "session" | "accountId" | "name" | "teamIdx" | "payRequestId" | "satsPaid"
+        >
+
+        if (pr && pr.id) {
+          update.satsPaid = pr.amountInSats
+          update.payRequestId = pr.id
         }
 
         log.debug({ update }, "About to update or create match player")
@@ -1706,7 +1712,7 @@ export const Trucoshi = ({
               }
             }
 
-            await tx.matchBet.deleteMany({ where: { matchId: table.matchId } })
+            await tx.matchBet.delete({ where: { matchId: table.matchId } })
             await tx.match.delete({ where: { id: table.matchId } })
           })
         }
