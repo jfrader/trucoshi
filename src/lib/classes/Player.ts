@@ -1,13 +1,19 @@
 import { IPlayer } from "../../types"
 import { BURNT_CARD } from "../constants"
 
-export function Player(
-  accountId: number | undefined,
-  key: string,
-  name: string,
-  teamIdx: number,
-  isOwner: boolean = false
-) {
+export function Player({
+  accountId,
+  key,
+  name,
+  teamIdx,
+  isOwner = false,
+}: {
+  accountId: number | undefined
+  key: string
+  name: string
+  teamIdx: number
+  isOwner?: boolean
+}) {
   const player: IPlayer = {
     idx: -1,
     key,

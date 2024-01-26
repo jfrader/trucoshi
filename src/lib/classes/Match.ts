@@ -40,7 +40,6 @@ function* matchTurnGeneratorSequence(match: IMatch) {
       break
     }
 
-    match.deck.shuffle()
     match.setCurrentHand(null)
 
     yield match
@@ -51,10 +50,7 @@ function* matchTurnGeneratorSequence(match: IMatch) {
     while (!hand.finished()) {
       const { value } = hand.getNextTurn()
       if (value) {
-        if (
-          value.currentPlayer &&
-          (value.currentPlayer.disabled)
-        ) {
+        if (value.currentPlayer && value.currentPlayer.disabled) {
           value.nextTurn()
           continue
         }
@@ -140,6 +136,10 @@ export function Match(
   }
 
   const turnGenerator = matchTurnGeneratorSequence(match)
+
+  for (const player of table.players) {
+    match.deck.random.clients[player.idx] = player.key
+  }
 
   return match
 }

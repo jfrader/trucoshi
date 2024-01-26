@@ -2,15 +2,9 @@ import { CARDS_HUMAN_READABLE, IRound, Lobby } from "../../lib"
 ;(async () => {
   const trucoshi = Lobby("testmatch1")
 
-  const promises = [
-    trucoshi.addPlayer(1, "lukini", "lukini", "lukini").then((player) => player.setReady(true)),
-    trucoshi.addPlayer(2, "denoph", "denoph", "denoph").then((player) => player.setReady(true)),
-    trucoshi.addPlayer(3, "guada", "guada", "guada").then((player) => player.setReady(true)),
-    trucoshi.addPlayer(4, "juli", "juli", "juli").then((player) => player.setReady(true)),
-    trucoshi.addPlayer(5, "day", "day", "day").then((player) => player.setReady(true)),
-    trucoshi.addPlayer(6, "fran", "fran", "fran").then((player) => player.setReady(true)),
-  ]
-
+  const promises = ["lucas", "guada", "juli", "day", "gaspar", "fran"].map((n) =>
+    trucoshi.addPlayer({ key: n, name: n, session: n }).then((player) => player.setReady(true))
+  )
   await Promise.allSettled(promises)
 
   trucoshi

@@ -2,10 +2,14 @@ import { randomUUID } from "crypto"
 import { ICard, IDeck, IPlayedCard, IPlayer, IPublicPlayer } from "../../types"
 import { BURNT_CARD, CARDS } from "../constants"
 import { shuffleArray } from "../utils"
+import { Random } from "./Random"
 
-export function Deck(shuffle: boolean = true): IDeck {
+const getAllCards = () => Object.keys(CARDS) as Array<ICard>
+
+export function Deck(): IDeck {
   const deck: IDeck = {
-    cards: Object.keys(CARDS) as Array<ICard>,
+    cards: getAllCards(),
+    random: Random(),
     usedCards: [],
     takeCard() {
       const card = deck.cards.shift() as ICard
@@ -15,19 +19,15 @@ export function Deck(shuffle: boolean = true): IDeck {
     takeThree() {
       return [deck.takeCard(), deck.takeCard(), deck.takeCard()]
     },
-    shuffle() {
-      deck.cards = deck.cards.concat(deck.usedCards)
+    shuffle(dealer) {
+      deck.cards = getAllCards()
       deck.usedCards = []
-      deck.cards = shuffleArray(deck.cards)
+      deck.cards = shuffleArray(deck.cards, (max) => deck.random.pick(dealer, max - 1))
       if (deck.cards.length !== 40) {
         throw new Error("This is not good")
       }
       return deck
     },
-  }
-
-  if (shuffle) {
-    return deck.shuffle().shuffle()
   }
 
   return deck

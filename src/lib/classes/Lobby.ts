@@ -39,14 +39,14 @@ export interface IPrivateLobby {
   full: boolean
   ready: boolean
   started: boolean
-  addPlayer(
-    id: number | undefined,
-    key: string,
-    name: string,
-    session: string,
-    teamIdx?: 0 | 1,
+  addPlayer(args: {
+    accountId?: number | undefined
+    key: string
+    name: string
+    session: string
+    teamIdx?: 0 | 1
     isOwner?: boolean
-  ): Promise<IPlayer>
+  }): Promise<IPlayer>
   removePlayer(session: string): ILobby
   calculateReady(): boolean
   calculateFull(): boolean
@@ -112,7 +112,7 @@ export function Lobby(matchId: string, options: Partial<ILobbyOptions> = {}): IL
     calculateFull() {
       return calculateLobbyFullness(lobby)
     },
-    async addPlayer(accountId, key, name, session, teamIdx, isOwner) {
+    async addPlayer({ accountId, key, name, session, teamIdx, isOwner }) {
       let player: IPlayer | null = null
       await lobby.queue.queue(() => {
         try {
@@ -269,13 +269,13 @@ const addPlayerToLobby = ({
     log.trace(playerParams, "Adding player to match: Team is full. Cannot add player")
     throw new Error(GAME_ERROR.TEAM_IS_FULL)
   }
-  const player = Player(
+  const player = Player({
     accountId,
     key,
     name,
-    teamIdx !== undefined ? teamIdx : Number(!lobby.lastTeamIdx),
-    isOwner
-  )
+    isOwner,
+    teamIdx: teamIdx !== undefined ? teamIdx : Number(!lobby.lastTeamIdx),
+  })
 
   player.setSession(session)
   lobby.lastTeamIdx = player.teamIdx as 0 | 1

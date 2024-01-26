@@ -56,6 +56,8 @@ model MatchHand {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   idx             Int
+  secret          String   @default("")
+  clientSecrets   String[] @default([])
   rounds          Json     @default("[[]]")
   results         Json     @default("[0, 0]")
   matchId         Int

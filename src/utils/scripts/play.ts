@@ -106,20 +106,9 @@ const sayPoints = (play: IPlayInstance) =>
 ;(async () => {
   const trucoshi = Lobby("testmatch2")
 
-  const promises = [
-    trucoshi
-      .addPlayer(undefined, "lukini", "lukini", "lukini")
-      .then((player) => player.setReady(true)),
-    trucoshi
-      .addPlayer(undefined, "denoph", "denoph", "denoph")
-      .then((player) => player.setReady(true)),
-    trucoshi
-      .addPlayer(undefined, "guada", "guada", "guada")
-      .then((player) => player.setReady(true)),
-    trucoshi
-      .addPlayer(undefined, "juliana", "juliana", "juliana")
-      .then((player) => player.setReady(true)),
-  ]
+  const promises = ["lucas", "guada", "juli", "day", "gaspar", "fran"].map((n) =>
+    trucoshi.addPlayer({ key: n, name: n, session: n }).then((player) => player.setReady(true))
+  )
 
   await Promise.allSettled(promises)
 

@@ -1,6 +1,6 @@
 {
   "name": "trucoshi",
-  "version": "2.5.4",
+  "version": "3.0.0",
   "description": "Lightning Truco Server",
   "main": "dist/types.js",
   "license": "GPL-3.0",
@@ -74,6 +74,7 @@
     "pino": "^8.11.0",
     "pino-pretty": "^10.0.0",
     "rimraf": "^4.1.1",
+    "safe-rng": "^1.0.4",
     "socket.io": "^4.5.4",
     "ts-node": "^10.9.1",
     "tsc": "^2.0.4",

@@ -26,6 +26,8 @@ const log = logger.child({ class: "Hand" })
 
 export interface IHand {
   idx: number
+  secret: string
+  clientSecrets: string[]
   state: EHandState
   turn: number
   started: boolean
@@ -160,6 +162,21 @@ function* handTurnGeneratorSequence(match: IMatch, hand: IHand) {
 }
 
 export function Hand(match: IMatch, idx: number) {
+  match.deck.random.next()
+  match.deck.shuffle(match.table.getPlayerByPosition(0, true).idx)
+
+  const playerHands: any[] = []
+
+  for (let i = 0; i < 3; i++) {
+    for (const player of match.table.getPlayersForehandFirst()) {
+      playerHands[player.idx] = [...(playerHands[player.idx] || []), match.deck.takeCard()]
+    }
+  }
+
+  for (const [key, player] of match.table.players.entries()) {
+    player.setHand(playerHands[key])
+  }
+
   for (const team of match.teams) {
     for (const player of team.players) {
       if (player.abandoned) {
@@ -170,8 +187,11 @@ export function Hand(match: IMatch, idx: number) {
       player.resetCommands()
     }
   }
+
   const hand: IHand = {
     idx,
+    secret: match.deck.random.secret,
+    clientSecrets: [...match.deck.random.clients],
     started: false,
     trucoWinnerIdx: undefined,
     envidoWinnerIdx: undefined,

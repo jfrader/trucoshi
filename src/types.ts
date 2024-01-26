@@ -347,11 +347,12 @@ export type IEnvidoCalculator = {
 }
 
 export interface IDeck {
+  random: IRandom
   cards: Array<ICard>
   usedCards: Array<ICard>
   takeCard(): ICard
   takeThree(): [ICard, ICard, ICard]
-  shuffle(): IDeck
+  shuffle(dealerIdx: number): IDeck
 }
 
 export type ICard = keyof typeof CARDS
@@ -365,6 +366,15 @@ export interface IPlayedCard {
 export interface IHandPoints {
   0: number
   1: number
+}
+
+export interface IRandom {
+  secret: string
+  clients: string[]
+  nonce: number
+  next(): void
+  pick(idx: number, max: number): number
+  reveal(): { secret: string; clients: string[] }
 }
 
 export type IPublicPlayer = Pick<

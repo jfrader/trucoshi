@@ -12,12 +12,17 @@ export function getCardValue(card: ICard) {
   return CARDS[card] !== undefined ? CARDS[card] : -2
 }
 
-export function shuffleArray<T = unknown>(array: Array<T>) {
+const defaultGetRandom = (max: number) => Math.floor(Math.random() * max)
+
+export function shuffleArray<T = unknown>(
+  array: Array<T>,
+  getRandom: (max: number) => number = defaultGetRandom
+) {
   let currentIndex = array.length,
     randomIndex
 
   while (currentIndex != 0) {
-    randomIndex = Math.floor(Math.random() * currentIndex)
+    randomIndex = getRandom(currentIndex)
     currentIndex--
     ;[array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]]
   }

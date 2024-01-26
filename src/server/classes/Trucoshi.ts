@@ -401,6 +401,7 @@ export const Trucoshi = ({
       const res = await accountsApi.users.usersDetail(String(payload.sub))
 
       session.setAccount(res.data)
+      session.setName(res.data.name)
       socket.data.user = session.getUserData()
       socket.join(session.session)
 
@@ -894,14 +895,14 @@ export const Trucoshi = ({
 
       userSession.ownedMatches.add(matchSessionId)
 
-      await table.lobby.addPlayer(
-        userSession.account?.id,
-        userSession.key,
-        userSession.account?.name || userSession.name,
-        userSession.session,
-        0,
-        true
-      )
+      await table.lobby.addPlayer({
+        accountId: userSession.account?.id,
+        key: userSession.key,
+        name: userSession.name,
+        session: userSession.session,
+        isOwner: true,
+        teamIdx: 0,
+      })
 
       if (server.store) {
         const ownerAccountId = userSession.account?.id
@@ -1175,14 +1176,14 @@ export const Trucoshi = ({
         }
       }
 
-      const player = await table.lobby.addPlayer(
-        userSession.account?.id,
-        userSession.key,
-        userSession.account?.name || userSession.name,
-        userSession.session,
+      const player = await table.lobby.addPlayer({
+        accountId: userSession.account?.id,
+        key: userSession.key,
+        name: userSession.name,
+        session: userSession.session,
+        isOwner: userSession.ownedMatches.has(table.matchSessionId),
         teamIdx,
-        userSession.ownedMatches.has(table.matchSessionId)
-      )
+      })
 
       player.setPayRequest(prId)
       player.setMatchPlayerId(matchPlayerId)
@@ -1276,6 +1277,8 @@ export const Trucoshi = ({
           if (server.store && hand) {
             await server.store.matchHand.create({
               data: {
+                clientSecrets: hand.clientSecrets,
+                secret: hand.secret,
                 trucoWinnerIdx: hand.trucoWinnerIdx,
                 envidoWinnerIdx: hand.envidoWinnerIdx,
                 florWinnerIdx: hand.florWinnerIdx,

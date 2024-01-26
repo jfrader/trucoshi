@@ -6,14 +6,9 @@ describe("Trucoshi Lib", () => {
   it("should play an entire match of 6", (done) => {
     const trucoshi = Lobby("testmatch1")
 
-    const promises = [
-      trucoshi.addPlayer(1, "lukini", "lukini", "lukini").then((player) => player.setReady(true)),
-      trucoshi.addPlayer(2, "denoph", "denoph", "denoph").then((player) => player.setReady(true)),
-      trucoshi.addPlayer(3, "guada", "guada", "guada").then((player) => player.setReady(true)),
-      trucoshi.addPlayer(4, "juli", "juli", "juli").then((player) => player.setReady(true)),
-      trucoshi.addPlayer(5, "day", "day", "day").then((player) => player.setReady(true)),
-      trucoshi.addPlayer(6, "fran", "fran", "fran").then((player) => player.setReady(true)),
-    ]
+    const promises = ["lucas", "guada", "juli", "day", "gaspar", "fran"].map((n) =>
+      trucoshi.addPlayer({ key: n, name: n, session: n }).then((player) => player.setReady(true))
+    )
 
     Promise.allSettled(promises).then(() => {
       trucoshi
@@ -40,15 +35,12 @@ describe("Trucoshi Lib", () => {
 
       const randomPlayersQuantity = [0, 2, 4]
 
-      const promises = [
-        () => trucoshi.addPlayer(1, "luk", "luk", "luk").then((player) => player.setReady(true)),
-        () => trucoshi.addPlayer(2, "deno", "deno", "deno").then((player) => player.setReady(true)),
-        () =>
-          trucoshi.addPlayer(3, "guada", "guada", "guada").then((player) => player.setReady(true)),
-        () => trucoshi.addPlayer(4, "juli", "juli", "juli").then((player) => player.setReady(true)),
-        () => trucoshi.addPlayer(5, "day", "day", "day").then((player) => player.setReady(true)),
-        () => trucoshi.addPlayer(6, "fran", "fran", "fran").then((player) => player.setReady(true)),
-      ]
+      const promises = ["lucas", "guada", "juli", "day", "gaspar", "fran"].map(
+        (n) => () =>
+          trucoshi
+            .addPlayer({ key: n, name: n, session: n })
+            .then((player) => player.setReady(true))
+      )
 
       promises.splice(0, randomPlayersQuantity[Math.floor(Math.random() * 3)])
 
