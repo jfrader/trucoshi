@@ -1,17 +1,17 @@
 import { IPlayedCard, IPlayer } from "../../types"
 
-export interface ITable {
+export interface ITable<TPlayer extends { key: string } = IPlayer> {
   forehandIdx: number
   cards: Array<Array<IPlayedCard>>
-  players: Array<IPlayer>
-  nextHand(): IPlayer
-  getPlayerByPosition(idx?: number, forehandFirst?: boolean): IPlayer
+  players: Array<TPlayer>
+  nextHand(): TPlayer
+  getPlayerByPosition(idx?: number, forehandFirst?: boolean): TPlayer
   getPlayerPosition(key: string, forehandFirst?: boolean): number
-  getPlayersForehandFirst(forehandIdx?: number): Array<IPlayer>
+  getPlayersForehandFirst(forehandIdx?: number): Array<TPlayer>
 }
 
-export function Table(players: Array<IPlayer>): ITable {
-  const table: ITable = {
+export function Table<TPlayer extends { key: string } = IPlayer>(players: Array<TPlayer>) {
+  const table: ITable<TPlayer> = {
     players,
     cards: [],
     forehandIdx: 0,

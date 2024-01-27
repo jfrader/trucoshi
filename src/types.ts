@@ -1,9 +1,18 @@
-import { User } from "lightning-accounts"
-import { CARDS, IHand } from "./lib"
-import { SocketError } from "./server/classes/SocketError"
-import { Match, MatchPlayer, MatchHand, UserStats } from "@trucoshi/prisma"
+export * from "./events"
 
 export { CARDS, CARDS_HUMAN_READABLE, BURNT_CARD } from "./lib/constants"
+
+import { User } from "lightning-accounts"
+import { CARDS } from "./lib"
+import { Match, MatchPlayer, MatchHand, UserStats } from "@trucoshi/prisma"
+import { IHand } from "./truco"
+
+export enum EMatchState {
+  UNREADY = "UNREADY",
+  READY = "READY",
+  STARTED = "STARTED",
+  FINISHED = "FINISHED",
+}
 
 export interface IMatchDetails extends Match {
   players: Array<Pick<MatchPlayer, "id" | "accountId" | "teamIdx" | "name" | "idx">>
@@ -13,13 +22,6 @@ export interface IAccountDetails {
   stats: UserStats | null
   account: User | null
   matches: Array<Match>
-}
-
-export enum EMatchState {
-  UNREADY = "UNREADY",
-  READY = "READY",
-  STARTED = "STARTED",
-  FINISHED = "FINISHED",
 }
 
 export interface IUserData {
@@ -52,11 +54,13 @@ export interface IMatchPreviousHand {
 }
 
 export interface IPublicMatch {
+  id?: number
   options: ILobbyOptions
   busy: boolean
   state: EMatchState
   winner: ITeam | null
   matchSessionId: string
+  ownerKey: string
   teams: Array<IPublicTeam>
   players: Array<IPublicPlayer>
   me: IPublicPlayer | null
@@ -154,154 +158,11 @@ export type IHandCommands = {
   [key in ECommand]: (hand: IHand, player: IPlayer) => void
 }
 
-export type IEventCallback<T = {}> = (
-  args: {
-    success: boolean
-    error?: SocketError
-  } & T
-) => void
-
-export enum EServerEvent {
-  PONG = "PONG",
-  SET_SESSION = "SET_SESSION",
-  PREVIOUS_HAND = "PREVIOUS_HAND",
-  UPDATE_MATCH = "UPDATE_MATCH",
-  MATCH_DELETED = "MATCH_DELETED",
-  WAITING_PLAY = "WAITING_PLAY",
-  KICK_PLAYER = "PLAYER_KICKED",
-  UPDATE_ACTIVE_MATCHES = "UPDATE_ACTIVE_MATCHES",
-  PLAYER_USED_CARD = "PLAYER_USED_CARD",
-  PLAYER_SAID_COMMAND = "PLAYER_SAID_COMMAND",
-  WAITING_POSSIBLE_SAY = "WAITING_POSSIBLE_SAY",
-  UPDATE_CHAT = "UPDAET_CHAT",
-}
-
-export interface ServerToClientEvents {
-  [EServerEvent.PONG]: (serverTime: number, clientTime: number) => void
-  [EServerEvent.PREVIOUS_HAND]: (value: IMatchPreviousHand, callback: () => void) => void
-  [EServerEvent.UPDATE_CHAT]: (room: IPublicChatRoom, message?: IChatMessage) => void
-  [EServerEvent.UPDATE_ACTIVE_MATCHES]: (activeMatches: IPublicMatchInfo[]) => void
-  [EServerEvent.UPDATE_MATCH]: (match: IPublicMatch, callback?: () => void) => void
-  [EServerEvent.PLAYER_USED_CARD]: (match: IPublicMatch, card: IPlayedCard) => void
-  [EServerEvent.PLAYER_SAID_COMMAND]: (match: IPublicMatch, command: ISaidCommand) => void
-  [EServerEvent.KICK_PLAYER]: (match: IPublicMatch, session: string, reason?: string) => void
-  [EServerEvent.MATCH_DELETED]: (matchSessionId: string) => void
-  [EServerEvent.SET_SESSION]: (
-    userData: IUserData,
-    serverVersion: string,
-    activeMatches: Array<IPublicMatchInfo>
-  ) => void
-  [EServerEvent.WAITING_POSSIBLE_SAY]: (
-    match: IPublicMatch,
-    callback: (data: IWaitingSayData) => void
-  ) => void
-  [EServerEvent.WAITING_PLAY]: (
-    match: IPublicMatch,
-    callback: (data: IWaitingPlayData) => void
-  ) => void
-}
-
-export enum EClientEvent {
-  LOGIN = "LOGIN",
-  LOGOUT = "LOGOUT",
-  LEAVE_MATCH = "LEAVE_MATCH",
-  CREATE_MATCH = "CREATE_MATCH",
-  FETCH_ACCOUNT_DETAILS = "FETCH_ACCOUNT_DETAILS",
-  FETCH_MATCH_DETAILS = "FETCH_MATCH_DETAILS",
-  SET_MATCH_OPTIONS = "SET_MATCH_OPTIONS",
-  LIST_MATCHES = "LIST_MATCHES",
-  JOIN_MATCH = "JOIN_MATCH",
-  START_MATCH = "START_MATCH",
-  SET_PLAYER_READY = "SET_PLAYER_READY",
-  FETCH_MATCH = "FETCH_MATCH",
-  CHAT = "CHAT",
-  PING = "PING",
-  SAY = "SAY",
-}
-
-export interface ClientToServerEvents {
-  [EClientEvent.LOGOUT]: (callback: IEventCallback<{}>) => void
-  [EClientEvent.PING]: (clientTime: number) => void
-  [EClientEvent.CHAT]: (matchId: string, msg: string, callback: () => void) => void
-  [EClientEvent.LEAVE_MATCH]: (matchId: string, callback?: IEventCallback<{}>) => void
-  [EClientEvent.CREATE_MATCH]: (
-    callback: IEventCallback<{ match?: IPublicMatch; activeMatches?: IPublicMatchInfo[] }>
-  ) => void
-  [EClientEvent.SET_MATCH_OPTIONS]: (
-    identityJwt: string | null,
-    matchSessionId: string,
-    options: Partial<ILobbyOptions>,
-    callback: IEventCallback<{ match?: IPublicMatch; activeMatches?: IPublicMatchInfo[] }>
-  ) => void
-  [EClientEvent.SET_PLAYER_READY]: (
-    matchSessionId: string,
-    ready: boolean,
-    callback: IEventCallback<{ match?: IPublicMatch }>
-  ) => void
-  [EClientEvent.JOIN_MATCH]: (
-    matchSessionId: string,
-    teamIdx: 0 | 1 | undefined,
-    callback: IEventCallback<{ match?: IPublicMatch; activeMatches?: IPublicMatchInfo[] }>
-  ) => void
-  [EClientEvent.START_MATCH]: (
-    identityJwt: string | null,
-    matchSessionId: string,
-    callback: IEventCallback<{ matchSessionId?: string }>
-  ) => void
-  [EClientEvent.FETCH_MATCH]: (
-    matchSessionId: string,
-    callback: IEventCallback<{ match: IPublicMatch | null }>
-  ) => void
-  [EClientEvent.FETCH_MATCH_DETAILS]: (
-    matchId: number,
-    callback: IEventCallback<{ match: IMatchDetails | null }>
-  ) => void
-  [EClientEvent.FETCH_ACCOUNT_DETAILS]: (
-    accountId: number,
-    callback: IEventCallback<IAccountDetails>
-  ) => void
-  [EClientEvent.LIST_MATCHES]: (
-    filters: { state?: Array<EMatchState> },
-    callback: IEventCallback<{ matches: Array<IPublicMatchInfo> }>
-  ) => void
-  [EClientEvent.LOGIN]: (
-    user: User,
-    identityToken: string,
-    callback: IEventCallback<{ activeMatches?: IPublicMatchInfo[] }>
-  ) => void
-}
-
 export type IWaitingPlayData = { cardIdx: number; card: ICard }
 export type IWaitingPlayCallback = (data: IWaitingPlayData) => void | null
 
 export type IWaitingSayData = { command: ECommand | number }
 export type IWaitingSayCallback = (data: IWaitingSayData) => void | null
-
-export class TMap<K, V> extends Map<K, V> {
-  find(finder: (value: V) => boolean): V | void {
-    let result: void | V = undefined
-
-    for (let value of this.values()) {
-      const find = finder(value)
-      if (!result && find) {
-        result = value
-      }
-    }
-    return result
-  }
-
-  findAll(finder: (value: V) => boolean) {
-    return Array.from(this.values()).filter(finder)
-  }
-
-  getOrThrow(key?: K) {
-    const result = key && this.get(key)
-    if (!result) {
-      throw new Error(`getOrThrow(${key}) not found`)
-    }
-    return result
-  }
-}
 
 export enum GAME_ERROR {
   UNEXPECTED_ERROR = "UNEXPECTED_ERROR",
@@ -379,8 +240,9 @@ export interface IRandom {
 
 export type IPublicPlayer = Pick<
   IPlayer,
-  | "name"
+  | "idx"
   | "key"
+  | "name"
   | "disabled"
   | "abandoned"
   | "ready"
@@ -415,6 +277,7 @@ export type IPublicTeam = Pick<ITeam, "points" | "id" | "name"> & { players: Arr
 
 export interface IPlayer {
   idx: number
+  secret: string
   teamIdx: number
   accountId: number | undefined
   matchPlayerId: number | undefined

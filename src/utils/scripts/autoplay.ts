@@ -1,5 +1,6 @@
-import { CARDS_HUMAN_READABLE, IRound, Lobby } from "../../lib"
-;(async () => {
+import { CARDS_HUMAN_READABLE } from "../../lib"
+;import { IRound, Lobby } from "../../truco";
+(async () => {
   const trucoshi = Lobby("testmatch1")
 
   const promises = ["lucas", "guada", "juli", "day", "gaspar", "fran"].map((n) =>

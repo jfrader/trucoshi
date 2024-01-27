@@ -1,4 +1,4 @@
-import { ECommand, ETrucoCommand, IPlayer, ITeam } from "../../types"
+import { ECommand, ETrucoCommand, IPlayer, ITeam } from "../types"
 
 interface IPlayerCurrentCommands {
   player: IPlayer

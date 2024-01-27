@@ -1,4 +1,4 @@
-import { IHand, ILobby, Lobby } from "../../lib"
+import { IHand, ILobby, Lobby } from "../../truco"
 import {
   EMatchState,
   ILobbyOptions,
@@ -138,6 +138,7 @@ const getPublicMatch = (
   const publicTeams = teams.map((team) => team.getPublicTeam(userSession))
 
   return {
+    id: table.matchId,
     me,
     winner,
     options: lobby.options,
@@ -148,6 +149,7 @@ const getPublicMatch = (
     lastCommand: gameLoop?.lastCommand,
     lastCard: gameLoop?.lastCard,
     freshHand,
+    ownerKey: players.find((p) => p.session === table.ownerSession)?.key || "",
     rounds,
     busy: table.busy,
   }

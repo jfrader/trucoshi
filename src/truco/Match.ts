@@ -1,9 +1,9 @@
-import logger from "../../utils/logger"
-import { IDeck, IHandPoints, ILobbyOptions, IPlayer, ITeam } from "../../types"
-import { Deck } from "./Deck"
+import logger from "../utils/logger"
+import { IDeck, IHandPoints, ILobbyOptions, IPlayer, ITeam } from "../types"
+
 import { Hand, IHand } from "./Hand"
 import { IPlayInstance } from "./Play"
-import { ITable } from "./Table"
+import { Deck, ITable } from "../lib"
 
 const log = logger.child({ class: "Match" })
 
@@ -138,7 +138,7 @@ export function Match(
   const turnGenerator = matchTurnGeneratorSequence(match)
 
   for (const player of table.players) {
-    match.deck.random.clients[player.idx] = player.key
+    match.deck.random.clients[player.idx] = player.secret
   }
 
   return match

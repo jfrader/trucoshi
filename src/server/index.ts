@@ -1,8 +1,6 @@
 import logger from "../utils/logger"
 import { Trucoshi } from "./classes"
 import { readFileSync } from "fs"
-import { createAdapter } from "@socket.io/redis-adapter"
-import { createClient } from "redis"
 
 export * from "./classes"
 export * from "./constants"

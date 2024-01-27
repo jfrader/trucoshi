@@ -1,14 +1,11 @@
 import { randomUUID } from "crypto"
 import { createServer, Server as HttpServer } from "http"
 import { Server, Socket } from "socket.io"
-import { IHand, IPlayInstance } from "../../lib"
 import {
-  ClientToServerEvents,
   EAnswerCommand,
   ECommand,
   EHandState,
   ESayCommand,
-  EServerEvent,
   GAME_ERROR,
   ICard,
   ILobbyOptions,
@@ -20,8 +17,6 @@ import {
   ITeam,
   IUserData,
   IWaitingPlayData,
-  ServerToClientEvents,
-  TMap,
 } from "../../types"
 import {
   MATCH_FINISHED_CLEANUP_TIMEOUT,
@@ -40,6 +35,9 @@ import { accountsApi, validateJwt } from "../../accounts/client"
 import { createClient } from "redis"
 import { EMatchState, Match, MatchPlayer, Prisma, PrismaClient, UserStats } from "@prisma/client"
 import { SocketError } from "./SocketError"
+import { TMap } from "./TMap"
+import { ClientToServerEvents, EServerEvent, ServerToClientEvents } from "../../events"
+import { IHand, IPlayInstance } from "../../truco"
 
 const log = logger.child({ class: "Trucoshi" })
 
@@ -105,7 +103,7 @@ export interface ITrucoshi {
   login(input: { socket: TrucoshiSocket; account: User; identityJwt: string }): Promise<void>
   logout(socket: TrucoshiSocket): void
   emitSocketSession(socket: TrucoshiSocket): Promise<void>
-  leaveMatch(matchId: string, socket: TrucoshiSocket): Promise<void>
+  leaveMatch(matchId: string, socket: TrucoshiSocket, force?: boolean): Promise<void>
   emitWaitingPossibleSay(
     play: IPlayInstance,
     table: IMatchTable,
@@ -152,6 +150,11 @@ export interface ITrucoshi {
   joinMatch(table: IMatchTable, userSession: IUserSession, teamIdx?: 0 | 1): Promise<IPlayer>
   startMatch(input: {
     identityJwt: string | null
+    matchSessionId: string
+    userSession: IUserSession
+  }): Promise<void>
+  kickPlayer(input: {
+    key: string
     matchSessionId: string
     userSession: IUserSession
   }): Promise<void>
@@ -1056,6 +1059,27 @@ export const Trucoshi = ({
 
       return table
     },
+    async kickPlayer({ matchSessionId, userSession, key }) {
+      const table = server.tables.getOrThrow(matchSessionId)
+      const player = table.isSessionPlaying(userSession.session)
+
+      if (table.state() === EMatchState.STARTED || table.state() === EMatchState.FINISHED) {
+        throw new SocketError("FORBIDDEN")
+      }
+
+      if (table.busy || !player || !player.isOwner || key === player.key) {
+        throw new SocketError("FORBIDDEN")
+      }
+
+      const session = table.lobby.players.find((p) => p.key === key)?.session
+
+      if (!session) {
+        throw new SocketError("NOT_FOUND")
+      }
+
+      await table.lobby.removePlayer(session)
+      server.emitMatchUpdate(table).catch(log.error)
+    },
     async setMatchPlayerReady({ matchSessionId, userSession, ready }) {
       const table = server.tables.getOrThrow(matchSessionId)
       const player = table.isSessionPlaying(userSession.session)
@@ -1144,7 +1168,7 @@ export const Trucoshi = ({
 
       player.setReady(ready)
 
-      server.emitMatchUpdate(table)
+      server.emitMatchUpdate(table).catch(log.error)
 
       return table
     },
@@ -1550,7 +1574,7 @@ export const Trucoshi = ({
         log.fatal(e, "Failed to return bet sats to player!")
       }
     },
-    async leaveMatch(matchId, socket) {
+    async leaveMatch(matchId, socket, force = false) {
       try {
         const userSession = server.sessions.getOrThrow(socket.data.user?.session)
 
@@ -1572,33 +1596,63 @@ export const Trucoshi = ({
           return server.removePlayerAndCleanup(table, player)
         }
 
-        if (player && table.state() !== EMatchState.STARTED) {
-          table.playerDisconnected(player)
+        const notStarted = table.state() !== EMatchState.STARTED
 
-          log.debug(
-            { player: player.getPublicPlayer(), matchSessionId: table.matchSessionId },
-            "Socket left a match and it didn't start yet, checking..."
-          )
+        if (player) {
+          if (notStarted) {
+            table.playerDisconnected(player)
 
-          if (server.store && userSession.account && table.lobby.options.satsPerPlayer > 0) {
-            const dbPlayer = await server.store.matchPlayer.findUniqueOrThrow({
-              where: { id: player.matchPlayerId },
-            })
-            await server.deletePlayerAndReturnBet(table, dbPlayer)
-            return server.removePlayerAndCleanup(table, player)
+            log.debug(
+              { player: player.getPublicPlayer(), matchSessionId: table.matchSessionId },
+              "Socket left a match and it didn't start yet, checking..."
+            )
+
+            if (server.store && userSession.account && table.lobby.options.satsPerPlayer > 0) {
+              const dbPlayer = await server.store.matchPlayer.findUniqueOrThrow({
+                where: { id: player.matchPlayerId },
+              })
+              await server.deletePlayerAndReturnBet(table, dbPlayer)
+              return server.removePlayerAndCleanup(table, player)
+            }
+
+            userSession
+              .waitReconnection(table.matchSessionId, PLAYER_LOBBY_TIMEOUT)
+              .then(() => {
+                table.playerReconnected(player)
+              })
+              .catch(() => {
+                table.playerAbandoned(player)
+                return server.removePlayerAndCleanup(table, player)
+              })
+              .catch((e) => log.error(e, "Failed to remove player and cleanup"))
+              .finally(() => server.emitMatchUpdate(table).catch(log.error))
+            return
           }
 
-          userSession
-            .waitReconnection(table.matchSessionId, PLAYER_LOBBY_TIMEOUT)
-            .then(() => {
-              table.playerReconnected(player)
+          if (force) {
+            log.debug(
+              { player: player.getPublicPlayer(), matchSessionId: table.matchSessionId },
+              "Socket left a match forcibly while playing, abandoning..."
+            )
+
+            const turn = server.turns.getOrThrow(table.matchSessionId)
+
+            await server.sayCommand({
+              table,
+              command: ESayCommand.MAZO,
+              player,
+              play: turn.play,
             })
-            .catch(() => {
-              table.playerAbandoned(player)
-              return server.removePlayerAndCleanup(table, player)
-            })
-            .catch((e) => log.error(e, "Failed to remove player and cleanup"))
-            .finally(() => server.emitMatchUpdate(table).catch(log.error))
+
+            server.chat.rooms
+              .getOrThrow(table.matchSessionId)
+              .system(`${player.name} ha abandonado la partida`)
+
+            table.playerDisconnected(player)
+            table.playerAbandoned(player)
+            turn.resolve()
+            server.emitMatchUpdate(table).catch(log.error)
+          }
         }
       } catch (e) {
         log.error(e, "Failed to leave match!")
@@ -1610,7 +1664,7 @@ export const Trucoshi = ({
           { table: table.getPublicMatchInfo(), player: player.getPublicPlayer() },
           "Removing player from match"
         )
-        const lobby = table.lobby.removePlayer(player.session as string)
+        const lobby = await table.lobby.removePlayer(player.session as string)
         if (lobby.isEmpty()) {
           await server.cleanupMatchTable(table)
         }

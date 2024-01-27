@@ -1,3 +1,5 @@
+import { ITable } from "../lib"
+import { getMaxNumberIndex } from "../lib/utils"
 import {
   EAnswerCommand,
   ECommand,
@@ -8,10 +10,8 @@ import {
   ILobbyOptions,
   IPlayer,
   ITeam,
-} from "../../types"
-import logger from "../../utils/logger"
-import { getMaxNumberIndex } from "../utils"
-import { ITable } from "./Table"
+} from "../types"
+import logger from "../utils/logger"
 
 const log = logger.child({ class: "Envido" })
 

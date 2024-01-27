@@ -1,5 +1,5 @@
+import { IRound, IRoundPoints } from "../truco"
 import { ICard } from "../types"
-import { IRound, IRoundPoints } from "./classes"
 import { CARDS } from "./constants"
 
 export function getMaxNumberIndex<T = number>(array: Array<T>) {
@@ -10,24 +10,6 @@ export function getMaxNumberIndex<T = number>(array: Array<T>) {
 
 export function getCardValue(card: ICard) {
   return CARDS[card] !== undefined ? CARDS[card] : -2
-}
-
-const defaultGetRandom = (max: number) => Math.floor(Math.random() * max)
-
-export function shuffleArray<T = unknown>(
-  array: Array<T>,
-  getRandom: (max: number) => number = defaultGetRandom
-) {
-  let currentIndex = array.length,
-    randomIndex
-
-  while (currentIndex != 0) {
-    randomIndex = getRandom(currentIndex)
-    currentIndex--
-    ;[array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]]
-  }
-
-  return array as Array<T>
 }
 
 export function checkHandWinner(rounds: Array<IRound>, forehandTeamIdx: 0 | 1): null | 0 | 1 {

@@ -1,13 +1,12 @@
-import logger from "../../utils/logger"
+import logger from "../utils/logger"
 import {
   ECommand,
-  EEnvidoAnswerCommand,
   EHandState,
   GAME_ERROR,
   ICard,
   IPlayer,
   ITeam,
-} from "../../types"
+} from "../types"
 import { IEnvido } from "./Envido"
 import { IHand } from "./Hand"
 import { IRound } from "./Round"

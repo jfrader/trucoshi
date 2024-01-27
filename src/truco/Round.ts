@@ -1,7 +1,7 @@
-import logger from "../../utils/logger"
-import { ICard, IPlayedCard, IPlayer } from "../../types"
-import { getCardValue } from "../utils"
-import { PlayedCard } from "./Deck"
+import logger from "../utils/logger"
+import { ICard, IPlayedCard, IPlayer } from "../types"
+import { getCardValue } from "../lib/utils"
+import { PlayedCard } from "../lib"
 
 export interface IRound {
   tie: boolean

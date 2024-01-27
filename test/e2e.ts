@@ -2,22 +2,19 @@ import { io as Client, Socket } from "socket.io-client"
 import { assert, expect } from "chai"
 import { trucoshi } from "../src/server/middlewares/trucoshi"
 import {
-  ClientToServerEvents,
   EAnswerCommand,
-  EClientEvent,
   ECommand,
   EEnvidoAnswerCommand,
-  EMatchState,
-  EServerEvent,
   ICard,
   IPublicMatch,
   IPublicPlayer,
-  ServerToClientEvents,
 } from "../src/types"
 import { ITrucoshi, Trucoshi, TrucoshiSocket } from "../src/server/classes"
 import { session } from "../src/server"
 import logger from "../src/utils/logger"
 import { Api } from "lightning-accounts"
+import { ClientToServerEvents, EClientEvent, EServerEvent, ServerToClientEvents } from "../src/events"
+import { EMatchState } from "@prisma/client"
 
 describe("E2E", () => {
   let serverSocket: TrucoshiSocket

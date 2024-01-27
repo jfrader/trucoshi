@@ -1,5 +1,5 @@
-import { IPlayer } from "../../types"
-import { BURNT_CARD } from "../constants"
+import { randomUUID } from "crypto"
+import { BURNT_CARD, IPlayer } from "../types"
 
 export function Player({
   accountId,
@@ -17,6 +17,7 @@ export function Player({
   const player: IPlayer = {
     idx: -1,
     key,
+    secret: randomUUID(),
     accountId,
     matchPlayerId: undefined,
     payRequestId: undefined,
@@ -129,6 +130,7 @@ const getPublicPlayer = (
 ): ReturnType<IPlayer["getPublicPlayer"]> => {
   const {
     name,
+    idx,
     key,
     abandoned,
     disabled,
@@ -154,6 +156,7 @@ const getPublicPlayer = (
 
   return {
     name,
+    idx,
     key,
     abandoned,
     teamIdx,

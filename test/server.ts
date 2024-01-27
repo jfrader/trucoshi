@@ -2,16 +2,13 @@ import { io as Client, Socket } from "socket.io-client"
 import { assert, expect } from "chai"
 import { trucoshi } from "../src/server/middlewares/trucoshi"
 import {
-  ClientToServerEvents,
-  EClientEvent,
-  EServerEvent,
   ICard,
   IPublicMatch,
-  ServerToClientEvents,
 } from "../src/types"
 import { ITrucoshi, Trucoshi, TrucoshiSocket } from "../src/server/classes"
 import { session } from "../src/server"
 import { playRandomMatch } from "./serverHelpers"
+import { ClientToServerEvents, EClientEvent, EServerEvent, ServerToClientEvents } from "../src/events"
 
 describe("Socket Server", () => {
   let serverSocket: TrucoshiSocket

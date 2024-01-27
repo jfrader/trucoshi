@@ -1,18 +1,15 @@
 import { expect } from "chai"
 import {
-  ClientToServerEvents,
   EAnswerCommand,
-  EClientEvent,
   ECommand,
   EEnvidoAnswerCommand,
-  EMatchState,
-  EServerEvent,
   ICard,
   IPublicMatch,
-  ServerToClientEvents,
 } from "../src/types"
 import { Socket } from "socket.io-client"
 import logger from "../src/utils/logger"
+import { ClientToServerEvents, EClientEvent, EServerEvent, ServerToClientEvents } from "../src/events"
+import { EMatchState } from "@prisma/client"
 
 export const playRandomMatch = async (
   clients: Socket<ServerToClientEvents, ClientToServerEvents>[]

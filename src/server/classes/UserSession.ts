@@ -6,7 +6,7 @@ import { IUserData } from "../../types"
 const log = logger.child({ class: "UserSession" })
 
 export interface IUserSession extends IUserData {
-  _name: string
+  name: string
   online: boolean
   ownedMatches: Set<string>
   reconnectTimeouts: Map<string, NodeJS.Timeout | null>
@@ -31,7 +31,7 @@ export interface ISocketMatchState {
 
 export function UserSession(key: string, username: string, session: string) {
   const userSession: IUserSession = {
-    _name: username,
+    name: username,
     key,
     account: null,
     session,
@@ -39,12 +39,6 @@ export function UserSession(key: string, username: string, session: string) {
     ownedMatches: new Set(),
     reconnectTimeouts: new Map(),
     reconnectPromises: new Map(),
-    get name() {
-      return userSession.account ? userSession.account.name : userSession._name
-    },
-    set name(value) {
-      userSession._name = value
-    },
     getPublicInfo() {
       const { session: _session, ...rest } = userSession
       return rest
@@ -92,9 +86,11 @@ export function UserSession(key: string, username: string, session: string) {
       userSession.connect()
     },
     connect() {
+      logger.info(userSession.getUserData(), "New connection session")
       userSession.online = true
     },
     disconnect() {
+      logger.info(userSession.getUserData(), "Session disconnected")
       userSession.online = false
     },
     setName(id) {

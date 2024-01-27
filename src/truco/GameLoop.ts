@@ -1,5 +1,5 @@
-import logger from "../../utils/logger"
-import { ECommand, EHandState, ICard, IPlayer, ITeam, ITeamPoints } from "../../types"
+import logger from "../utils/logger"
+import { ECommand, EHandState, ICard, IPlayer, ITeam, ITeamPoints } from "../types"
 import { IHand } from "./Hand"
 import { IMatch } from "./Match"
 import { IPlayInstance } from "./Play"

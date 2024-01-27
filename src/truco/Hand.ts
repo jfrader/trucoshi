@@ -1,4 +1,4 @@
-import logger from "../../utils/logger"
+import logger from "../utils/logger"
 import {
   EAnswerCommand,
   ECommand,
@@ -13,14 +13,14 @@ import {
   IHandPoints,
   IHandRoundLog,
   IPlayer,
-} from "../../types"
-import { checkHandWinner } from "../utils"
-import { PlayedCard } from "./Deck"
+} from "../types"
 import { Envido, IEnvido } from "./Envido"
 import { IMatch } from "./Match"
 import { IPlayInstance, PlayInstance } from "./Play"
 import { IRound, Round } from "./Round"
 import { ITruco, Truco } from "./Truco"
+import { PlayedCard, dealCards } from "../lib"
+import { checkHandWinner } from "../lib/utils"
 
 const log = logger.child({ class: "Hand" })
 
@@ -165,17 +165,7 @@ export function Hand(match: IMatch, idx: number) {
   match.deck.random.next()
   match.deck.shuffle(match.table.getPlayerByPosition(0, true).idx)
 
-  const playerHands: any[] = []
-
-  for (let i = 0; i < 3; i++) {
-    for (const player of match.table.getPlayersForehandFirst()) {
-      playerHands[player.idx] = [...(playerHands[player.idx] || []), match.deck.takeCard()]
-    }
-  }
-
-  for (const [key, player] of match.table.players.entries()) {
-    player.setHand(playerHands[key])
-  }
+  dealCards(match.table, match.deck)
 
   for (const team of match.teams) {
     for (const player of team.players) {
@@ -183,15 +173,16 @@ export function Hand(match: IMatch, idx: number) {
         continue
       }
       player.enable()
-      player.setHand(match.deck.takeThree())
       player.resetCommands()
     }
   }
 
+  const { secret, clients: clientSecrets } = match.deck.random.reveal()
+
   const hand: IHand = {
     idx,
-    secret: match.deck.random.secret,
-    clientSecrets: [...match.deck.random.clients],
+    secret,
+    clientSecrets,
     started: false,
     trucoWinnerIdx: undefined,
     envidoWinnerIdx: undefined,

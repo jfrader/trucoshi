@@ -1,12 +1,11 @@
 import { ExtendedError } from "socket.io/dist/namespace"
 import { ITrucoshi, TrucoshiSocket } from "../classes"
 import logger from "../../utils/logger"
-import { TMap } from "../../types"
+import { TMap } from "../classes/TMap"
 
 export const session = (server: ITrucoshi) => {
   server.io.on("connection", (socket) => {
     logger.debug("New socket connection %s", socket.id)
-    logger.info(socket.data.user, "New connection session")
     if (socket.data.user) {
       socket.join(socket.data.user.session)
       server.emitSocketSession(socket)

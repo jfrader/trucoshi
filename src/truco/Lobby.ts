@@ -1,18 +1,13 @@
-import {
-  PLAYER_ABANDON_TIMEOUT,
-  PLAYER_TURN_TIMEOUT,
-  PREVIOUS_HAND_ACK_TIMEOUT,
-  TEAM_SIZE_VALUES,
-} from "../constants"
-import { GAME_ERROR, ILobbyOptions, IPlayer, ITeam } from "../../types"
+
+import { GAME_ERROR, ILobbyOptions, IPlayer, ITeam } from "../types"
+import { ITable, PLAYER_ABANDON_TIMEOUT, PLAYER_TURN_TIMEOUT, PREVIOUS_HAND_ACK_TIMEOUT, TEAM_SIZE_VALUES, Table } from "../lib"
+import { IQueue, Queue } from "../lib/classes/Queue"
+import { SocketError } from "../server"
+import logger from "../utils/logger"
 import { GameLoop, IGameLoop } from "./GameLoop"
 import { Match } from "./Match"
 import { Player } from "./Player"
-import { ITable, Table } from "./Table"
 import { Team } from "./Team"
-import { IQueue, Queue } from "./Queue"
-import logger from "../../utils/logger"
-import { SocketError } from "../../server"
 
 const log = logger.child({ class: "Lobby" })
 
@@ -35,7 +30,8 @@ export interface IPrivateLobby {
   get players(): Array<IPlayer>
   teams: Array<ITeam>
   table: ITable | null
-  queue: IQueue
+  addQueue: IQueue
+  removeQueue: IQueue
   full: boolean
   ready: boolean
   started: boolean
@@ -47,7 +43,7 @@ export interface IPrivateLobby {
     teamIdx?: 0 | 1
     isOwner?: boolean
   }): Promise<IPlayer>
-  removePlayer(session: string): ILobby
+  removePlayer(session: string): Promise<ILobby>
   calculateReady(): boolean
   calculateFull(): boolean
   setOptions(options: Partial<ILobbyOptions>): void
@@ -83,7 +79,8 @@ export function Lobby(matchId: string, options: Partial<ILobbyOptions> = {}): IL
       return lobby._players.filter((player) => Boolean(player && player.name)) as IPlayer[]
     },
     teams: [],
-    queue: Queue(),
+    addQueue: Queue(),
+    removeQueue: Queue(),
     table: null,
     full: false,
     ready: false,
@@ -114,9 +111,9 @@ export function Lobby(matchId: string, options: Partial<ILobbyOptions> = {}): IL
     },
     async addPlayer({ accountId, key, name, session, teamIdx, isOwner }) {
       let player: IPlayer | null = null
-      await lobby.queue.queue(() => {
+      await lobby.addQueue.queue(async () => {
         try {
-          player = addPlayerToLobby({
+          player = await addPlayerToLobby({
             accountId,
             lobby,
             name,
@@ -136,13 +133,15 @@ export function Lobby(matchId: string, options: Partial<ILobbyOptions> = {}): IL
       }
       throw new Error("Couldn't add player to match")
     },
-    removePlayer(session) {
-      const idx = lobby._players.findIndex((player) => player && player.session === session)
-      if (idx !== -1) {
-        lobby._players[idx] = {}
-        lobby.calculateFull()
-        lobby.calculateReady()
-      }
+    async removePlayer(session) {
+      await lobby.removeQueue.queue(() => {
+        const idx = lobby._players.findIndex((player) => player && player.session === session)
+        if (idx !== -1) {
+          lobby._players[idx] = {}
+          lobby.calculateFull()
+          lobby.calculateReady()
+        }
+      })
       return lobby
     },
     startMatch() {
@@ -215,7 +214,7 @@ const calculateLobbyReadyness = (lobby: IPrivateLobby) => {
   return lobby.ready
 }
 
-const addPlayerToLobby = ({
+const addPlayerToLobby = async ({
   accountId,
   lobby,
   name: name,
@@ -249,7 +248,7 @@ const addPlayerToLobby = ({
       playerParams,
       "Adding player to match: Player already exists on a different team, removing player"
     )
-    lobby.removePlayer(exists.session as string)
+    await lobby.removePlayer(exists.session as string)
   }
 
   if (lobby.started) {

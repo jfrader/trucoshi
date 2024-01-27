@@ -1,7 +1,9 @@
 import { randomUUID } from "crypto"
-import { EClientEvent, EServerEvent, IChatMessage, IChatRoom, TMap } from "../../types"
+import { IChatMessage, IChatRoom } from "../../types"
 import { TrucoshiServer } from "./Trucoshi"
 import logger from "../../utils/logger"
+import { TMap } from "./TMap"
+import { EClientEvent, EServerEvent } from "../../events"
 
 const log = logger.child({ class: "Chat" })
 
@@ -123,15 +125,13 @@ export const Chat = (io: TrucoshiServer) => {
       return
     }
 
-    const { name, key, account } = userSocket.data.user
-
-    const id = account?.name || name
+    const { name, key } = userSocket.data.user
 
     const chatroom = chat.rooms.get(room)
 
     if (chatroom) {
-      log.info(`${id} entro a la sala ${room}`)
-      chatroom.system(`${id} entro a la sala`)
+      log.info(`${name} entro a la sala ${room}`)
+      chatroom.system(`${name} entro a la sala`)
     }
 
     userSocket.on(EClientEvent.CHAT, (matchId, message, callback) => {
@@ -141,7 +141,7 @@ export const Chat = (io: TrucoshiServer) => {
       const chatroom = chat.rooms.get(matchId)
 
       if (chatroom) {
-        chatroom.send({ name: id, key }, message)
+        chatroom.send({ name, key }, message)
       }
       callback()
     })
@@ -158,8 +158,8 @@ export const Chat = (io: TrucoshiServer) => {
       return
     }
 
-    const { name: id } = userSocket.data.user
-    chat.rooms.get(room)?.system(`${id} salio de la sala`)
+    const { name } = userSocket.data.user
+    chat.rooms.get(room)?.system(`${name} salio de la sala`)
   })
 
   return chat

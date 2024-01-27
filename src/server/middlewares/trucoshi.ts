@@ -1,8 +1,8 @@
 import { ExtendedError } from "socket.io/dist/namespace"
 import { ITrucoshi, SocketError, TrucoshiSocket, isSocketError } from "../classes"
-import { EClientEvent, EServerEvent } from "../../types"
 import logger from "../../utils/logger"
 import { getWordsId } from "../../utils/string/getRandomWord"
+import { EClientEvent, EServerEvent } from "../../events"
 
 const log = logger.child({ middleware: "trucoshi" })
 
@@ -166,7 +166,7 @@ export const trucoshi =
     socket.on(EClientEvent.LEAVE_MATCH, async (matchId, callback) => {
       log.trace({ matchId, socketId: socket.id }, "Client emitted LEAVE_MATCH event")
       try {
-        await server.leaveMatch(matchId, socket)
+        await server.leaveMatch(matchId, socket, true)
         callback?.({ success: true })
       } catch (e) {
         log.error(e, "Client event LEAVE_MATCH error")
@@ -224,6 +224,19 @@ export const trucoshi =
       const match = server.emitSocketMatch(socket, matchSessionId)
 
       callback({ success: Boolean(match), match })
+    })
+
+    /**
+     * Fetch match with session
+     */
+    socket.on(EClientEvent.KICK_PLAYER, async (matchSessionId, key, callback) => {
+      try {
+        const userSession = server.sessions.getOrThrow(socket.data.user?.session)
+        await server.kickPlayer({ userSession, matchSessionId, key })
+        callback({ success: true })
+      } catch (e) {
+        callback({ error: isSocketError(e), success: false })
+      }
     })
 
     /**
