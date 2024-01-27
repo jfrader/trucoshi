@@ -1,6 +1,6 @@
 {
   "name": "trucoshi",
-  "version": "4.0.1",
+  "version": "4.0.2",
   "description": "Lightning Truco Server",
   "main": "dist/types.js",
   "license": "GPL-3.0",
@@ -53,6 +53,8 @@
     "dist/lib/constants.d.ts",
     "dist/types.js",
     "dist/types.d.ts",
+    "dist/events.js",
+    "dist/events.d.ts",
     "dist/server/constants.js",
     "dist/server/constants.d.ts",
     "prisma/client/index.js",
