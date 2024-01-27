@@ -1,6 +1,6 @@
 {
   "name": "trucoshi",
-  "version": "4.0.3",
+  "version": "4.0.4",
   "description": "Lightning Truco Server",
   "main": "dist/types.js",
   "license": "GPL-3.0",
@@ -47,10 +47,7 @@
     "ts-mocha": "^10.0.0"
   },
   "files": [
-    "dist/lib/index.js",
-    "dist/lib/index.d.ts",
-    "dist/lib/constants.js",
-    "dist/lib/constants.d.ts",
+    "dist/lib/*",
     "dist/types.js",
     "dist/types.d.ts",
     "dist/events.js",
