@@ -38,17 +38,16 @@ describe("Trucoshi Lib", () => {
 
       const randomPlayersQuantity = [0, 2, 4]
 
-      const promises = ["lucas", "guada", "juli", "day", "gaspar", "fran"].map(
-        (n, i) => () =>
-          trucoshi.addPlayer({ key: n, name: n, session: n }).then((player) => {
-            player.setReady(true)
-            player.setIdx(i)
-          })
+      const promises = ["lucas", "guada", "juli", "day", "gaspar", "fran"].map((n, i) =>
+        trucoshi.addPlayer({ key: n, name: n, session: n }).then((player) => {
+          player.setReady(true)
+          player.setIdx(i)
+        })
       )
 
       promises.splice(0, randomPlayersQuantity[Math.floor(Math.random() * 3)])
 
-      Promise.allSettled(promises.map((p) => p())).then(() => {
+      Promise.allSettled(promises).then(() => {
         trucoshi
           .startMatch(15)
           .onEnvido(async (play, pointsRound) => {
