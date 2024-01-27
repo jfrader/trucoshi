@@ -6,8 +6,11 @@ describe("Trucoshi Lib", () => {
   it("should play an entire match of 6", (done) => {
     const trucoshi = Lobby("testmatch1")
 
-    const promises = ["lucas", "guada", "juli", "day", "gaspar", "fran"].map((n) =>
-      trucoshi.addPlayer({ key: n, name: n, session: n }).then((player) => player.setReady(true))
+    const promises = ["lucas", "guada", "juli", "day", "gaspar", "fran"].map((n, i) =>
+      trucoshi.addPlayer({ key: n, name: n, session: n }).then((player) => {
+        player.setReady(true)
+        player.setIdx(i)
+      })
     )
 
     Promise.allSettled(promises).then(() => {
@@ -35,11 +38,11 @@ describe("Trucoshi Lib", () => {
 
       const randomPlayersQuantity = [0, 2, 4]
 
-      const promises = ["lucas", "guada", "juli", "day", "gaspar", "fran"].map(
-        (n) => () =>
-          trucoshi
-            .addPlayer({ key: n, name: n, session: n })
-            .then((player) => player.setReady(true))
+      const promises = ["lucas", "guada", "juli", "day", "gaspar", "fran"].map((n, i) =>
+        trucoshi.addPlayer({ key: n, name: n, session: n }).then((player) => {
+          player.setReady(true)
+          player.setIdx(i)
+        })
       )
 
       promises.splice(0, randomPlayersQuantity[Math.floor(Math.random() * 3)])

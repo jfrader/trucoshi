@@ -536,7 +536,7 @@ export const Trucoshi = ({
               }
             )
           })
-          .catch(console.error)
+          .catch(log.error)
       })
     },
     async emitWaitingForPlay(play, table, freshHand) {
@@ -595,7 +595,7 @@ export const Trucoshi = ({
               )
             }
           })
-          .catch(console.error)
+          .catch(log.error)
       })
     },
     sayCommand({ table, play, player, command }) {
@@ -663,7 +663,7 @@ export const Trucoshi = ({
             }
             playerSocket.emit(EServerEvent.PREVIOUS_HAND, previousHand, resolvePlayer)
             setTimeout(rejectPlayer, table.lobby.options.handAckTime + PLAYER_TIMEOUT_GRACE)
-          }).catch(console.error)
+          }).catch(log.error)
         )
       })
 
@@ -1293,6 +1293,10 @@ export const Trucoshi = ({
             players: true,
           },
         })
+      } else {
+        for (const [idx, player] of table.lobby.players.entries()) {
+          player.setIdx(idx)
+        }
       }
 
       table.lobby
@@ -1439,7 +1443,7 @@ export const Trucoshi = ({
             )
           }
         })
-        .catch(console.error)
+        .catch(log.error)
     },
     emitSocketMatch(socket, matchId) {
       if (!matchId) {
