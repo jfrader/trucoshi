@@ -903,6 +903,7 @@ export const Trucoshi = ({
         key: userSession.key,
         name: userSession.name,
         session: userSession.session,
+        avatarUrl: userSession.account?.avatarUrl,
         isOwner: true,
         teamIdx: 0,
       })
@@ -1202,6 +1203,7 @@ export const Trucoshi = ({
 
       const player = await table.lobby.addPlayer({
         accountId: userSession.account?.id,
+        avatarUrl: userSession.account?.avatarUrl,
         key: userSession.key,
         name: userSession.name,
         session: userSession.session,

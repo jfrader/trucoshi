@@ -243,6 +243,8 @@ export type IPublicPlayer = Pick<
   | "idx"
   | "key"
   | "name"
+  | "accountId"
+  | "avatarUrl"
   | "disabled"
   | "abandoned"
   | "ready"
@@ -281,6 +283,7 @@ export interface IPlayer {
   teamIdx: number
   accountId: number | undefined
   matchPlayerId: number | undefined
+  avatarUrl: string | undefined
   name: string
   key: string
   session: string

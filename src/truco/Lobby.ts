@@ -1,6 +1,12 @@
-
 import { GAME_ERROR, ILobbyOptions, IPlayer, ITeam } from "../types"
-import { ITable, PLAYER_ABANDON_TIMEOUT, PLAYER_TURN_TIMEOUT, PREVIOUS_HAND_ACK_TIMEOUT, TEAM_SIZE_VALUES, Table } from "../lib"
+import {
+  ITable,
+  PLAYER_ABANDON_TIMEOUT,
+  PLAYER_TURN_TIMEOUT,
+  PREVIOUS_HAND_ACK_TIMEOUT,
+  TEAM_SIZE_VALUES,
+  Table,
+} from "../lib"
 import { IQueue, Queue } from "../lib/classes/Queue"
 import { SocketError } from "../server"
 import logger from "../utils/logger"
@@ -37,6 +43,7 @@ export interface IPrivateLobby {
   started: boolean
   addPlayer(args: {
     accountId?: number | undefined
+    avatarUrl?: string | undefined | null
     key: string
     name: string
     session: string
@@ -109,7 +116,7 @@ export function Lobby(matchId: string, options: Partial<ILobbyOptions> = {}): IL
     calculateFull() {
       return calculateLobbyFullness(lobby)
     },
-    async addPlayer({ accountId, key, name, session, teamIdx, isOwner }) {
+    async addPlayer({ accountId, key, name, session, teamIdx, isOwner, avatarUrl }) {
       let player: IPlayer | null = null
       await lobby.addQueue.queue(async () => {
         try {
@@ -120,6 +127,7 @@ export function Lobby(matchId: string, options: Partial<ILobbyOptions> = {}): IL
             session,
             key,
             isOwner,
+            avatarUrl: avatarUrl || undefined,
             teamIdx,
             teamSize: lobby.options.maxPlayers / 2,
           })
@@ -216,6 +224,7 @@ const calculateLobbyReadyness = (lobby: IPrivateLobby) => {
 
 const addPlayerToLobby = async ({
   accountId,
+  avatarUrl,
   lobby,
   name: name,
   session,
@@ -225,6 +234,7 @@ const addPlayerToLobby = async ({
   teamSize,
 }: {
   accountId: number | undefined
+  avatarUrl: string | undefined
   lobby: IPrivateLobby
   name: string
   session: string
@@ -233,7 +243,7 @@ const addPlayerToLobby = async ({
   isOwner?: boolean
   teamSize: number
 }) => {
-  const playerParams = { accountId, name, key, teamIdx, isOwner }
+  const playerParams = { accountId, avatarUrl, name, key, teamIdx, isOwner }
   log.trace(playerParams, "Adding player to match started")
   const exists = lobby.players.find((player) => player.session === session)
   const hasMovedSlots = Boolean(exists)
@@ -273,6 +283,7 @@ const addPlayerToLobby = async ({
     key,
     name,
     isOwner,
+    avatarUrl,
     teamIdx: teamIdx !== undefined ? teamIdx : Number(!lobby.lastTeamIdx),
   })
 

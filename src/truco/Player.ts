@@ -6,9 +6,11 @@ export function Player({
   key,
   name,
   teamIdx,
+  avatarUrl,
   isOwner = false,
 }: {
   accountId: number | undefined
+  avatarUrl: string | undefined
   key: string
   name: string
   teamIdx: number
@@ -21,6 +23,7 @@ export function Player({
     accountId,
     matchPlayerId: undefined,
     payRequestId: undefined,
+    avatarUrl,
     name,
     session: "",
     teamIdx,
@@ -131,7 +134,9 @@ const getPublicPlayer = (
   const {
     name,
     idx,
+    accountId,
     key,
+    avatarUrl,
     abandoned,
     disabled,
     ready,
@@ -157,7 +162,9 @@ const getPublicPlayer = (
   return {
     name,
     idx,
+    accountId,
     key,
+    avatarUrl,
     abandoned,
     teamIdx,
     disabled,

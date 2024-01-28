@@ -1,12 +1,5 @@
 import logger from "../utils/logger"
-import {
-  ECommand,
-  EHandState,
-  GAME_ERROR,
-  ICard,
-  IPlayer,
-  ITeam,
-} from "../types"
+import { ECommand, EHandState, ESayCommand, GAME_ERROR, ICard, IPlayer, ITeam } from "../types"
 import { IEnvido } from "./Envido"
 import { IHand } from "./Hand"
 import { IRound } from "./Round"
@@ -116,7 +109,7 @@ export function PlayInstance(hand: IHand, prevHand: IHand | null, teams: [ITeam,
           return result
         }
 
-        if (!player.commands.includes(command as ECommand)) {
+        if (!player.commands.includes(command as ECommand) && command !== ESayCommand.MAZO) {
           throw new Error(GAME_ERROR.INVALID_COMAND)
         }
         const result = play(hand.say, command, player)
