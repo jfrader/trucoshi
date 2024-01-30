@@ -115,6 +115,7 @@ export enum ESayCommand {
 export enum EFlorCommand {
   FLOR = "FLOR",
   CONTRAFLOR = "CONTRAFLOR",
+  ACHICO = "ACHICO",
 }
 
 export enum ETrucoCommand {
