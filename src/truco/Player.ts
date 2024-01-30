@@ -211,10 +211,10 @@ const calculateEnvidoPointsArray = (player: IPlayer) => {
   })
 
   if (player.envido.length) {
-    return player.envido
+    return [Math.max(...player.envido)]
   }
 
-  player.envido = Array.from(new Set(hand.map((c) => Number(c[0].at(-1)))))
+  player.envido = [Math.max(...hand.map((c) => Number(c[0].at(-1))))]
 
   return player.envido
 }

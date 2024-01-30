@@ -347,13 +347,22 @@ const setTurnCommands = (match: IMatch, hand: IHand) => {
         })
       })
     }
-    if (hand.envido.accepted && !hand.envido.finished && hand.envido.winningPointsAnswer > 0) {
+    if (
+      hand.envido.accepted &&
+      !hand.envido.finished &&
+      hand.envido.winningPointsAnswer > 0 &&
+      hand.currentPlayer?.teamIdx !== hand.envido.winner?.id
+    ) {
       hand.currentPlayer?._commands.add(EEnvidoAnswerCommand.SON_BUENAS)
     }
+
+    const isWaitingTrucoAnswer = hand.truco.state === 2 && hand.truco.answer === null
+
     if (
       hand.currentPlayer &&
       !hand.envido.started &&
-      (hand.truco.state < 2 || (hand.truco.state === 2 && hand.truco.answer === null))
+      hand.currentPlayer.usedHand.length === 0 &&
+      (hand.truco.state < 2 || isWaitingTrucoAnswer)
     ) {
       for (const key in EEnvidoCommand) {
         hand.currentPlayer._commands.add(key as EEnvidoCommand)
