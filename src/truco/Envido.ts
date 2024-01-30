@@ -11,9 +11,6 @@ import {
   IPlayer,
   ITeam,
 } from "../types"
-import logger from "../utils/logger"
-
-const log = logger.child({ class: "Envido" })
 
 export interface IEnvido {
   started: boolean
@@ -85,20 +82,35 @@ export const EnvidoCalculator: IEnvidoCalculator = {
     }
     const {
       teams,
-      options: { matchPoint },
+      options: { matchPoint, faltaEnvido },
     } = args
     const totals = teams.map((team) => team.points.malas + team.points.buenas)
     const higher = getMaxNumberIndex(totals)
     const points = teams[higher].points
-    const accept =
-      points.buenas > 0 || points.malas === matchPoint
-        ? matchPoint - points.buenas
-        : matchPoint - points.malas
+    const next = [EAnswerCommand.QUIERO, EAnswerCommand.NO_QUIERO]
+    const accept = 0
+    const decline = 2
+
+    if (faltaEnvido === 2) {
+      const replace =
+        points.buenas > 0 || points.malas === matchPoint
+          ? matchPoint - points.buenas
+          : matchPoint - points.malas
+
+      return {
+        accept,
+        decline,
+        replace,
+        next,
+      }
+    }
+
+    const replace = matchPoint * 2 - totals[higher]
     return {
-      accept: 0,
-      decline: 2,
-      replace: accept,
-      next: [EAnswerCommand.QUIERO, EAnswerCommand.NO_QUIERO],
+      accept,
+      decline,
+      replace,
+      next,
     }
   },
 }

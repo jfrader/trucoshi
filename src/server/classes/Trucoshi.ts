@@ -1698,7 +1698,7 @@ export const Trucoshi = ({
         ? match
         : {
             ...match,
-            options: { ...(match.options as any), satsPerPlayer: 0 },
+            options: { ...(match.options as unknown as ILobbyOptions), satsPerPlayer: 0 },
           }
     },
     async getAccountDetails(socket, accountId) {

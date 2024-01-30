@@ -450,4 +450,5 @@ const commands: IHandCommands = {
   },
   [EFlorCommand.FLOR]: () => {},
   [EFlorCommand.CONTRAFLOR]: () => {},
+  [EFlorCommand.ACHICO]: () => {},
 }
