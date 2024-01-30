@@ -38,6 +38,7 @@ import { SocketError } from "./SocketError"
 import { TMap } from "./TMap"
 import { ClientToServerEvents, EServerEvent, ServerToClientEvents } from "../../events"
 import { IHand, IPlayInstance } from "../../truco"
+import { PREVIOUS_HAND_ACK_TIMEOUT } from "../../lib"
 
 const log = logger.child({ class: "Trucoshi" })
 
@@ -611,6 +612,10 @@ export const Trucoshi = ({
               .getOrThrow(table.matchSessionId)
               .command(player.teamIdx as 0 | 1, saidCommand)
 
+            if (saidCommand === ESayCommand.MAZO) {
+              server.emitMatchUpdate(table)
+            }
+
             return server
               .resetSocketsMatchState(table)
               .then(() => resolve(saidCommand))
@@ -854,13 +859,17 @@ export const Trucoshi = ({
       log.trace(`Table hand finished - Table State: ${table.state()}`)
 
       return new Promise<void>((resolve, reject) => {
-        server
-          .emitPreviousHand(hand, table)
-          .then(resolve)
-          .catch((e) => {
-            log.error(e, "ONHANDFINISHED CALLBACK ERROR")
-            reject(e)
-          })
+        setTimeout(
+          () =>
+            server
+              .emitPreviousHand(hand, table)
+              .then(resolve)
+              .catch((e) => {
+                log.error(e, "ONHANDFINISHED CALLBACK ERROR")
+                reject(e)
+              }),
+          PREVIOUS_HAND_ACK_TIMEOUT / 2
+        )
       })
     },
     onWinner(table, winner) {
