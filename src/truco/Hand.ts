@@ -361,11 +361,14 @@ const setTurnCommands = (match: IMatch, hand: IHand) => {
     if (
       hand.currentPlayer &&
       !hand.envido.started &&
-      hand.currentPlayer.usedHand.length === 0 &&
       (hand.truco.state < 2 || isWaitingTrucoAnswer)
     ) {
       for (const key in EEnvidoCommand) {
-        hand.currentPlayer._commands.add(key as EEnvidoCommand)
+        for (const player of match.teams[hand.currentPlayer.teamIdx].players) {
+          if (player.usedHand.length === 0) {
+            player._commands.add(key as EEnvidoCommand)
+          }
+        }
       }
     }
   }
