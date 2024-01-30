@@ -33,6 +33,9 @@ export const session = (server: ITrucoshi) => {
     if (sessionID) {
       const session = server.sessions.get(sessionID)
       if (session) {
+        if (session.account) {
+          next(new Error("This session is not a guest session"))
+        }
         session.connect()
         session.setName(name)
         socket.data.user = session.getUserData()

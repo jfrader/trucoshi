@@ -17,13 +17,16 @@ import { Team } from "./Team"
 
 const log = logger.child({ class: "Lobby" })
 
+const envHandAckTimeout = process.env.NODE_PREVIOUS_HAND_ACK_TIMEOUT
+const disableTimer = process.env.NODE_DISABLE_TURN_TIMER === "1"
+
 export const DEFAULT_LOBBY_OPTIONS: ILobbyOptions = {
   faltaEnvido: 1,
   flor: false,
   matchPoint: 9,
   maxPlayers: 6,
-  handAckTime: PREVIOUS_HAND_ACK_TIMEOUT,
-  turnTime: process.env.NODE_DISABLE_TURN_TIMER === "1" ? 99999 * 1000 : PLAYER_TURN_TIMEOUT,
+  handAckTime: envHandAckTimeout ? Number(envHandAckTimeout) : PREVIOUS_HAND_ACK_TIMEOUT,
+  turnTime: disableTimer ? 99999 * 1000 : PLAYER_TURN_TIMEOUT,
   abandonTime: PLAYER_ABANDON_TIMEOUT,
   satsPerPlayer: 0,
 }

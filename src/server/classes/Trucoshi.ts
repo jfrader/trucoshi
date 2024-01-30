@@ -866,6 +866,8 @@ export const Trucoshi = ({
 
       log.trace(`Table hand finished - Table State: ${table.state()}`)
 
+      const envHandAckTimeout = process.env.NODE_PREVIOUS_HAND_ACK_TIMEOUT
+
       return new Promise<void>((resolve, reject) => {
         setTimeout(
           () =>
@@ -876,7 +878,7 @@ export const Trucoshi = ({
                 log.error(e, "ONHANDFINISHED CALLBACK ERROR")
                 reject(e)
               }),
-          PREVIOUS_HAND_ACK_TIMEOUT / 2
+          envHandAckTimeout ? Number(envHandAckTimeout) : PREVIOUS_HAND_ACK_TIMEOUT / 2
         )
       })
     },
