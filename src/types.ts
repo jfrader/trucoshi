@@ -244,6 +244,7 @@ export type IPublicPlayer = Pick<
   | "idx"
   | "key"
   | "name"
+  | "abandonedTime"
   | "accountId"
   | "avatarUrl"
   | "disabled"
@@ -289,6 +290,7 @@ export interface IPlayer {
   key: string
   session: string
   payRequestId?: number
+  abandonedTime: number
   hand: Array<ICard>
   usedHand: Array<ICard>
   prevHand: Array<ICard>
@@ -315,6 +317,7 @@ export interface IPlayer {
   getPublicPlayer(session?: string): IPublicPlayer
   setSession(session: string): void
   setIsOwner(isOwner: boolean): void
+  addDisconnectedTime(time: number) : void
   enable(): void
   disable(): void
   abandon(): void

@@ -27,6 +27,7 @@ export function Player({
     name,
     session: "",
     teamIdx,
+    abandonedTime: 0,
     hand: [],
     _commands: new Set(),
     usedHand: [],
@@ -55,6 +56,9 @@ export function Player({
     },
     setPayRequest(id) {
       player.payRequestId = id
+    },
+    addDisconnectedTime(time) {
+      player.abandonedTime = player.abandonedTime + time
     },
     setTurn(turn) {
       if (!turn) {
@@ -135,6 +139,7 @@ const getPublicPlayer = (
     name,
     idx,
     accountId,
+    abandonedTime,
     key,
     avatarUrl,
     abandoned,
@@ -163,6 +168,7 @@ const getPublicPlayer = (
     name,
     idx,
     accountId,
+    abandonedTime,
     key,
     avatarUrl,
     abandoned,

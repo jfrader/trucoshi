@@ -158,10 +158,6 @@ export function Envido(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITa
         return envido.declineStake
       }
 
-      if (options.faltaEnvido === 1) {
-        return envido.winner.pointsToWin(options.matchPoint)
-      }
-
       return envido.stake
     },
     sayEnvido(command, player) {

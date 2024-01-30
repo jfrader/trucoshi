@@ -18,12 +18,12 @@ import { Team } from "./Team"
 const log = logger.child({ class: "Lobby" })
 
 export const DEFAULT_LOBBY_OPTIONS: ILobbyOptions = {
-  faltaEnvido: 2,
+  faltaEnvido: 1,
   flor: false,
   matchPoint: 9,
   maxPlayers: 6,
   handAckTime: PREVIOUS_HAND_ACK_TIMEOUT,
-  turnTime: process.env.NODE_DISABLE_TURN_TIMER ? 99999 * 1000 : PLAYER_TURN_TIMEOUT,
+  turnTime: process.env.NODE_DISABLE_TURN_TIMER === "1" ? 99999 * 1000 : PLAYER_TURN_TIMEOUT,
   abandonTime: PLAYER_ABANDON_TIMEOUT,
   satsPerPlayer: 0,
 }

@@ -698,9 +698,17 @@ export const Trucoshi = ({
 
         table.playerDisconnected(player)
 
+        const startTime = Date.now()
+
         user
-          .waitReconnection(table.matchSessionId, table.lobby.options.abandonTime)
+          .waitReconnection(
+            table.matchSessionId,
+            table.lobby.options.abandonTime - player.abandonedTime
+          )
           .then(() => {
+            const reconnectTime = Date.now()
+            player.addDisconnectedTime(reconnectTime - startTime)
+
             log.trace(
               { match: table.getPublicMatchInfo(), player: player.getPublicPlayer() },
               "Player reconnected"
