@@ -14,10 +14,10 @@ export class SocketError {
   }
 }
 
-export const isSocketError = (e: any) =>
+export const isSocketError = (e: any, code?: keyof typeof GAME_ERROR) =>
   e instanceof SocketError
     ? e
     : new SocketError(
-        "UNEXPECTED_ERROR",
+        code || "UNEXPECTED_ERROR",
         "message" in e && process.env.NODE_ENV === "development" ? e.message : undefined
       )

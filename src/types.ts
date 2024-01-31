@@ -166,6 +166,7 @@ export type IWaitingSayData = { command: ECommand | number }
 export type IWaitingSayCallback = (data: IWaitingSayData) => void | null
 
 export enum GAME_ERROR {
+  INVALID_IDENTITY = "INVALID_IDENTITY",
   UNEXPECTED_ERROR = "UNEXPECTED_ERROR",
   FORBIDDEN = "FORBIDDEN",
   NOT_FOUND = "NOT_FOUND",
@@ -317,7 +318,7 @@ export interface IPlayer {
   getPublicPlayer(session?: string): IPublicPlayer
   setSession(session: string): void
   setIsOwner(isOwner: boolean): void
-  addDisconnectedTime(time: number) : void
+  addDisconnectedTime(time: number): void
   enable(): void
   disable(): void
   abandon(): void

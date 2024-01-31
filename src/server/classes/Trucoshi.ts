@@ -34,11 +34,12 @@ import { createAdapter } from "@socket.io/redis-adapter"
 import { accountsApi, validateJwt } from "../../accounts/client"
 import { createClient } from "redis"
 import { EMatchState, Match, MatchPlayer, Prisma, PrismaClient, UserStats } from "@prisma/client"
-import { SocketError } from "./SocketError"
+import { isSocketError, SocketError } from "./SocketError"
 import { TMap } from "./TMap"
 import { ClientToServerEvents, EServerEvent, ServerToClientEvents } from "../../events"
 import { IHand, IPlayInstance } from "../../truco"
 import { PREVIOUS_HAND_ACK_TIMEOUT } from "../../lib"
+import { JwtPayload } from "jsonwebtoken"
 
 const log = logger.child({ class: "Trucoshi" })
 
@@ -946,7 +947,6 @@ export const Trucoshi = ({
     },
     async checkUserSufficientBalance({ identityJwt, account, satsPerPlayer }) {
       const payload = validateJwt(identityJwt, account)
-
       const wallet = await accountsApi.users.walletDetail(String(payload.sub))
 
       if (wallet.data.balanceInSats < satsPerPlayer) {
@@ -983,7 +983,12 @@ export const Trucoshi = ({
             throw new Error("This server doesn't support bets")
           }
 
-          if (!identityJwt || !userSession.account) {
+          if (!identityJwt) {
+            log.error({ identityJwt, acc: userSession.account }, "Failed to save options")
+            throw new SocketError("INVALID_IDENTITY", "Inicia sesion para usar sats!")
+          }
+
+          if (!userSession.account) {
             log.error({ identityJwt, acc: userSession.account }, "Failed to save options")
             throw new SocketError("FORBIDDEN", "Inicia sesion para usar sats!")
           }
