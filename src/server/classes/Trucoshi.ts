@@ -1638,10 +1638,12 @@ export const Trucoshi = ({
             )
 
             if (server.store && userSession.account && table.lobby.options.satsPerPlayer > 0) {
-              const dbPlayer = await server.store.matchPlayer.findUniqueOrThrow({
+              const dbPlayer = await server.store.matchPlayer.findUnique({
                 where: { id: player.matchPlayerId },
               })
-              await server.deletePlayerAndReturnBet(table, dbPlayer)
+              if (dbPlayer) {
+                await server.deletePlayerAndReturnBet(table, dbPlayer)
+              }
               return server.removePlayerAndCleanup(table, player)
             }
 
