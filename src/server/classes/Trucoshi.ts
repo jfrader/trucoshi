@@ -1637,13 +1637,16 @@ export const Trucoshi = ({
               "Socket left a match and it didn't start yet, checking..."
             )
 
-            if (server.store && userSession.account && table.lobby.options.satsPerPlayer > 0) {
-              const dbPlayer = await server.store.matchPlayer.findUnique({
+            if (
+              player.matchPlayerId &&
+              server.store &&
+              userSession.account &&
+              table.lobby.options.satsPerPlayer > 0
+            ) {
+              const dbPlayer = await server.store.matchPlayer.findUniqueOrThrow({
                 where: { id: player.matchPlayerId },
               })
-              if (dbPlayer) {
-                await server.deletePlayerAndReturnBet(table, dbPlayer)
-              }
+              await server.deletePlayerAndReturnBet(table, dbPlayer)
               return server.removePlayerAndCleanup(table, player)
             }
 
