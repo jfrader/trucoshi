@@ -177,7 +177,6 @@ export const playRandomMatch = async (
   await new Promise<void>((res) => {
     clients[0].emit(
       EClientEvent.START_MATCH,
-      null,
       matchId as string,
       ({ success, matchSessionId }) => {
         expect(success).to.equal(true)

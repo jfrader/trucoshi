@@ -646,9 +646,15 @@ export const Trucoshi = ({
               .command(player.teamIdx as 0 | 1, saidCommand)
 
             if ([EAnswerCommand.NO_QUIERO, ESayCommand.MAZO].includes(saidCommand as any)) {
+              const previousHandAckTime = process.env.NODE_PREVIOUS_HAND_ACK_TIMEOUT
               return server
                 .emitMatchUpdate(table)
-                .then(() => new Promise((resolve) => setTimeout(resolve, 1800)))
+                .then(
+                  () =>
+                    new Promise((resolve) =>
+                      setTimeout(resolve, previousHandAckTime ? Number(previousHandAckTime) : 1800)
+                    )
+                )
                 .then(resolver)
                 .catch(log.error)
             }

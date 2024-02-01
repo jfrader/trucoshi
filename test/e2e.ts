@@ -242,7 +242,6 @@ describe("E2E", () => {
     await new Promise<void>((resolve, reject) => {
       clients[0].emit(
         EClientEvent.SET_MATCH_OPTIONS,
-        identities[0],
         matches[0].matchSessionId,
         { satsPerPlayer: 10 },
         ({ success, match }) => {
@@ -340,7 +339,6 @@ describe("E2E", () => {
     await new Promise<void>((res) => {
       clients[0].emit(
         EClientEvent.START_MATCH,
-        identities[0],
         matchId as string,
         ({ success, matchSessionId }) => {
           expect(success).to.equal(true)
@@ -397,7 +395,6 @@ describe("E2E", () => {
     await new Promise<void>((resolve, reject) => {
       clients[0].emit(
         EClientEvent.SET_MATCH_OPTIONS,
-        identities[0],
         matches[0].matchSessionId,
         { satsPerPlayer: 10 },
         ({ success, match }) => {
