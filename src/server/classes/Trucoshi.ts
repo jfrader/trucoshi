@@ -71,6 +71,7 @@ interface InterServerEvents {}
 
 interface SocketData {
   user?: IUserData
+  identity?: string
   matches: TMap<string, ISocketMatchState>
 }
 
@@ -126,12 +127,15 @@ export interface ITrucoshi {
     cardIdx: number
     card: ICard
   }): Promise<void>
-  sayCommand(input: {
-    table: IMatchTable
-    play: IPlayInstance
-    player: IPlayer
-    command: ECommand | number
-  }): Promise<ECommand | number>
+  sayCommand(
+    input: {
+      table: IMatchTable
+      play: IPlayInstance
+      player: IPlayer
+      command: ECommand | number
+    },
+    force?: boolean
+  ): Promise<ECommand | number>
   createMatchTable(matchSessionId: string, userSession: IUserSession): Promise<IMatchTable>
   setMatchOptions(input: {
     identityJwt: string | null
@@ -149,7 +153,12 @@ export interface ITrucoshi {
     account: User
     satsPerPlayer: number
   }): Promise<boolean>
-  joinMatch(table: IMatchTable, userSession: IUserSession, teamIdx?: 0 | 1): Promise<IPlayer>
+  joinMatch(
+    table: IMatchTable,
+    userSession: IUserSession,
+    identityJwt: string | null,
+    teamIdx?: 0 | 1
+  ): Promise<IPlayer>
   startMatch(input: {
     identityJwt: string | null
     matchSessionId: string
@@ -399,18 +408,30 @@ export const Trucoshi = ({
 
       socket.leave(socket.data.user.session)
 
-      const session =
+      const userSession =
         server.sessions.find((s) => s.account?.id === payload.sub) ||
         server.createUserSession(socket)
 
       const res = await accountsApi.users.usersDetail(String(payload.sub))
 
-      session.setAccount(res.data)
-      session.setName(res.data.name)
-      socket.data.user = session.getUserData()
-      socket.join(session.session)
+      userSession.setAccount(res.data)
+      userSession.setName(res.data.name)
+      socket.data.user = userSession.getUserData()
+      socket.data.identity = identityJwt
+      socket.join(userSession.session)
 
       server.emitSocketSession(socket)
+
+      for (const matchSessionId in socket.data.matches?.keys()) {
+        const table = server.tables.get(matchSessionId)
+        const player = table?.isSessionPlaying(userSession.session)
+        if (table) {
+          socket.emit(
+            EServerEvent.UPDATE_MATCH,
+            table.getPublicMatch(player ? (userSession.session as string) : undefined)
+          )
+        }
+      }
 
       log.debug(socket.data.user, "Logging in account")
     },
@@ -419,8 +440,9 @@ export const Trucoshi = ({
         throw new Error("Socket doesn't have user data")
       }
 
-      const userSession = server.sessions.getOrThrow(socket.data.user.session)
-      server.sessions.delete(userSession.session)
+      server.sessions.getOrThrow(socket.data.user.session)
+
+      socket.data = {}
 
       log.debug(socket.data.user, "Logging out account")
     },
@@ -600,27 +622,38 @@ export const Trucoshi = ({
           .catch(log.error)
       })
     },
-    sayCommand({ table, play, player, command }) {
+    sayCommand({ table, play, player, command }, force) {
       return new Promise<ECommand | number>((resolve, reject) => {
         if (command || command === 0) {
           log.trace({ player, command }, "Attempt to say command")
-          const saidCommand = play.say(command, player)
+
+          const saidCommand = play.say(command, player, force)
+
           if (saidCommand || saidCommand === 0) {
             log.trace({ player, command }, "Say command success")
+
+            const resolver = () => {
+              return server
+                .resetSocketsMatchState(table)
+                .then(() => resolve(saidCommand))
+                .catch(reject)
+            }
+
             clearTimeout(server.turns.getOrThrow(table.matchSessionId).timeout)
 
             server.chat.rooms
               .getOrThrow(table.matchSessionId)
               .command(player.teamIdx as 0 | 1, saidCommand)
 
-            if (saidCommand === ESayCommand.MAZO) {
-              server.emitMatchUpdate(table)
+            if ([EAnswerCommand.NO_QUIERO, ESayCommand.MAZO].includes(saidCommand as any)) {
+              return server
+                .emitMatchUpdate(table)
+                .then(() => new Promise((resolve) => setTimeout(resolve, 1800)))
+                .then(resolver)
+                .catch(log.error)
             }
 
-            return server
-              .resetSocketsMatchState(table)
-              .then(() => resolve(saidCommand))
-              .catch(reject)
+            return resolver()
           }
           return reject(new Error("Invalid Command " + command))
         }
@@ -687,7 +720,6 @@ export const Trucoshi = ({
     },
     setTurnTimeout(table, player, user, onReconnection, onTimeout) {
       log.trace({ player, options: table.lobby.options }, "Setting turn timeout")
-      player.setTurnExpiration(table.lobby.options.turnTime, table.lobby.options.abandonTime)
 
       const chat = server.chat.rooms.getOrThrow(table.matchSessionId)
 
@@ -734,7 +766,7 @@ export const Trucoshi = ({
         { match: table.getPublicMatchInfo(), player: play.player, handIdx: play.handIdx },
         "Turn started"
       )
-      return new Promise<void>((resolve, reject) => {
+      return new Promise<void>((resolve) => {
         const session = play.player?.session
         if (!session || !play || !play.player) {
           throw new Error("No session, play instance or player found")
@@ -742,6 +774,8 @@ export const Trucoshi = ({
 
         const player = play.player
         const user = server.sessions.getOrThrow(session)
+
+        player.setTurnExpiration(table.lobby.options.turnTime, table.lobby.options.abandonTime)
 
         const turn = () =>
           server
@@ -758,7 +792,7 @@ export const Trucoshi = ({
 
         const timeout = server.setTurnTimeout(table, player, user, turn, () =>
           server
-            .sayCommand({ table, play, player, command: ESayCommand.MAZO })
+            .sayCommand({ table, play, player, command: ESayCommand.MAZO }, true)
             .catch((e) => log.error(e, "Turn timeout retry say command MAZO failed"))
             .finally(resolve)
         )
@@ -775,11 +809,13 @@ export const Trucoshi = ({
         { match: table.getPublicMatchInfo(), player: play.player, handIdx: play.handIdx },
         "Truco answer turn started"
       )
-      return new Promise<void>((resolve, reject) => {
+      return new Promise<void>((resolve) => {
         const session = play.player?.session
         if (!session || !play || !play.player) {
           throw new Error("No session, play instance or player found")
         }
+
+        play.player.setTurnExpiration(table.lobby.options.turnTime, table.lobby.options.abandonTime)
 
         const turn = () =>
           server
@@ -797,7 +833,7 @@ export const Trucoshi = ({
 
         const timeout = server.setTurnTimeout(table, player, user, turn, () =>
           server
-            .sayCommand({ table, play, player, command: EAnswerCommand.NO_QUIERO })
+            .sayCommand({ table, play, player, command: EAnswerCommand.NO_QUIERO }, true)
             .catch((e) => log.error(e, "Truco turn timeout retry say command NO_QUIERO failed"))
             .finally(resolve)
         )
@@ -825,6 +861,8 @@ export const Trucoshi = ({
           throw new Error("No session, play instance or player found")
         }
 
+        play.player.setTurnExpiration(table.lobby.options.turnTime, table.lobby.options.abandonTime)
+
         const turn = () =>
           server
             .emitWaitingPossibleSay(play, table)
@@ -842,12 +880,12 @@ export const Trucoshi = ({
         const timeout = server.setTurnTimeout(table, player, user, turn, () => {
           if (isPointsRound) {
             return server
-              .sayCommand({ table, play, player, command: 0 })
+              .sayCommand({ table, play, player, command: 0 }, true)
               .catch((e) => log.error(e, "Envido turn timeout failed to say '0' points command"))
               .finally(resolve)
           }
           server
-            .sayCommand({ table, play, player, command: EAnswerCommand.NO_QUIERO })
+            .sayCommand({ table, play, player, command: EAnswerCommand.NO_QUIERO }, true)
             .catch((e) => log.error(e, "Envido turn timeout failed to say NO_QUIERO command"))
             .finally(resolve)
         })
@@ -867,21 +905,7 @@ export const Trucoshi = ({
 
       log.trace(`Table hand finished - Table State: ${table.state()}`)
 
-      const envHandAckTimeout = process.env.NODE_PREVIOUS_HAND_ACK_TIMEOUT
-
-      return new Promise<void>((resolve, reject) => {
-        setTimeout(
-          () =>
-            server
-              .emitPreviousHand(hand, table)
-              .then(resolve)
-              .catch((e) => {
-                log.error(e, "ONHANDFINISHED CALLBACK ERROR")
-                reject(e)
-              }),
-          envHandAckTimeout ? Number(envHandAckTimeout) : PREVIOUS_HAND_ACK_TIMEOUT / 2
-        )
-      })
+      return server.emitPreviousHand(hand, table)
     },
     onWinner(table, winner) {
       return new Promise<void>((resolve) => {
@@ -1197,15 +1221,22 @@ export const Trucoshi = ({
 
       return table
     },
-    async joinMatch(table, userSession, teamIdx) {
+    async joinMatch(table, userSession, identityJwt, teamIdx) {
       let prId: number | undefined
       let matchPlayerId: number | undefined
       if (table.lobby.options.satsPerPlayer > 0) {
-        if (!userSession.account?.id) {
+        if (!userSession.account?.id || !identityJwt) {
           throw new Error("Player needs to be logged into an account to join this match")
         }
 
         const currentPlayer = table.isSessionPlaying(userSession.session)
+
+        await server.checkUserSufficientBalance({
+          identityJwt,
+          account: userSession.account,
+          satsPerPlayer: table.lobby.options.satsPerPlayer,
+        })
+
         if (currentPlayer) {
           matchPlayerId = currentPlayer.matchPlayerId
           prId = currentPlayer.payRequestId
@@ -1672,12 +1703,15 @@ export const Trucoshi = ({
 
             const turn = server.turns.getOrThrow(table.matchSessionId)
 
-            await server.sayCommand({
-              table,
-              command: ESayCommand.MAZO,
-              player,
-              play: turn.play,
-            })
+            await server.sayCommand(
+              {
+                table,
+                command: ESayCommand.MAZO,
+                player,
+                play: turn.play,
+              },
+              true
+            )
 
             server.chat.rooms
               .getOrThrow(table.matchSessionId)

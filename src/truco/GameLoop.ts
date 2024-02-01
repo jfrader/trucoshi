@@ -72,10 +72,15 @@ export const GameLoop = (match: IMatch) => {
         },
         "New match gameloop started"
       )
+
       let winner: ITeam | null = null
       gameloop.teams = match.teams
 
       while (!match.winner) {
+        for (const player of match.table.players) {
+          player.setTurn(false)
+        }
+
         const play = match.play()
 
         gameloop.currentHand = match.currentHand

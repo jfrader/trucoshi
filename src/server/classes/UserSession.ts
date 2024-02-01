@@ -86,7 +86,6 @@ export function UserSession(key: string, username: string, session: string) {
       userSession.connect()
     },
     connect() {
-      logger.info(userSession.getUserData(), "New connection session")
       userSession.online = true
     },
     disconnect() {

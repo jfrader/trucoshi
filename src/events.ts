@@ -27,14 +27,13 @@ export type IEventCallback<T = {}> = (
 export enum EServerEvent {
   PONG = "PONG",
   SET_SESSION = "SET_SESSION",
+  REFRESH_IDENTITY = "REFRESH_IDENTITY",
   PREVIOUS_HAND = "PREVIOUS_HAND",
   UPDATE_MATCH = "UPDATE_MATCH",
   MATCH_DELETED = "MATCH_DELETED",
   WAITING_PLAY = "WAITING_PLAY",
   KICK_PLAYER = "PLAYER_KICKED",
   UPDATE_ACTIVE_MATCHES = "UPDATE_ACTIVE_MATCHES",
-  PLAYER_USED_CARD = "PLAYER_USED_CARD",
-  PLAYER_SAID_COMMAND = "PLAYER_SAID_COMMAND",
   WAITING_POSSIBLE_SAY = "WAITING_POSSIBLE_SAY",
   UPDATE_CHAT = "UPDAET_CHAT",
 }
@@ -45,8 +44,6 @@ export interface ServerToClientEvents {
   [EServerEvent.UPDATE_CHAT]: (room: IPublicChatRoom, message?: IChatMessage) => void
   [EServerEvent.UPDATE_ACTIVE_MATCHES]: (activeMatches: IPublicMatchInfo[]) => void
   [EServerEvent.UPDATE_MATCH]: (match: IPublicMatch, callback?: () => void) => void
-  [EServerEvent.PLAYER_USED_CARD]: (match: IPublicMatch, card: IPlayedCard) => void
-  [EServerEvent.PLAYER_SAID_COMMAND]: (match: IPublicMatch, command: ISaidCommand) => void
   [EServerEvent.KICK_PLAYER]: (match: IPublicMatch, session: string, reason?: string) => void
   [EServerEvent.MATCH_DELETED]: (matchSessionId: string) => void
   [EServerEvent.SET_SESSION]: (
@@ -61,6 +58,10 @@ export interface ServerToClientEvents {
   [EServerEvent.WAITING_PLAY]: (
     match: IPublicMatch,
     callback: (data: IWaitingPlayData) => void
+  ) => void
+  [EServerEvent.REFRESH_IDENTITY]: (
+    userId: number,
+    callback: (identityJwt: string | null) => void
   ) => void
 }
 
@@ -92,7 +93,6 @@ export interface ClientToServerEvents {
     callback: IEventCallback<{ match?: IPublicMatch; activeMatches?: IPublicMatchInfo[] }>
   ) => void
   [EClientEvent.SET_MATCH_OPTIONS]: (
-    identityJwt: string | null,
     matchSessionId: string,
     options: Partial<ILobbyOptions>,
     callback: IEventCallback<{ match?: IPublicMatch; activeMatches?: IPublicMatchInfo[] }>
@@ -108,7 +108,6 @@ export interface ClientToServerEvents {
     callback: IEventCallback<{ match?: IPublicMatch; activeMatches?: IPublicMatchInfo[] }>
   ) => void
   [EClientEvent.START_MATCH]: (
-    identityJwt: string | null,
     matchSessionId: string,
     callback: IEventCallback<{ matchSessionId?: string }>
   ) => void

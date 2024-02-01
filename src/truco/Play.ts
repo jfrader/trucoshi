@@ -26,7 +26,7 @@ export interface IPlayInstance {
   lastCard: ICard | null
   setWaiting(waiting: boolean): void
   use(idx: number, card: ICard): ICard | null
-  say(command: ECommand | number, player: IPlayer): typeof command | null
+  say(command: ECommand | number, player: IPlayer, force?: boolean): typeof command | null
 }
 
 export function PlayInstance(hand: IHand, prevHand: IHand | null, teams: [ITeam, ITeam]) {
@@ -81,7 +81,7 @@ export function PlayInstance(hand: IHand, prevHand: IHand | null, teams: [ITeam,
       }
       return result
     },
-    say(command, player) {
+    say(command, player, force) {
       if (busy) {
         return play()
       }
@@ -93,7 +93,7 @@ export function PlayInstance(hand: IHand, prevHand: IHand | null, teams: [ITeam,
       )
 
       try {
-        if (player.disabled) {
+        if (player.disabled && !force) {
           return play()
         }
 
@@ -109,7 +109,7 @@ export function PlayInstance(hand: IHand, prevHand: IHand | null, teams: [ITeam,
           return result
         }
 
-        if (!player.commands.includes(command as ECommand) && command !== ESayCommand.MAZO) {
+        if (!player.commands.includes(command as ECommand) && !force) {
           throw new Error(GAME_ERROR.INVALID_COMAND)
         }
         const result = play(hand.say, command, player)

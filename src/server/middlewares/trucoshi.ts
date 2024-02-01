@@ -62,36 +62,33 @@ export const trucoshi =
     /**
      * Set Match Options
      */
-    socket.on(
-      EClientEvent.SET_MATCH_OPTIONS,
-      async (identityJwt, matchSessionId, options, callback) => {
-        log.debug({ matchSessionId, options }, "Setting match options")
-        try {
-          const userSession = server.sessions.getOrThrow(socket.data.user?.session)
-          const table = await server.setMatchOptions({
-            identityJwt,
-            matchSessionId,
-            userSession,
-            options,
-          })
+    socket.on(EClientEvent.SET_MATCH_OPTIONS, async (matchSessionId, options, callback) => {
+      log.debug({ matchSessionId, options }, "Setting match options")
+      try {
+        const userSession = server.sessions.getOrThrow(socket.data.user?.session)
+        const table = await server.setMatchOptions({
+          identityJwt: socket.data.identity || "",
+          matchSessionId,
+          userSession,
+          options,
+        })
 
-          server.emitMatchUpdate(table, [socket.id]).catch(log.error)
-          callback({
-            success: true,
-            match: table.getPublicMatch(userSession.session),
-            activeMatches: server.getSessionActiveMatches(userSession.session),
-          })
-        } catch (e) {
-          log.error(e, "Client event SET_MATCH_OPTIONS error")
-          callback({ success: false, error: isSocketError(e) })
-        }
+        server.emitMatchUpdate(table, [socket.id]).catch(log.error)
+        callback({
+          success: true,
+          match: table.getPublicMatch(userSession.session),
+          activeMatches: server.getSessionActiveMatches(userSession.session),
+        })
+      } catch (e) {
+        log.error(e, "Client event SET_MATCH_OPTIONS error")
+        callback({ success: false, error: isSocketError(e) })
       }
-    )
+    })
 
     /**
      * Start Match
      */
-    socket.on(EClientEvent.START_MATCH, async (identityJwt, matchSessionId, callback) => {
+    socket.on(EClientEvent.START_MATCH, async (matchSessionId, callback) => {
       try {
         const userSession = server.sessions.getOrThrow(socket.data.user?.session)
 
@@ -99,7 +96,11 @@ export const trucoshi =
 
         if (matchSessionId && userSession.ownedMatches.has(matchSessionId)) {
           log.trace("Server starting match...")
-          await server.startMatch({ identityJwt, matchSessionId, userSession })
+          await server.startMatch({
+            identityJwt: socket.data.identity || "",
+            matchSessionId,
+            userSession,
+          })
           return callback({ success: true, matchSessionId: matchSessionId })
         }
         log.trace({ matchId: matchSessionId }, "Match could not be started")
@@ -121,7 +122,7 @@ export const trucoshi =
         log.info(userSession.getPublicInfo(), "User joining match...")
 
         if (table) {
-          await server.joinMatch(table, userSession, teamIdx)
+          await server.joinMatch(table, userSession, socket.data.identity || null, teamIdx)
 
           socket.join(table.matchSessionId)
 

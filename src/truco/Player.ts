@@ -62,6 +62,7 @@ export function Player({
     },
     setTurn(turn) {
       if (!turn) {
+        player.abandonedTime = 0
         player.turnExpiresAt = null
         player.turnExtensionExpiresAt = null
       }
@@ -72,7 +73,7 @@ export function Player({
         return
       }
 
-      const now = Math.floor(Date.now())
+      const now = Date.now()
 
       if (expiresInMs) {
         player.turnExpiresAt = now + expiresInMs

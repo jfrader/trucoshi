@@ -51,7 +51,7 @@ export interface IHand {
   use(idx: number, card: ICard, burn?: boolean): ICard | null
   finished: () => boolean
   setTurnCommands(): void
-  play(prevHand: IHand | null): IPlayInstance | null
+  play(prevHand: IHand | null): IPlayInstance
   nextTurn(): void
   endEnvido(): void
   pushRound(round: IRound): IRound
