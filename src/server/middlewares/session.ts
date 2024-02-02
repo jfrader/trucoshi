@@ -80,7 +80,7 @@ const validateSession: (
   retry?: number
 ) => (event: Event, next: (err?: Error | undefined) => void) => void = (socket, retry = 0) => {
   return (event, next) => {
-    log.debug("Received event %s from", event[0], socket.id)
+    log.debug("Received event %s from socket %s", event[0], socket.id)
     if (NON_VALIDATED_EVENTS.includes(event[0])) {
       return next()
     }
