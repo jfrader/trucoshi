@@ -82,7 +82,9 @@ const validateSession: (
     if (NON_VALIDATED_EVENTS.includes(event[0])) {
       return next()
     }
-    logger.trace({ ...socket.data.user, event: event[0] }, "validating session")
+    if (!retry) {
+      logger.trace({ ...socket.data.user, event: event[0] }, "validating session")
+    }
     if (socket.data.user?.account?.id) {
       try {
         if (!socket.data?.identity) {
