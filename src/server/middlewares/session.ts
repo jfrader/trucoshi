@@ -57,7 +57,7 @@ export const session = (server: ITrucoshi) => {
           socket.data.matches = new TMap()
         }
 
-        log.info({ ...session.getPublicInfo() }, "Socket connected to guest session")
+        log.info(session.getPublicInfo(), "Socket connected to guest session")
 
         return next()
       }
@@ -67,7 +67,7 @@ export const session = (server: ITrucoshi) => {
     socket.data.user = session.getUserData()
     session.connect()
 
-    log.info({ ...session.getPublicInfo() }, "New guest session")
+    log.info(session.getPublicInfo(), "New guest session")
 
     next()
   }
@@ -80,6 +80,7 @@ const validateSession: (
   retry?: number
 ) => (event: Event, next: (err?: Error | undefined) => void) => void = (socket, retry = 0) => {
   return (event, next) => {
+    log.debug("Received event %s", event[0])
     if (NON_VALIDATED_EVENTS.includes(event[0])) {
       return next()
     }
