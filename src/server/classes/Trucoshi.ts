@@ -246,9 +246,9 @@ export const Trucoshi = ({
       if (lightningAccounts) {
         try {
           await accountsApi.auth.getAuth()
-          log.info("Logged in to lightning-accounts")
+          logger.info("Logged in to lightning-accounts")
         } catch (e) {
-          log.error(e, "Failed to login to lightning-accounts")
+          logger.error(e, "Failed to login to lightning-accounts")
         }
       }
 
@@ -256,9 +256,9 @@ export const Trucoshi = ({
         try {
           await Promise.all([pubClient.connect(), subClient.connect()])
           io.adapter(createAdapter(pubClient, subClient))
-          log.info("Connected to Redis")
+          logger.info("Connected to Redis")
         } catch (e) {
-          log.error(e, "Failed to connect to Redis")
+          logger.error(e, "Failed to connect to Redis")
         }
       }
 
@@ -266,9 +266,9 @@ export const Trucoshi = ({
         server.store = new PrismaClient()
         try {
           await server.store.$connect()
-          log.info("Connected to Postgres")
+          logger.info("Connected to Postgres")
         } catch (e) {
-          log.error(e, "Failed to connect to Postgres")
+          logger.error(e, "Failed to connect to Postgres")
         }
 
         try {
@@ -280,7 +280,7 @@ export const Trucoshi = ({
           })
 
           if (unpaidMatches.length > 0) {
-            log.error(
+            logger.error(
               { unpaidMatchesLength: unpaidMatches.length },
               "Found matches that had outstanding bets, trying to repay players entrance sats..."
             )
@@ -362,7 +362,7 @@ export const Trucoshi = ({
             })
           }
         } catch (e) {
-          log.error(e, "Failed to repay unpaid matches")
+          logger.error(e, "Failed to repay unpaid matches")
         }
       }
 

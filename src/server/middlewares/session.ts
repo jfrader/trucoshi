@@ -55,7 +55,7 @@ export const session = (server: ITrucoshi) => {
           socket.data.matches = new TMap()
         }
 
-        logger.info("Socket %s connected to guest session %s", socket.id, userSession.session)
+        logger.info("Socket %s connected to guest session", socket.id)
 
         return next()
       }
@@ -65,7 +65,7 @@ export const session = (server: ITrucoshi) => {
     socket.data.user = userSession.getUserData()
     userSession.connect()
 
-    logger.info("Socket %s connected to new guest session %s", socket.id, userSession.session)
+    logger.info("Socket %s connected to new guest session", socket.id)
 
     next()
   }
