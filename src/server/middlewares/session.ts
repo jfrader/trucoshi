@@ -44,30 +44,30 @@ export const session = (server: ITrucoshi) => {
     const sessionID = socket.handshake.auth.sessionID
 
     if (sessionID) {
-      const session = server.sessions.get(sessionID)
-      if (session) {
-        if (session.account) {
+      const userSession = server.sessions.get(sessionID)
+      if (userSession) {
+        if (userSession.account) {
           return next(new SocketError("INVALID_IDENTITY"))
         }
-        session.connect()
-        session.setName(name)
-        socket.data.user = session.getUserData()
+        userSession.connect()
+        userSession.setName(name)
+        socket.data.user = userSession.getUserData()
 
         if (!socket.data.matches) {
           socket.data.matches = new TMap()
         }
 
-        log.info(session.getPublicInfo(), "Socket connected to guest session")
+        log.info("Socket connected to guest session %s", userSession.session)
 
         return next()
       }
     }
 
-    const session = server.createUserSession(socket, name || "Satoshi")
-    socket.data.user = session.getUserData()
-    session.connect()
+    const userSession = server.createUserSession(socket, name || "Satoshi")
+    socket.data.user = userSession.getUserData()
+    userSession.connect()
 
-    log.info(session.getPublicInfo(), "New guest session")
+    log.info("New guest session %s", userSession.session)
 
     next()
   }
