@@ -62,7 +62,6 @@ export function Player({
     },
     setTurn(turn) {
       if (!turn) {
-        player.abandonedTime = 0
         player.turnExpiresAt = null
         player.turnExtensionExpiresAt = null
       }

@@ -8,6 +8,7 @@ export type IWinnerCallback = (winner: ITeam, points: [ITeamPoints, ITeamPoints]
 export type ITurnCallback = (play: IPlayInstance) => Promise<void>
 export type ITrucoCallback = (play: IPlayInstance) => Promise<void>
 export type IHandFinishedCallback = (hand: IHand | null) => Promise<void>
+export type IBeforeHandFinishedCallback = () => Promise<void>
 export type IEnvidoCallback = (play: IPlayInstance, pointsRound: boolean) => Promise<void>
 
 const log = logger.child({ class: "Gameloop" })
@@ -18,6 +19,7 @@ export interface IGameLoop {
   _onWinner: IWinnerCallback
   _onEnvido: IEnvidoCallback
   _onHandFinished: IHandFinishedCallback
+  _onBeforeHandFinished: IBeforeHandFinishedCallback
   currentPlayer: IPlayer | null
   currentHand: IHand | null
   lastCommand: ECommand | number | null
@@ -29,6 +31,7 @@ export interface IGameLoop {
   onTruco: (callback: ITrucoCallback) => IGameLoop
   onEnvido: (callback: IEnvidoCallback) => IGameLoop
   onHandFinished: (callback: IHandFinishedCallback) => IGameLoop
+  onBeforeHandFinished: (callback: IBeforeHandFinishedCallback) => IGameLoop
   begin: () => Promise<void>
 }
 
@@ -39,6 +42,7 @@ export const GameLoop = (match: IMatch) => {
     _onTurn: () => Promise.resolve(),
     _onWinner: () => Promise.resolve(),
     _onHandFinished: () => Promise.resolve(),
+    _onBeforeHandFinished: () => Promise.resolve(),
     teams: [],
     winner: null,
     currentPlayer: null,
@@ -47,6 +51,10 @@ export const GameLoop = (match: IMatch) => {
     lastCommand: null,
     onHandFinished: (callback) => {
       gameloop._onHandFinished = callback
+      return gameloop
+    },
+    onBeforeHandFinished: (callback) => {
+      gameloop._onBeforeHandFinished = callback
       return gameloop
     },
     onTruco: (callback) => {
@@ -85,20 +93,29 @@ export const GameLoop = (match: IMatch) => {
 
         gameloop.currentHand = match.currentHand
 
-        if (!play && match.prevHand) {
-          await gameloop._onHandFinished(match.prevHand)
-          continue
-        }
-
-        if (!play || !play.player) {
-          continue
-        }
-
-        gameloop.lastCard = play.lastCard
-        gameloop.lastCommand = play.lastCommand
-        gameloop.currentPlayer = play.player
-
         try {
+          if (!play && match.prevHand) {
+            await gameloop._onHandFinished(match.prevHand)
+            continue
+          }
+
+          if (!play) {
+            continue
+          }
+
+          gameloop.lastCard = play.lastCard
+          gameloop.lastCommand = play.lastCommand
+          gameloop.currentPlayer = play.player
+
+          if (play.state === EHandState.BEFORE_FINISHED) {
+            await gameloop._onBeforeHandFinished()
+            continue
+          }
+
+          if (!play.player) {
+            continue
+          }
+
           log.trace(
             {
               matchId: match.id,

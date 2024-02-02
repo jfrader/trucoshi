@@ -46,11 +46,12 @@ function* matchTurnGeneratorSequence(match: IMatch) {
 
     const hand = match.setCurrentHand(Hand(match, match.hands.length + 1)) as IHand
     match.pushHand(hand)
+    match.setPrevHand(null)
 
     while (!hand.finished()) {
       const { value } = hand.getNextTurn()
       if (value) {
-        if (value.currentPlayer && value.currentPlayer.disabled) {
+        if (value.currentPlayer && value.currentPlayer.disabled && !hand.beforeFinished()) {
           value.nextTurn()
           continue
         }

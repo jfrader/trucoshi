@@ -50,6 +50,7 @@ export interface IHand {
   sayEnvidoPoints(player: IPlayer, points: number, log?: boolean): number
   use(idx: number, card: ICard, burn?: boolean): ICard | null
   finished: () => boolean
+  beforeFinished: () => boolean
   setTurnCommands(): void
   play(prevHand: IHand | null): IPlayInstance
   nextTurn(): void
@@ -69,7 +70,7 @@ function* handTurnGeneratorSequence(match: IMatch, hand: IHand) {
   let currentRoundIdx = 0
   let forehandTeamIdx = match.table.getPlayerByPosition(hand.turn).teamIdx as 0 | 1
 
-  while (currentRoundIdx < 3 && !hand.finished()) {
+  while (currentRoundIdx < 3 && !hand.beforeFinished() && !hand.finished()) {
     const round = Round()
     hand.setCurrentRound(round)
     hand.pushRound(round)
@@ -109,7 +110,7 @@ function* handTurnGeneratorSequence(match: IMatch, hand: IHand) {
       }
 
       if (hand.truco.answer === false) {
-        hand.setState(EHandState.FINISHED)
+        hand.setState(EHandState.BEFORE_FINISHED)
         break
       }
 
@@ -120,7 +121,7 @@ function* handTurnGeneratorSequence(match: IMatch, hand: IHand) {
           true
         )
         if (simulatedPoints.winner) {
-          hand.setState(EHandState.FINISHED)
+          hand.setState(EHandState.BEFORE_FINISHED)
           break
         }
       }
@@ -129,7 +130,7 @@ function* handTurnGeneratorSequence(match: IMatch, hand: IHand) {
       hand.setCurrentPlayer(player)
 
       if (match.teams.some((team) => team.isTeamDisabled())) {
-        hand.setState(EHandState.FINISHED)
+        hand.setState(EHandState.BEFORE_FINISHED)
         break
       }
 
@@ -148,16 +149,21 @@ function* handTurnGeneratorSequence(match: IMatch, hand: IHand) {
     if (winnerTeamIdx !== null) {
       hand.addPoints(winnerTeamIdx, hand.truco.state)
       hand.setTrucoWinner(winnerTeamIdx)
-      hand.setState(EHandState.FINISHED)
+      hand.setState(EHandState.BEFORE_FINISHED)
     }
 
-    if (hand.state === EHandState.FINISHED && hand.envido.winner) {
+    if (hand.state === EHandState.BEFORE_FINISHED && hand.envido.winner) {
       hand.setEnvidoWinner(hand.envido.winner.id)
       hand.addPoints(hand.envido.winner.id, hand.envido.getPointsToGive())
     }
 
     currentRoundIdx++
   }
+
+  yield hand
+
+  hand.setState(EHandState.FINISHED)
+
   yield hand
 }
 
@@ -326,6 +332,9 @@ export function Hand(match: IMatch, idx: number) {
     },
     finished: () => {
       return hand.state === EHandState.FINISHED
+    },
+    beforeFinished: () => {
+      return hand.state === EHandState.BEFORE_FINISHED
     },
   }
 

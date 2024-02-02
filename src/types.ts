@@ -58,6 +58,7 @@ export interface IPublicMatch {
   options: ILobbyOptions
   busy: boolean
   state: EMatchState
+  handState: EHandState | null
   winner: ITeam | null
   matchSessionId: string
   ownerKey: string
@@ -144,6 +145,7 @@ export enum EHandState {
   WAITING_FOR_TRUCO_ANSWER = "WAITING_FOR_TRUCO_ANSWER",
   WAITING_ENVIDO_ANSWER = "WAITING_ENVIDO_ANSWER",
   WAITING_ENVIDO_POINTS_ANSWER = "WAITING_ENVIDO_POINTS_ANSWER",
+  BEFORE_FINISHED = "BEFORE_FINISHED",
   FINISHED = "FINISHED",
 }
 

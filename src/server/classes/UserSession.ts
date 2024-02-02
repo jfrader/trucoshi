@@ -2,6 +2,7 @@ import { User } from "lightning-accounts"
 import logger from "../../utils/logger"
 import { PLAYER_TIMEOUT_GRACE } from "../constants"
 import { IUserData } from "../../types"
+import { TMap } from "./TMap"
 
 const log = logger.child({ class: "UserSession" })
 
@@ -9,17 +10,25 @@ export interface IUserSession extends IUserData {
   name: string
   online: boolean
   ownedMatches: Set<string>
-  reconnectTimeouts: Map<string, NodeJS.Timeout | null>
-  reconnectPromises: Map<string, () => void> // room (matchId), resolver promise
+  timeouts: {
+    disconnection: TMap<string, UserTimeout> // room (matchId), resolver promise
+    turn: TMap<string, UserTimeout> // room (matchId), resolver promise
+  }
   setAccount(user: User | null): void
   getPublicInfo(): Omit<IUserSession, "session" | "user">
-  waitReconnection(room: string, timeout: number): Promise<void>
-  resolveWaitingPromises(room: string): void
+  waitReconnection(room: string, timeout: number, type: "disconnection" | "turn"): Promise<void>
+  resolveWaitingPromises(room: string, type?: "disconnection" | "turn"): void
   connect(): void
   disconnect(): void
-  reconnect(room: string): void
+  reconnect(room: string, type?: "disconnection" | "turn"): void
   setName(id: string): void
   getUserData(): IUserData
+}
+
+interface UserTimeout {
+  timeout?: NodeJS.Timeout
+  resolve?: () => void
+  reject?: (err?: unknown) => void
 }
 
 const WAIT_RECONNECTION_ABANDON_DEBUG_MSG = `User disconnected from match or was inactive and timed out with no reconnection`
@@ -37,8 +46,10 @@ export function UserSession(key: string, username: string, session: string) {
     session,
     online: true,
     ownedMatches: new Set(),
-    reconnectTimeouts: new Map(),
-    reconnectPromises: new Map(),
+    timeouts: {
+      disconnection: new TMap<string, UserTimeout>(),
+      turn: new TMap<string, UserTimeout>(),
+    },
     getPublicInfo() {
       const { session: _session, ...rest } = userSession
       return rest
@@ -50,39 +61,51 @@ export function UserSession(key: string, username: string, session: string) {
       const { key, name, session, account } = userSession
       return { key, name, session, account }
     },
-    waitReconnection(room, timeout) {
+    waitReconnection(room, timeout, type) {
       return new Promise<void>((resolve, reject) => {
-        userSession.resolveWaitingPromises(room)
+        userSession.resolveWaitingPromises(room, type)
         log.debug(
           userSession.getPublicInfo(),
           `User disconnected or left, waiting for ${timeout}ms to reconnect`
         )
-        userSession.reconnectTimeouts.set(
-          room,
-          setTimeout(() => {
+        userSession.timeouts[type].set(room, {
+          resolve,
+          reject,
+          timeout: setTimeout(() => {
             log.debug(userSession.getPublicInfo(), WAIT_RECONNECTION_ABANDON_DEBUG_MSG)
             reject()
-            userSession.reconnectPromises.delete(room)
-          }, timeout + PLAYER_TIMEOUT_GRACE)
-        )
-        userSession.reconnectPromises.set(room, resolve)
+            userSession.timeouts[type].delete(room)
+          }, timeout + PLAYER_TIMEOUT_GRACE),
+        })
       })
     },
-    resolveWaitingPromises(room) {
-      const promise = userSession.reconnectPromises.get(room)
-      if (promise) {
-        promise()
-        userSession.reconnectPromises.delete(room)
+    resolveWaitingPromises(room, type) {
+      if (!type) {
+        userSession.resolveWaitingPromises(room, "disconnection")
+        userSession.resolveWaitingPromises(room, "turn")
+        return
       }
 
-      const timeout = userSession.reconnectTimeouts.get(room)
+      const reconnecTimeout = userSession.timeouts[type].get(room)
+
+      if (!reconnecTimeout) {
+        return
+      }
+
+      const { timeout, resolve } = reconnecTimeout
+
+      if (resolve) {
+        resolve()
+      }
+
       if (timeout) {
         clearTimeout(timeout)
-        userSession.reconnectTimeouts.delete(room)
       }
+
+      userSession.timeouts[type].delete(room)
     },
-    reconnect(room) {
-      userSession.resolveWaitingPromises(room)
+    reconnect(room, type) {
+      userSession.resolveWaitingPromises(room, type)
       userSession.connect()
     },
     connect() {

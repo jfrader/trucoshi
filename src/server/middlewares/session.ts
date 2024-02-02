@@ -6,9 +6,11 @@ import { EClientEvent, EServerEvent, GAME_ERROR } from "../../types"
 import { validateJwt } from "../../accounts/client"
 import { Event } from "socket.io"
 
+const log = logger.child({ middleware: "session" })
+
 export const session = (server: ITrucoshi) => {
   server.io.on("connection", (socket) => {
-    logger.debug("New socket connection %s", socket.id)
+    log.debug("New socket connection %s", socket.id)
     if (socket.data.user) {
       socket.join(socket.data.user.session)
       server.emitSocketSession(socket)
@@ -17,7 +19,7 @@ export const session = (server: ITrucoshi) => {
 
   return (socket: TrucoshiSocket, next: (err?: ExtendedError) => void) => {
     socket.on("disconnect", async (reason) => {
-      logger.debug("Socket disconnected, reason?: %s", reason)
+      log.debug("Socket disconnected, reason?: %s", reason)
       if (socket.data.user) {
         const matchingSockets = await server.io.in(socket.data.user?.session).fetchSockets()
         const isDisconnected = matchingSockets.length === 0
@@ -33,8 +35,9 @@ export const session = (server: ITrucoshi) => {
     socket.use(validateSession(socket))
 
     socket.on("error", (err) => {
-      logger.error(err, "Socket packet error")
+      log.error(err, "Socket packet error")
       server.logout(socket)
+      socket.disconnect()
     })
 
     const name = socket.handshake.auth.name
@@ -66,15 +69,17 @@ export const session = (server: ITrucoshi) => {
   }
 }
 
+const NON_VALIDATED_EVENTS: string[] = [EClientEvent.LOGIN, EClientEvent.LOGOUT, EClientEvent.PING]
+
 const validateSession: (
   socket: TrucoshiSocket,
   retry?: boolean
 ) => (event: Event, next: (err?: Error | undefined) => void) => void = (socket, retry) => {
   return (event, next) => {
-    if (event[0] === EClientEvent.LOGIN) {
+    if (NON_VALIDATED_EVENTS.includes(event[0])) {
       return next()
     }
-    logger.trace({ data: socket.data.user, event: event[0] }, "validating session")
+    log.trace({ ...socket.data.user, event: event[0] }, "validating session")
     if (socket.data.user?.account?.id) {
       try {
         if (!socket.data?.identity) {
@@ -84,6 +89,7 @@ const validateSession: (
         return next()
       } catch (e) {
         if (!retry) {
+          log.trace({ ...socket.data.user, event: event[0] }, "refreshing identity")
           return socket.emit(
             EServerEvent.REFRESH_IDENTITY,
             socket.data.user.account.id,

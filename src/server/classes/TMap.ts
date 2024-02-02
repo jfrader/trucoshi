@@ -1,4 +1,4 @@
-export class TMap<K, V> extends Map<K, V> {
+export class TMap<K, V extends { [x: string]: any }> extends Map<K, V> {
   find(finder: (value: V) => boolean): V | void {
     let result: void | V = undefined
 
@@ -13,6 +13,16 @@ export class TMap<K, V> extends Map<K, V> {
 
   findAll(finder: (value: V) => boolean) {
     return Array.from(this.values()).filter(finder)
+  }
+
+  patch(key: K, value: Partial<V>): V | void {
+    const old = this.get(key)
+
+    if (!old) {
+      return
+    }
+
+    this.set(key, { ...old, ...value })
   }
 
   getOrThrow(key?: K) {

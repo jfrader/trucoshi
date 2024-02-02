@@ -146,6 +146,7 @@ const getPublicMatch = (
     state: table.state(),
     teams: publicTeams,
     players: publicPlayers,
+    handState: gameLoop?.currentHand?.state || null,
     lastCommand: gameLoop?.lastCommand,
     lastCard: gameLoop?.lastCard,
     freshHand,
