@@ -1,3 +1,4 @@
+import { Logger } from "pino"
 import { IHand, ILobby, Lobby } from "../../truco"
 import {
   EMatchState,
@@ -8,6 +9,7 @@ import {
   IPublicMatch,
   IPublicMatchInfo,
 } from "../../types"
+import logger from "../../utils/logger"
 
 export interface IMatchTable {
   matchId?: number

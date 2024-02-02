@@ -286,10 +286,9 @@ export const Trucoshi = ({
           }
 
           for (const match of unpaidMatches) {
-            log.debug(
-              { matchId: match.id, sessionId: match.sessionId },
-              "Trying to repay bets to players on this match..."
-            )
+            const matchLog = log.child({ matchSessionId: match.sessionId, matchId: match.id })
+
+            matchLog.trace("Trying to repay bets to players on this match...")
             // Returning bets to all players if wasnt awarded and server is starting
             // Should also check if one of the teams won and give the award to its players
             for (const player of match.players) {
@@ -301,10 +300,8 @@ export const Trucoshi = ({
                 const amountInSats = player.satsPaid - player.satsReceived
 
                 if (!amountInSats) {
-                  log.debug(
+                  matchLog.trace(
                     {
-                      matchId: match.id,
-                      sessionId: match.sessionId,
                       playerAccountId: player.accountId,
                       satsPaid: player.satsPaid,
                       satsReceived: player.satsReceived,
@@ -315,10 +312,8 @@ export const Trucoshi = ({
                   continue
                 }
 
-                log.debug(
+                matchLog.trace(
                   {
-                    matchId: match.id,
-                    sessionId: match.sessionId,
                     playerAccountId: player.accountId,
                     amountInSats,
                   },
@@ -327,7 +322,7 @@ export const Trucoshi = ({
 
                 const pr = await accountsApi.wallet.payRequestDetail(String(player.payRequestId))
 
-                log.debug(
+                matchLog.trace(
                   {
                     isPaid: pr.data.paid,
                     payRequestId: pr.data.id,
@@ -336,7 +331,7 @@ export const Trucoshi = ({
                 )
 
                 if (pr.data.paid) {
-                  log.debug(
+                  matchLog.trace(
                     {
                       isPaid: pr.data.paid,
                       payRequestId: pr.data.id,
@@ -421,7 +416,7 @@ export const Trucoshi = ({
 
       server.emitSocketSession(socket)
 
-      log.debug(socket.data.user, "Logging in account")
+      log.info({ ...userSession.getPublicInfo() }, "Socket has logged into account")
     },
     logout(socket) {
       if (!socket.data.user) {
@@ -437,7 +432,7 @@ export const Trucoshi = ({
 
       socket.data = {}
 
-      log.debug(socket.data.user, "Logging out account")
+      log.info(socket.data.user, "Socket has logged out off account")
     },
     async emitSocketSession(socket) {
       if (!socket.data.user) {
@@ -1219,7 +1214,7 @@ export const Trucoshi = ({
           update.payRequestId = pr.id
         }
 
-        log.debug({ update }, "About to update or create match player")
+        log.trace({ update }, "About to update or create match player")
 
         if (dbPlayerExists) {
           const dbPlayer = await server.store.matchPlayer.update({
@@ -1385,6 +1380,8 @@ export const Trucoshi = ({
         }
       }
 
+      log.info(table.getPublicMatchInfo(), "Match started")
+
       table.lobby
         .startMatch()
         .onBeforeHandFinished(server.onBeforeHandFinished.bind(null, table))
@@ -1477,7 +1474,7 @@ export const Trucoshi = ({
                 const winnersLength = winnerTeam.players.filter((p) => !p.abandoned).length
                 const amountInSats = Math.floor(prize / winnersLength)
 
-                logger.debug(
+                log.debug(
                   { pool, tax, prize, amountInSats, winnersLength, rake },
                   "Paying winner award"
                 )
@@ -1497,6 +1494,11 @@ export const Trucoshi = ({
                       userId: player.accountId!,
                       description: `Awarding match prize ID: ${table.matchId}`,
                     })
+
+                    log.info(
+                      { pool, tax, prize, amountInSats, winnersLength, rake },
+                      "Match winner received award"
+                    )
                   })
                 }
               } catch (e) {
@@ -1516,7 +1518,7 @@ export const Trucoshi = ({
           return server.onWinner(table, winnerTeam)
         })
         .begin()
-        .then(() => log.trace(table.getPublicMatchInfo(), "Match finished"))
+        .then(() => log.info(table.getPublicMatchInfo(), "Match finished"))
         .catch((e) => log.error(e, "Lobby match loop failed"))
 
       server.tables.set(matchSessionId as string, table)
@@ -1610,7 +1612,7 @@ export const Trucoshi = ({
           return
         }
 
-        log.debug(
+        log.trace(
           { player, matchSessionId: table.matchSessionId },
           "Socket left a match lobby that had bets paid by the player, giving sats back if needed..."
         )
@@ -1619,7 +1621,7 @@ export const Trucoshi = ({
           const amountInSats = player.satsPaid - player.satsReceived
 
           if (!amountInSats) {
-            log.debug(
+            log.trace(
               {
                 matchId: table.matchId,
                 sessionId: table.matchSessionId,
@@ -1634,7 +1636,7 @@ export const Trucoshi = ({
           }
           const pr = await accountsApi.wallet.payRequestDetail(String(player.payRequestId))
 
-          logger.debug(
+          log.trace(
             { pr: pr.data, player },
             "Found pay request, checking if paid to return sats..."
           )
@@ -1651,7 +1653,7 @@ export const Trucoshi = ({
                 description: `Returning bet from leaving match ID: ${table.matchId}`,
               })
 
-              log.info(
+              log.debug(
                 {
                   matchId: table.matchId,
                   sessionId: table.matchSessionId,
@@ -1699,7 +1701,7 @@ export const Trucoshi = ({
           if (notStarted) {
             table.playerDisconnected(player)
 
-            log.debug(
+            log.trace(
               { player: player.getPublicPlayer(), matchSessionId: table.matchSessionId },
               "Socket left a match and it didn't start yet, checking..."
             )
@@ -1720,7 +1722,7 @@ export const Trucoshi = ({
             userSession
               .waitReconnection(table.matchSessionId, PLAYER_LOBBY_TIMEOUT, "disconnection")
               .then(() => {
-                log.debug({ ...table.getPublicMatchInfo() }, "User reconnected to lobby")
+                log.trace({ ...table.getPublicMatchInfo() }, "User reconnected to lobby")
                 table.playerReconnected(player)
               })
               .catch(() => {
@@ -1733,7 +1735,7 @@ export const Trucoshi = ({
           }
 
           if (force) {
-            log.debug(
+            log.trace(
               { player: player.getPublicPlayer(), matchSessionId: table.matchSessionId },
               "Socket left a match forcibly while playing, abandoning..."
             )
@@ -1859,7 +1861,7 @@ export const Trucoshi = ({
     },
     async cleanupMatchTable(table) {
       const matchSessionId = table.matchSessionId
-      log.debug({ table: table.getPublicMatchInfo() }, "Cleaning up match table")
+      log.trace({ table: table.getPublicMatchInfo() }, "Cleaning up match table")
       try {
         const shouldReturnBets = table.state() !== EMatchState.FINISHED
         if (server.store && shouldReturnBets && table.lobby.options.satsPerPlayer > 0) {
@@ -1934,7 +1936,7 @@ export const Trucoshi = ({
 
     const userSession = server.sessions.getOrThrow(user.session)
 
-    log.debug({ matchId: room, socketId }, "Player socket joined match room")
+    log.trace({ matchId: room, socketId }, "Player socket joined match room")
 
     userSession.reconnect(table.matchSessionId, "disconnection")
   })

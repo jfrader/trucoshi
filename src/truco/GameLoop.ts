@@ -170,7 +170,7 @@ export const GameLoop = (match: IMatch) => {
 
       winner = match.winner
 
-      log.debug(
+      log.trace(
         { matchId: match.id, winnerIdx: winner.id, points: winner.points },
         "Gameloop match found a winner!"
       )
@@ -193,7 +193,7 @@ export const GameLoop = (match: IMatch) => {
           )
         )
       } catch (e) {
-        log.error(e, "Gameloop onWinner callback error")
+        log.fatal(e, "Gameloop onWinner callback error!!!")
       }
     },
   }

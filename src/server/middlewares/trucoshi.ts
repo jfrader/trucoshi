@@ -63,7 +63,7 @@ export const trucoshi =
      * Set Match Options
      */
     socket.on(EClientEvent.SET_MATCH_OPTIONS, async (matchSessionId, options, callback) => {
-      log.debug({ matchSessionId, options }, "Setting match options")
+      log.trace({ matchSessionId, options }, "Setting match options")
       try {
         const userSession = server.sessions.getOrThrow(socket.data.user?.session)
         const table = await server.setMatchOptions({

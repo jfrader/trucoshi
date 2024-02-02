@@ -70,7 +70,7 @@ export function PlayInstance(hand: IHand, prevHand: IHand | null, teams: [ITeam,
       }
       busy = true
 
-      log.debug(
+      log.trace(
         { card, player: hand.currentPlayer?.name, hand: hand.currentPlayer?.hand },
         "Playing card"
       )
@@ -87,7 +87,7 @@ export function PlayInstance(hand: IHand, prevHand: IHand | null, teams: [ITeam,
       }
       busy = true
 
-      log.debug(
+      log.trace(
         { command, player: player.name, envido: player.envido, commands: player.commands },
         "Saying command"
       )

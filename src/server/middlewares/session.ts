@@ -19,7 +19,7 @@ export const session = (server: ITrucoshi) => {
 
   return (socket: TrucoshiSocket, next: (err?: ExtendedError) => void) => {
     socket.on("disconnect", async (reason) => {
-      log.debug("Socket disconnected, reason?: %s", reason)
+      log.info("Socket disconnected, reason?: %s", reason)
       if (socket.data.user) {
         const matchingSockets = await server.io.in(socket.data.user?.session).fetchSockets()
         const isDisconnected = matchingSockets.length === 0
@@ -36,7 +36,6 @@ export const session = (server: ITrucoshi) => {
 
     socket.on("error", (err) => {
       log.error(err, "Socket packet error")
-      server.logout(socket)
       socket.disconnect()
     })
 
@@ -57,6 +56,8 @@ export const session = (server: ITrucoshi) => {
           socket.data.matches = new TMap()
         }
 
+        log.info({ ...session.getPublicInfo() }, "Socket connected to guest session")
+
         return next()
       }
     }
@@ -64,6 +65,8 @@ export const session = (server: ITrucoshi) => {
     const session = server.createUserSession(socket, name || "Satoshi")
     socket.data.user = session.getUserData()
     session.connect()
+
+    log.info({ ...session.getPublicInfo() }, "New guest session")
 
     next()
   }
@@ -73,8 +76,8 @@ const NON_VALIDATED_EVENTS: string[] = [EClientEvent.LOGIN, EClientEvent.LOGOUT,
 
 const validateSession: (
   socket: TrucoshiSocket,
-  retry?: boolean
-) => (event: Event, next: (err?: Error | undefined) => void) => void = (socket, retry) => {
+  retry?: number
+) => (event: Event, next: (err?: Error | undefined) => void) => void = (socket, retry = 0) => {
   return (event, next) => {
     if (NON_VALIDATED_EVENTS.includes(event[0])) {
       return next()
@@ -88,7 +91,7 @@ const validateSession: (
         validateJwt(socket.data?.identity, socket.data.user?.account)
         return next()
       } catch (e) {
-        if (!retry) {
+        if (retry < 3) {
           log.trace({ ...socket.data.user, event: event[0] }, "refreshing identity")
           return socket.emit(
             EServerEvent.REFRESH_IDENTITY,
@@ -99,8 +102,7 @@ const validateSession: (
                   throw new SocketError("INVALID_IDENTITY", "Failed to refresh identity")
                 }
                 socket.data.identity = identity
-                validateSession(socket, true)
-                return next()
+                return validateSession(socket, retry + 1)(event, next)
               } catch (e) {
                 return next(isSocketError(e, "INVALID_IDENTITY"))
               }
