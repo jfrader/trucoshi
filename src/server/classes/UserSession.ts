@@ -15,7 +15,9 @@ export interface IUserSession extends IUserData {
     turn: TMap<string, UserTimeout> // room (matchId), resolver promise
   }
   setAccount(user: User | null): void
-  getPublicInfo(): Omit<IUserSession, "session" | "user">
+  getPublicInfo(): Pick<IUserSession, "key" | "online" | "name" | "ownedMatches"> & {
+    accountId?: number
+  }
   waitReconnection(room: string, timeout: number, type: "disconnection" | "turn"): Promise<void>
   resolveWaitingPromises(room: string, type?: "disconnection" | "turn"): void
   connect(): void
@@ -51,8 +53,8 @@ export function UserSession(key: string, username: string, session: string) {
       turn: new TMap<string, UserTimeout>(),
     },
     getPublicInfo() {
-      const { session: _session, ...rest } = userSession
-      return rest
+      const { key, account, online, name, ownedMatches } = userSession
+      return { key, accountId: account?.id, online, name, ownedMatches }
     },
     setAccount(user) {
       userSession.account = user
