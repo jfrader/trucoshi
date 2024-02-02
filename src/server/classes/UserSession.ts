@@ -6,6 +6,10 @@ import { TMap } from "./TMap"
 
 const log = logger.child({ class: "UserSession" })
 
+export type IPublicUserSession = Pick<IUserSession, "key" | "online" | "name" | "ownedMatches"> & {
+  accountId?: number
+}
+
 export interface IUserSession extends IUserData {
   name: string
   online: boolean
@@ -15,9 +19,7 @@ export interface IUserSession extends IUserData {
     turn: TMap<string, UserTimeout> // room (matchId), resolver promise
   }
   setAccount(user: User | null): void
-  getPublicInfo(): Pick<IUserSession, "key" | "online" | "name" | "ownedMatches"> & {
-    accountId?: number
-  }
+  getPublicInfo(): IPublicUserSession
   waitReconnection(room: string, timeout: number, type: "disconnection" | "turn"): Promise<void>
   resolveWaitingPromises(room: string, type?: "disconnection" | "turn"): void
   connect(): void
@@ -114,7 +116,7 @@ export function UserSession(key: string, username: string, session: string) {
       userSession.online = true
     },
     disconnect() {
-      log.debug(userSession.getUserData(), "Session disconnected")
+      log.debug(userSession.getPublicInfo(), "Session disconnected")
       userSession.online = false
     },
     setName(id) {
