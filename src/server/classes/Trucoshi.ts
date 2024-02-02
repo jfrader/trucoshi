@@ -157,6 +157,7 @@ export interface ITrucoshi {
     identityJwt: string | null,
     teamIdx?: 0 | 1
   ): Promise<IPlayer>
+  cleanupUserTables(userSession: IUserSession): Promise<void>
   startMatch(input: {
     identityJwt: string | null
     matchSessionId: string
@@ -1295,7 +1296,18 @@ export const Trucoshi = ({
 
       return player
     },
+    async cleanupUserTables(userSession) {
+      const ownedTables = server.tables.findAll((t) => t.ownerSession === userSession.session)
+
+      for (const table of ownedTables) {
+        if (table.state() === EMatchState.UNREADY) {
+          await server.cleanupMatchTable(table)
+        }
+      }
+    },
     async startMatch({ identityJwt, matchSessionId, userSession }) {
+      await server.cleanupUserTables(userSession)
+
       const table = server.tables.getOrThrow(matchSessionId)
 
       if (!table) {

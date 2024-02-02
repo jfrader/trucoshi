@@ -2,7 +2,7 @@ import { ExtendedError } from "socket.io/dist/namespace"
 import { ITrucoshi, SocketError, TrucoshiSocket, isSocketError } from "../classes"
 import logger from "../../utils/logger"
 import { TMap } from "../classes/TMap"
-import { EClientEvent, EServerEvent, GAME_ERROR } from "../../types"
+import { EClientEvent, EServerEvent } from "../../types"
 import { validateJwt } from "../../accounts/client"
 import { Event } from "socket.io"
 
@@ -27,6 +27,7 @@ export const session = (server: ITrucoshi) => {
           const userSession = server.sessions.get(socket.data.user.session)
           if (userSession) {
             userSession.disconnect()
+            server.cleanupUserTables(userSession).catch(log.error)
           }
         }
       }
