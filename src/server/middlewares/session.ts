@@ -5,6 +5,7 @@ import { TMap } from "../classes/TMap"
 import { EClientEvent, EServerEvent } from "../../types"
 import { validateJwt } from "../../accounts/client"
 import { Event } from "socket.io"
+import { PLAYER_LOBBY_TIMEOUT } from "../constants"
 
 export const session = (server: ITrucoshi) => {
   server.io.on("connection", (socket) => {
@@ -25,7 +26,11 @@ export const session = (server: ITrucoshi) => {
           const userSession = server.sessions.get(socket.data.user.session)
           if (userSession) {
             userSession.disconnect()
-            server.cleanupUserTables(userSession).catch(logger.error)
+            userSession
+              .waitReconnection(userSession.session, PLAYER_LOBBY_TIMEOUT, "disconnection")
+              .catch(() => {
+                server.cleanupUserTables(userSession).catch(logger.error)
+              })
           }
         }
       }
@@ -47,7 +52,7 @@ export const session = (server: ITrucoshi) => {
         if (userSession.account) {
           return next(new SocketError("INVALID_IDENTITY"))
         }
-        userSession.connect()
+        userSession.reconnect(userSession.session)
         userSession.setName(name)
         socket.data.user = userSession.getUserData()
 

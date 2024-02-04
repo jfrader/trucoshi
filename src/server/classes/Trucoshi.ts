@@ -213,6 +213,7 @@ export const Trucoshi = ({
   const io = new Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>(
     httpServer,
     {
+      pingTimeout: 60000,
       cors: {
         credentials: true,
         origin,
@@ -411,6 +412,7 @@ export const Trucoshi = ({
 
       userSession.setAccount(res.data)
       userSession.setName(res.data.name)
+      userSession.reconnect(userSession.session)
       socket.data.user = userSession.getUserData()
       socket.data.identity = identityJwt
       socket.join(userSession.session)
@@ -1893,6 +1895,10 @@ export const Trucoshi = ({
             await tx.match.delete({ where: { id: table.matchId } })
           })
         }
+
+        await server.getTableSockets(table, async (playerSocket) => {
+          playerSocket.leave(table.matchSessionId)
+        })
 
         for (const player of table.lobby.players) {
           const userSession = server.sessions.getOrThrow(player.session)
