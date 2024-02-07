@@ -1,0 +1,52 @@
+# compose.yaml
+version: "3.8"
+
+networks:
+  trucoshinet:
+    external: true
+    name: trucoshinet
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 192.168.96.0/24
+
+services:
+  postgres:
+    image: postgres:alpine
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${APP_DB_USER} -d ${APP_DB_NAME}"]
+      interval: 5s
+      start_period: 1s
+      timeout: 5s
+      retries: 5
+    environment:
+      POSTGRES_DB: ${APP_DB_NAME}
+      POSTGRES_USER: ${APP_DB_USER}
+      POSTGRES_PASSWORD: ${APP_DB_PASSWORD}
+    ports:
+      - 5433:5432
+    restart: always
+  redis:
+    image: redis:latest
+    restart: always
+    command: redis-server
+    ports:
+      - 6380:6379
+  trucoshi:
+    build: .
+    restart: always
+    command: ["yarn", "start"]
+    ports:
+      - 2992:2992
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      DATABASE_URL: "postgresql://${APP_DB_USER}:${APP_DB_PASSWORD}@postgres:5432/${APP_DB_NAME}?schema=public"
+      APP_REDIS_URL: "redis://redis:6379"
+      APP_LIGHTNING_ACCOUNTS_URL: "http://host.docker.internal:2999/v1"

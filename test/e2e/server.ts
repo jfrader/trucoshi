@@ -1,14 +1,14 @@
 import { io as Client, Socket } from "socket.io-client"
 import { assert, expect } from "chai"
-import { trucoshi } from "../src/server/middlewares/trucoshi"
+import { trucoshi } from "../../src/server/middlewares/trucoshi"
 import {
   ICard,
   IPublicMatch,
-} from "../src/types"
-import { ITrucoshi, Trucoshi, TrucoshiSocket } from "../src/server/classes"
-import { session } from "../src/server"
+} from "../../src/types"
+import { ITrucoshi, Trucoshi, TrucoshiSocket } from "../../src/server/classes"
+import { session } from "../../src/server"
 import { playRandomMatch } from "./serverHelpers"
-import { ClientToServerEvents, EClientEvent, EServerEvent, ServerToClientEvents } from "../src/events"
+import { ClientToServerEvents, EClientEvent, EServerEvent, ServerToClientEvents } from "../../src/events"
 
 describe("Socket Server", () => {
   let serverSocket: TrucoshiSocket
@@ -16,7 +16,7 @@ describe("Socket Server", () => {
   let server: ITrucoshi
 
   before((done) => {
-    server = Trucoshi({ port: 9999, serverVersion: "1" })
+    server = Trucoshi({ port: Number(process.env.APP_PORT) || 9999, serverVersion: "1" })
 
     server.listen(
       (io) => {

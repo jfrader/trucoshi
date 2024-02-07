@@ -1,6 +1,6 @@
 import { expect } from "chai"
-import { EAnswerCommand, EEnvidoAnswerCommand, ESayCommand } from "../src/types"
-import { Lobby } from "../src/truco"
+import { EAnswerCommand, EEnvidoAnswerCommand, ESayCommand } from "../../src/types"
+import { Lobby } from "../../src/truco"
 
 describe("Trucoshi Lib", () => {
   it("should play an entire match of 6", (done) => {

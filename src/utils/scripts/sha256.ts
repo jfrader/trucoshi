@@ -1,6 +1,6 @@
 const { createHash } = require("crypto")
 
-const salt = process.env.NODE_SALT
+const salt = process.env.APP_SALT
 
 export function hash(str: string) {
   return createHash("sha256")

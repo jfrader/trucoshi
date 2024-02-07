@@ -207,7 +207,7 @@ export const Trucoshi = ({
 }) => {
   const httpServer = createServer()
 
-  const pubClient = createClient({ url: process.env.REDIS_URL })
+  const pubClient = createClient({ url: process.env.APP_REDIS_URL })
   const subClient = pubClient.duplicate()
 
   const io = new Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>(
@@ -912,7 +912,7 @@ export const Trucoshi = ({
     onBeforeHandFinished(table) {
       log.trace({ ...table.getPublicMatchInfo() }, `Table Before Finished Hand`)
 
-      const previousHandAckTime = process.env.NODE_PREVIOUS_HAND_ACK_TIMEOUT
+      const previousHandAckTime = process.env.APP_PREVIOUS_HAND_ACK_TIMEOUT
 
       return server
         .emitMatchUpdate(table)
@@ -1023,11 +1023,11 @@ export const Trucoshi = ({
       if (satsPerPlayer !== undefined && currentOptions.satsPerPlayer !== satsPerPlayer) {
         if (satsPerPlayer > 0) {
           if (
-            process.env.NODE_MAX_BET &&
-            Number(process.env.NODE_MAX_BET) > 0 &&
-            satsPerPlayer > Number(process.env.NODE_MAX_BET)
+            process.env.APP_MAX_BET &&
+            Number(process.env.APP_MAX_BET) > 0 &&
+            satsPerPlayer > Number(process.env.APP_MAX_BET)
           ) {
-            throw new SocketError("FORBIDDEN", "Maximo " + process.env.NODE_MAX_BET + " sats")
+            throw new SocketError("FORBIDDEN", "Maximo " + process.env.APP_MAX_BET + " sats")
           }
 
           if (!server.store) {
@@ -1481,7 +1481,7 @@ export const Trucoshi = ({
             const satsPerPlayer = table.lobby.options.satsPerPlayer
             if (satsPerPlayer > 0) {
               try {
-                const rake = Number(process.env.NODE_RAKE_PERCENT) || 0
+                const rake = Number(process.env.APP_RAKE_PERCENT) || 0
                 const pool = satsPerPlayer * table.lobby.players.length
                 const tax = Math.round((pool * rake) / 100) || rake
                 const prize = pool - tax

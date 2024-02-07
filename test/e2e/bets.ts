@@ -1,6 +1,6 @@
 import { io as Client, Socket } from "socket.io-client"
 import { assert, expect } from "chai"
-import { trucoshi } from "../src/server/middlewares/trucoshi"
+import { trucoshi } from "../../src/server/middlewares/trucoshi"
 import {
   EAnswerCommand,
   ECommand,
@@ -8,12 +8,12 @@ import {
   ICard,
   IPublicMatch,
   IPublicPlayer,
-} from "../src/types"
-import { ITrucoshi, Trucoshi, TrucoshiSocket } from "../src/server/classes"
-import { session } from "../src/server"
-import logger from "../src/utils/logger"
+} from "../../src/types"
+import { ITrucoshi, Trucoshi, TrucoshiSocket } from "../../src/server/classes"
+import { session } from "../../src/server"
+import logger from "../../src/utils/logger"
 import { Api } from "lightning-accounts"
-import { ClientToServerEvents, EClientEvent, EServerEvent, ServerToClientEvents } from "../src/events"
+import { ClientToServerEvents, EClientEvent, EServerEvent, ServerToClientEvents } from "../../src/events"
 import { EMatchState } from "@prisma/client"
 
 describe("E2E", () => {
@@ -26,7 +26,7 @@ describe("E2E", () => {
   let balances: number[] = []
 
   before((done) => {
-    server = Trucoshi({ port: 9999, serverVersion: "1" })
+    server = Trucoshi({ port: Number(process.env.APP_PORT), serverVersion: "1" })
 
     server.listen(
       (io) => {
@@ -58,7 +58,7 @@ describe("E2E", () => {
                   }
 
                   const api = new Api({
-                    baseURL: process.env.NODE_LIGHTNING_ACCOUNTS_URL,
+                    baseURL: process.env.APP_LIGHTNING_ACCOUNTS_URL,
                     withCredentials: true,
                   })
 

@@ -14,6 +14,6 @@
     "declaration": true,
     "paths": { "@trucoshi/prisma": ["./prisma/client"] }
   },
-  "include": ["src/**/*", "etc/scripts/autoplay.ts", "etc/scripts/play.ts", "etc"],
+  "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "test"]
 }

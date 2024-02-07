@@ -5,10 +5,10 @@ import {
   EEnvidoAnswerCommand,
   ICard,
   IPublicMatch,
-} from "../src/types"
+} from "../../src/types"
 import { Socket } from "socket.io-client"
-import logger from "../src/utils/logger"
-import { ClientToServerEvents, EClientEvent, EServerEvent, ServerToClientEvents } from "../src/events"
+import logger from "../../src/utils/logger"
+import { ClientToServerEvents, EClientEvent, EServerEvent, ServerToClientEvents } from "../../src/events"
 import { EMatchState } from "@prisma/client"
 
 export const playRandomMatch = async (

@@ -10,7 +10,7 @@ const transport = pino.transport({
 })
 
 const logger = pino(
-  { level: process.env.NODE_DEBUG_LEVEL },
+  { level: process.env.APP_DEBUG_LEVEL },
   transport
 )
 

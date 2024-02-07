@@ -25,8 +25,8 @@ export default () => {
 
   logger.info("Starting Trucoshi " + process.env.NODE_ENV + " server version " + version)
 
-  const PORT = process.env.NODE_PORT || 2992
-  const ORIGIN = process.env.NODE_ORIGIN || "http://localhost:2991"
+  const PORT = process.env.APP_PORT || 2992
+  const ORIGIN = process.env.APP_ORIGIN || "http://localhost:2991"
 
   const server = Trucoshi({ port: Number(PORT), origin: [ORIGIN], serverVersion: version })
 
