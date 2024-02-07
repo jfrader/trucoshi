@@ -38,7 +38,7 @@ services:
     restart: always
     command: ["yarn", "start"]
     ports:
-      - 2992:2992
+      - ${APP_PORT}:2992
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
