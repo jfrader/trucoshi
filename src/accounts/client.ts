@@ -21,7 +21,14 @@ const validateJwt = (identityJwt: string, account: User): JwtPayload => {
   try {
     const payload = jwt.verify(identityJwt, publicKey) as JwtPayload
 
-    logger.fatal({ identityJwt, publicKey, payload, equal: account.id, to: Number(payload.sub) })
+    logger.fatal({
+      identityJwt,
+      publicKey,
+      payload,
+      equal: account.id,
+      to: Number(payload.sub),
+      account,
+    })
     if (!payload.sub || account.id !== Number(payload.sub)) {
       throw new Error()
     }
