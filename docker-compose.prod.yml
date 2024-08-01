@@ -4,8 +4,6 @@ services:
     extends:
       file: docker-compose.base.yml
       service: postgres
-    ports:
-      - 5432:5432
     volumes:
       - data:/var/lib/postgresql/data
   redis:
@@ -14,6 +12,11 @@ services:
       file: docker-compose.base.yml
       service: redis
   trucoshi:
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
     restart: unless-stopped
     command: ["yarn", "start:prod:migrate"]
     extends:

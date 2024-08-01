@@ -1,17 +1,23 @@
 services:
-  postgres:
+  postgres_test:
     extends:
       file: docker-compose.base.yml
       service: postgres
-  redis:
+  redis_test:
     extends:
       file: docker-compose.base.yml
       service: redis
   trucoshi:
+    depends_on:
+      postgres_test:
+        condition: service_healthy
+      redis_test:
+        condition: service_started
     command: ["yarn", "test:e2e"]
     env_file:
       - path: ./.env.test
     environment:
+      DATABASE_URL: "postgresql://${APP_DB_USER}:${APP_DB_PASSWORD}@postgres_test:5432/${APP_DB_NAME}?schema=public"
       APP_LIGHTNING_ACCOUNTS_URL: "http://host.docker.internal:3999/v1"
     extends:
       file: docker-compose.base.yml
