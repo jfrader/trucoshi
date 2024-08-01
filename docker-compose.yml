@@ -3,14 +3,10 @@ services:
     extends:
       file: docker-compose.base.yml
       service: postgres
-    ports:
-      - 5432:5432
   redis:
     extends:
       file: docker-compose.base.yml
       service: redis
-    ports:
-      - 6379:6379
   trucoshi:
     extends:
       file: docker-compose.base.yml
