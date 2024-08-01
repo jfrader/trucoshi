@@ -1,14 +1,16 @@
 import { io as Client, Socket } from "socket.io-client"
 import { assert, expect } from "chai"
 import { trucoshi } from "../../src/server/middlewares/trucoshi"
-import {
-  ICard,
-  IPublicMatch,
-} from "../../src/types"
+import { ICard, IPublicMatch } from "../../src/types"
 import { ITrucoshi, Trucoshi, TrucoshiSocket } from "../../src/server/classes"
 import { session } from "../../src/server"
 import { playRandomMatch } from "./serverHelpers"
-import { ClientToServerEvents, EClientEvent, EServerEvent, ServerToClientEvents } from "../../src/events"
+import {
+  ClientToServerEvents,
+  EClientEvent,
+  EServerEvent,
+  ServerToClientEvents,
+} from "../../src/events"
 
 describe("Socket Server", () => {
   let serverSocket: TrucoshiSocket
@@ -25,7 +27,7 @@ describe("Socket Server", () => {
 
         for (let i = 0; i < 6; i++) {
           clients.push(
-            Client(`http://localhost:9999`, {
+            Client(`http://localhost:${process.env.APP_PORT || 9999}`, {
               autoConnect: false,
               withCredentials: true,
               auth: { name: "player" + i },
@@ -47,6 +49,12 @@ describe("Socket Server", () => {
                 }
                 res()
               })
+
+              c.on("connect_error", (e) => {
+                console.log("CONNECT ERROR")
+                console.error(e)
+              })
+
               c.connect()
             })
         )

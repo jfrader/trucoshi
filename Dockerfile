@@ -1,6 +1,8 @@
 # Dockerfile
 FROM node:21-alpine
 
+ARG APP_PORT=2999
+
 RUN mkdir -p /opt/app
 WORKDIR /opt/app
 
@@ -14,8 +16,9 @@ COPY tsconfig.json  /opt/app/
 COPY tsconfig.dist.json /opt/app/
 COPY tsconfig.base.json /opt/app/
 COPY .env /opt/app/
+COPY .env.test /opt/app/
 
-RUN yarn install
+RUN yarn --pure-lockfile && yarn cache clean
 RUN yarn build
 
-EXPOSE 2992
+EXPOSE $APP_PORT

@@ -1,4 +1,6 @@
 #!/usr/bin/env node
 const trucoshi = require("../build/server/index")
 
+console.log("Starting server");
+
 trucoshi.default()

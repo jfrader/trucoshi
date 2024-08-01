@@ -17,7 +17,6 @@ import { ClientToServerEvents, EClientEvent, EServerEvent, ServerToClientEvents 
 import { EMatchState } from "@prisma/client"
 
 describe("E2E", () => {
-  let serverSocket: TrucoshiSocket
   let clients: Socket<ServerToClientEvents, ClientToServerEvents>[] = []
   let server: ITrucoshi
   let identities: string[] = []
@@ -26,7 +25,7 @@ describe("E2E", () => {
   let balances: number[] = []
 
   before((done) => {
-    server = Trucoshi({ port: Number(process.env.APP_PORT), serverVersion: "1" })
+    server = Trucoshi({ port: Number(process.env.APP_PORT) || 9999, serverVersion: "1" })
 
     server.listen(
       (io) => {
@@ -35,16 +34,15 @@ describe("E2E", () => {
 
         for (let i = 0; i < 6; i++) {
           clients.push(
-            Client(`http://localhost:9999`, {
+            Client(`http://localhost:${process.env.APP_PORT || 9999}`, {
               autoConnect: false,
               withCredentials: true,
-              auth: { name: "Player " + i },
+              auth: { name: "player" + i },
             })
           )
         }
 
         io.on("connection", (socket) => {
-          serverSocket = socket
           socket.setMaxListeners(50)
         })
 
@@ -254,9 +252,9 @@ describe("E2E", () => {
       )
     })
 
-    for (const [idx, client] of clients.entries()) {
-      await new Promise<void>((resolve) => setTimeout(resolve, 10))
-    }
+    // for (const [idx, client] of clients.entries()) {
+    //   await new Promise<void>((resolve) => setTimeout(resolve, 10))
+    // }
 
     const joinPromises = clients.map((c, i) => {
       const sendReady = (matchId: any, j: number, me?: IPublicPlayer | null) => {

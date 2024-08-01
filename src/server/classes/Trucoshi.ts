@@ -245,7 +245,9 @@ export const Trucoshi = ({
       }
     ) {
       if (lightningAccounts) {
-        logger.debug("Logging in to lightning-accounts")
+        logger.debug(
+          "Logging in to lightning-accounts at " + process.env.APP_LIGHTNING_ACCOUNTS_URL
+        )
         try {
           await accountsApi.auth.getAuth()
           logger.info("Logged in to lightning-accounts")
@@ -255,7 +257,7 @@ export const Trucoshi = ({
       }
 
       if (redis) {
-        logger.debug("Connecting to redis")
+        logger.debug("Connecting to redis at " + process.env.APP_REDIS_URL)
         try {
           await Promise.all([pubClient.connect(), subClient.connect()])
           io.adapter(createAdapter(pubClient, subClient))

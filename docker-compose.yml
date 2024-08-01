@@ -1,19 +1,20 @@
-# compose.yaml
-version: "3.8"
-
 services:
   postgres:
     extends:
       file: docker-compose.base.yml
       service: postgres
+    ports:
+      - 5432:5432
   redis:
     extends:
       file: docker-compose.base.yml
       service: redis
+    ports:
+      - 6379:6379
   trucoshi:
-    volumes:
-      - "./src:/opt/app/src"
     extends:
       file: docker-compose.base.yml
       service: trucoshi
 
+volumes:
+  node_modules:

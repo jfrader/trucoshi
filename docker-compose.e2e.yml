@@ -1,6 +1,3 @@
-# compose.yaml
-version: "3.8"
-
 services:
   postgres:
     extends:
@@ -10,31 +7,15 @@ services:
     extends:
       file: docker-compose.base.yml
       service: redis
-  trucoshi-e2e-test:
-    stdin_open: true
-    tty: true
+  trucoshi:
     command: ["yarn", "test:e2e"]
-    restart: no
+    env_file:
+      - path: ./.env.test
     environment:
       APP_LIGHTNING_ACCOUNTS_URL: "http://host.docker.internal:3999/v1"
-      NODE_ENV: development
-      APP_DEBUG_LEVEL: warn
-      APP_PORT: 3992
-      APP_ORIGIN: http://localhost:3991
-      APP_DB_NAME: trucoshi_local_e2e
-      APP_DB_USER: trucoshi_user
-      APP_DB_PASSWORD: trucoshi_password
-      DATABASE_URL: "postgresql://trucoshi_user:trucoshi_password@postgres:5432/trucoshi_local_e2e?schema=public"
-      APP_REDIS_URL: redis://redis:6379
-      APP_LIGHTNING_ACCOUNTS_JWT_PUBLIC_KEY: "LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUlJQ0lqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FnOEFNSUlDQ2dLQ0FnRUE0V3NnUG4za3lKZ1l5Uk91dGRJZApsTWlBbERxNkJEbmY4NDduR1djZ2pBS1dXUWozOU0xSmgxVnFKRGd2SE96dHhHcEw5aVNVSmd3RWFWOWRkZlloCmpFMHMwemdhQlVHNkt1UlloUjBXZlBqZGNaSkFwWU14d0xVZ2ZIVlhOVXR2NzZpNDZjdzJBOHE1bndSdnRPM2IKMEVuVFUraHZRdjZKRjFrZUFBdW5VWWRTK3dkSm82d3VPN2dpN3NUL2U3dW8zdTZmazBBOXpjUS96VmphUnQ5Swp0MUh2Q0lRbDJDUXMzYTh5WmxETEtid0wwWklOcURDWmNNMEd1b1hwdkRQbXNLR21CUy9wYzUyeUtoZ3d3czFiCnoyd2lyUlI4Z2xNaXlGRkgyK1JZNG5pWnBCNFg2T0VhWWpvdnB6WWZSd0t4ZC9oeXRDaE9yQi85MXZUaHc1akUKdENyb3A0WG9xMzJWbXBYY1o0djNRYmFSdklOR3JYbGtQNWJxNU9GNXdZbkROVnVnbklZQ0o5U01TTTZoZEZXbgpmRUNLRFI3d09PVkxxNTlZSHFCWmVVN0wvUUk4SlNLZ0pLNmNjZ2dGeFMvUCtYdG1PMjlkMTBXMmdIL2xVYzRiCkhPMmY2NkZFMjdUdjJVWjFJdWRsVG9nVy9zUzhLUEVlSFZtOTlFYjZFaGZ2VjhzN2Zyb056QUkrN0Q1a0JibTYKRjlKNDNlWWs2NDdQdVUxL1ZnK1ltTEZVeXhwK3NnTHFNbEFPRDNFR0ROVi9ORHVObnNLa0N3bFdEL3hVaktGLwpVeWlpcWZ6ZFNvWHlESXNHN2J4NjE5dUxMbUJxUFBQWDVnYWZjN084ZVVhTEJzMVNXR1EvT1M4WVN5MU0yNkt2CmpidEMySTdOTTdaaStuQ2I5RURWMU84Q0F3RUFBUT09Ci0tLS0tRU5EIFBVQkxJQyBLRVktLS0tLQo"
-      APP_LIGHTNING_ACCOUNTS_EMAIL: admin@trucoshi.com
-      APP_LIGHTNING_ACCOUNTS_PASSWORD: trucoshi123aaklsjdlaksdjlkas2ll2j2mmmcjkj1n2n3nn123
-      APP_DISABLE_TURN_TIMER: 0
-      APP_PREVIOUS_HAND_ACK_TIMEOUT: 0
-      APP_SALT: randomsalt
-    depends_on:
-      - redis
-      - postgres
     extends:
       file: docker-compose.base.yml
       service: trucoshi
+
+volumes:
+  node_modules:
