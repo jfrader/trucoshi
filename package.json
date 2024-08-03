@@ -25,6 +25,7 @@
     "start:prod": "node bin/trucoshi-server",
     "start:prod:migrate": "prisma migrate deploy && yarn start:prod",
     "docker": "docker compose --env-file .env up --build",
+    "docker:exec": "docker compose exec -i server yarn",
     "docker:prod": "docker compose -f docker-compose.prod.yml --env-file .env up --build",
     "docker:test": "docker compose -f docker-compose.e2e.yml --env-file .env.test up --build --abort-on-container-exit",
     "test": "dotenv -e .env.test -- ts-mocha --exit ./test/lib/**/*.ts -t 50000",

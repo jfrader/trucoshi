@@ -1,3 +1,5 @@
+name: "trucoshi-${NODE_ENV:-development}"
+
 services:
   postgres:
     extends:
@@ -7,7 +9,7 @@ services:
     extends:
       file: docker-compose.base.yml
       service: redis
-  trucoshi:
+  server:
     depends_on:
       postgres:
         condition: service_healthy
@@ -15,7 +17,7 @@ services:
         condition: service_started
     extends:
       file: docker-compose.base.yml
-      service: trucoshi
+      service: server
 
 volumes:
   node_modules:

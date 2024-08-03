@@ -1,3 +1,5 @@
+name: "trucoshi-${NODE_ENV:-production}"
+
 services:
   postgres:
     restart: unless-stopped
@@ -11,7 +13,7 @@ services:
     extends:
       file: docker-compose.base.yml
       service: redis
-  trucoshi:
+  server:
     depends_on:
       postgres:
         condition: service_healthy
@@ -21,7 +23,7 @@ services:
     command: ["yarn", "start:prod:migrate"]
     extends:
       file: docker-compose.base.yml
-      service: trucoshi
+      service: server
 
 volumes:
   data:

@@ -1,3 +1,5 @@
+name: "trucoshi-${NODE_ENV:-test}"
+
 services:
   postgres_test:
     extends:
@@ -7,7 +9,7 @@ services:
     extends:
       file: docker-compose.base.yml
       service: redis
-  trucoshi:
+  server:
     depends_on:
       postgres_test:
         condition: service_healthy
@@ -21,7 +23,7 @@ services:
       APP_LIGHTNING_ACCOUNTS_URL: "http://host.docker.internal:3999/v1"
     extends:
       file: docker-compose.base.yml
-      service: trucoshi
+      service: server
 
 volumes:
   node_modules:

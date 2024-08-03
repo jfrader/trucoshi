@@ -14,7 +14,7 @@ services:
   redis:
     image: redis:latest
     command: redis-server
-  trucoshi:
+  server:
     build:
       context: .
       args:
