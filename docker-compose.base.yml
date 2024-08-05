@@ -20,6 +20,8 @@ services:
       args:
         PORT: ${APP_PORT}
     command: ["yarn", "start"]
+    expose:
+      - "${APP_PORT}"
     ports:
       - "${APP_PORT}:${APP_PORT}"
     extra_hosts:
@@ -27,6 +29,6 @@ services:
     env_file:
       - path: ./.env
     environment:
-      DATABASE_URL: "postgresql://${APP_DB_USER}:${APP_DB_PASSWORD}@postgres:5432/${APP_DB_NAME}?schema=public"
+      DATABASE_URL: "postgresql://${NODE_DB_USER}:${NODE_DB_PASSWORD}@postgres:5432/${NODE_DB_NAME}?schema=public"
       APP_REDIS_URL: "redis://redis:6379"
       APP_LIGHTNING_ACCOUNTS_URL: "http://host.docker.internal:2999/v1"

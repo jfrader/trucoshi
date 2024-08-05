@@ -1,28 +1,28 @@
 name: "trucoshi-${NODE_ENV:-production}"
 
 services:
-  postgres_trucoshi:
+  postgres:
     restart: always
     extends:
       file: docker-compose.base.yml
       service: postgres
     volumes:
       - ./volumes/postgres/data:/var/lib/postgresql/data
-  redis_trucoshi:
+  redis:
     restart: always
     extends:
       file: docker-compose.base.yml
       service: redis
   server:
     depends_on:
-      postgres_trucoshi:
+      postgres:
         condition: service_healthy
-      redis_trucoshi:
+      redis:
         condition: service_started
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: always
     command: ["yarn", "start:prod:migrate"]
-    environment:
-      DATABASE_URL: "postgresql://${APP_DB_USER}:${APP_DB_PASSWORD}@postgres_trucoshi:5432/${APP_DB_NAME}?schema=public"
     extends:
       file: docker-compose.base.yml
       service: server
