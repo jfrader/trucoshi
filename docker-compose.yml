@@ -1,23 +1,42 @@
 name: "trucoshi-${NODE_ENV:-development}"
 
+include:
+  - path: docker-compose.networks.yml
+
 services:
-  postgres:
+  postgres_trucoshi:
+    networks:
+      lightningaccountsnet:
+        ipv4_address: 10.29.0.21
     extends:
       file: docker-compose.base.yml
       service: postgres
   redis:
+    networks:
+      lightningaccountsnet:
+        ipv4_address: 10.29.0.22
     extends:
       file: docker-compose.base.yml
       service: redis
   server:
+    volumes:
+      - ./src:/opt/app/src
+    networks:
+      lightningaccountsnet:
+        ipv4_address: 10.29.0.20
     depends_on:
-      postgres:
+      postgres_trucoshi:
         condition: service_healthy
       redis:
         condition: service_started
+    command: ["yarn", "start:migrate"]
+    env_file:
+      - path: ./.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      DATABASE_URL: "postgresql://${APP_DB_USER}:${APP_DB_PASSWORD}@postgres_trucoshi:5432/${APP_DB_NAME}?schema=public"
+      APP_LIGHTNING_ACCOUNTS_URL: "http://host.docker.internal:2999/v1"
     extends:
       file: docker-compose.base.yml
       service: server
-
-volumes:
-  node_modules:

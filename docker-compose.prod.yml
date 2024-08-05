@@ -7,7 +7,7 @@ services:
       file: docker-compose.base.yml
       service: postgres
     volumes:
-      - data:/var/lib/postgresql/data
+      - ./volumes/postgres/data:/var/lib/postgresql/data
   redis:
     restart: unless-stopped
     extends:
@@ -24,7 +24,3 @@ services:
     extends:
       file: docker-compose.base.yml
       service: server
-
-volumes:
-  data:
-  node_modules:
