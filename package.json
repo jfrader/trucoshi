@@ -26,7 +26,7 @@
     "start:prod:migrate": "prisma migrate deploy && yarn start:prod",
     "docker": "docker compose -f docker-compose.yml --env-file .env up --build --abort-on-container-exit",
     "docker:exec": "docker compose exec -i server yarn",
-    "docker:prod": "docker compose -f docker-compose.prod.yml --env-file .env up --build --abort-on-container-exit",
+    "docker:prod": "docker compose -f docker-compose.prod.yml --env-file .env up --build",
     "docker:test": "docker compose -f docker-compose.e2e.yml --env-file .env.test up --build --abort-on-container-exit",
     "test": "dotenv -e .env.test -- ts-mocha --exit ./test/lib/**/*.ts -t 50000",
     "test:e2e": "prisma db push --force-reset && dotenv -e .env.test -- ts-mocha --exit ./test/**/*.ts -t 60000",
