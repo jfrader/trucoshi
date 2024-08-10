@@ -16,9 +16,6 @@ services:
   server:
     restart: always
     command: ["yarn", "start:prod"]
-    networks:
-      docker:
-        ipv4_address: 172.90.0.90
     depends_on:
       postgres:
         condition: service_healthy

@@ -5,25 +5,16 @@ include:
 
 services:
   postgres_trucoshi:
-    networks:
-      lightningaccountsnet:
-        ipv4_address: 10.29.0.21
     extends:
       file: docker-compose.base.yml
       service: postgres
   redis:
-    networks:
-      lightningaccountsnet:
-        ipv4_address: 10.29.0.22
     extends:
       file: docker-compose.base.yml
       service: redis
   server:
     volumes:
       - ./src:/opt/app/src
-    networks:
-      lightningaccountsnet:
-        ipv4_address: 10.29.0.20
     depends_on:
       postgres_trucoshi:
         condition: service_healthy
