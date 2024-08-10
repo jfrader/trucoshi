@@ -1,0 +1,27 @@
+name: "trucoshi-staging"
+
+include:
+  - path: docker-compose.networks.yml
+
+services:
+  postgres:
+    networks:
+      lightningaccountsnet:
+        ipv4_address: 10.30.0.21
+    extends:
+      file: docker-compose.prod.yml
+      service: postgres
+  redis:
+    networks:
+      lightningaccountsnet:
+        ipv4_address: 10.30.0.22
+    extends:
+      file: docker-compose.prod.yml
+      service: redis
+  server:
+    networks:
+      lightningaccountsnet:
+        ipv4_address: 10.30.0.20
+    extends:
+      file: docker-compose.prod.yml
+      service: server
