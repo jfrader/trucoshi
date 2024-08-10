@@ -2,6 +2,9 @@ name: "trucoshi-${NODE_ENV:-production}"
 
 services:
   postgres:
+    networks:
+      lightningaccountsnet:
+        ipv4_address: 10.30.0.21
     restart: always
     extends:
       file: docker-compose.base.yml
@@ -9,11 +12,17 @@ services:
     volumes:
       - ./volumes/postgres/data:/var/lib/postgresql/data
   redis:
+    networks:
+      lightningaccountsnet:
+        ipv4_address: 10.30.0.22
     restart: always
     extends:
       file: docker-compose.base.yml
       service: redis
   server:
+    networks:
+      lightningaccountsnet:
+        ipv4_address: 10.30.0.20
     restart: always
     command: ["yarn", "start:prod"]
     depends_on:
