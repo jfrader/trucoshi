@@ -1,5 +1,8 @@
 name: "trucoshi-${NODE_ENV:-production}"
 
+include:
+  - path: docker-compose.networks.yml
+
 services:
   postgres:
     networks:
