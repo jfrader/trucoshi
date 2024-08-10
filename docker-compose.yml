@@ -28,7 +28,6 @@ services:
     environment:
       DATABASE_URL: "postgresql://${APP_DB_USER}:${APP_DB_PASSWORD}@postgres_trucoshi:5432/${APP_DB_NAME}?schema=public"
       APP_REDIS_URL: "redis://redis:6379"
-      APP_LIGHTNING_ACCOUNTS_URL: "http://host.docker.internal:2999/v1"
     extends:
       file: docker-compose.base.yml
       service: server
