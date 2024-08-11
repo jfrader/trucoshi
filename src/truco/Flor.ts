@@ -55,6 +55,13 @@ export function Flor(teams: [ITeam, ITeam]) {
         throw new SocketError("FORBIDDEN")
       }
       
+      const playerTeamIdx = player.teamIdx as 0 | 1        
+      
+      const opponentIdx = Number(!playerTeamIdx) as 0 | 1
+
+
+
+      flor.candidates.push(player);
 
       return flor
     },

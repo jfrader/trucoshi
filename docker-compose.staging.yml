@@ -5,6 +5,7 @@ include:
 
 services:
   postgres:
+    hostname: postgres_trucoshi_staging
     networks:
       lightningaccountsnet:
         ipv4_address: 10.29.0.31
@@ -25,3 +26,6 @@ services:
     extends:
       file: docker-compose.prod.yml
       service: server
+    environment:
+      DATABASE_URL: "postgresql://${APP_DB_USER}:${APP_DB_PASSWORD}@postgres_trucoshi_staging:5432/${APP_DB_NAME}?schema=public"
+      APP_REDIS_URL: "redis://redis:6379"

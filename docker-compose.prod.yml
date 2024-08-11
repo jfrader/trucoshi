@@ -5,6 +5,7 @@ include:
 
 services:
   postgres:
+    hostname: postgres_trucoshi_prod
     restart: always
     extends:
       file: docker-compose.base.yml
@@ -27,7 +28,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
-      DATABASE_URL: "postgresql://${APP_DB_USER}:${APP_DB_PASSWORD}@postgres:5432/${APP_DB_NAME}?schema=public"
+      DATABASE_URL: "postgresql://${APP_DB_USER}:${APP_DB_PASSWORD}@postgres_trucoshi_prod:5432/${APP_DB_NAME}?schema=public"
       APP_REDIS_URL: "redis://redis:6379"
     extends:
       file: docker-compose.base.yml

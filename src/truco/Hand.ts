@@ -21,6 +21,7 @@ import { IRound, Round } from "./Round"
 import { ITruco, Truco } from "./Truco"
 import { PlayedCard, dealCards } from "../lib"
 import { checkHandWinner } from "../lib/utils"
+import { Flor, IFlor } from "./Flor"
 
 const log = logger.child({ class: "Hand" })
 
@@ -34,6 +35,7 @@ export interface IHand {
   points: IHandPoints
   truco: ITruco
   envido: IEnvido
+  flor: IFlor
   rounds: Array<IRound>
   roundsLog: [IHandRoundLog[], IHandRoundLog[], IHandRoundLog[]]
   trucoWinnerIdx?: 0 | 1
@@ -198,6 +200,7 @@ export function Hand(match: IMatch, idx: number) {
     rounds: [],
     roundsLog: [[], [], []],
     envido: Envido(match.teams, match.options, match.table),
+    flor: Flor(match.teams),
     truco: Truco(match.teams),
     setTurnCommands() {
       return setTurnCommands(match, hand)
@@ -460,7 +463,10 @@ const commands: IHandCommands = {
     hand.envido.sayEnvido(EEnvidoCommand.FALTA_ENVIDO, player)
     hand.setState(EHandState.WAITING_ENVIDO_ANSWER)
   },
-  [EFlorCommand.FLOR]: () => {},
+  [EFlorCommand.FLOR]: (hand, player) => {
+    hand.flor.sayFlor(player)
+    hand.setState(EHandState.WAITING_FLOR_ANSWER)
+  },
   [EFlorCommand.CONTRAFLOR]: () => {},
   [EFlorCommand.ACHICO]: () => {},
 }
