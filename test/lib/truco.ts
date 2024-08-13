@@ -65,7 +65,7 @@ describe("Trucoshi Lib", () => {
               }
 
               const randomIdx = Math.floor(Math.random() * play.player.envido.length)
-              play.say(play.player.envido[randomIdx] || 0, play.player)
+              play.say(play.player.envido[randomIdx].value || 0, play.player)
               return
             }
 
