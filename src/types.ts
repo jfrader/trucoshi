@@ -48,6 +48,7 @@ export interface ISaidCommand {
 }
 
 export interface IMatchPreviousHand {
+  envido: { winner: IPublicPlayer; data?: { value: number; cards: ICard[] } } | null
   rounds: IPlayedCard[][]
   points: IHandPoints
   matchSessionId: string
@@ -116,6 +117,7 @@ export enum ESayCommand {
 export enum EFlorCommand {
   FLOR = "FLOR",
   CONTRAFLOR = "CONTRAFLOR",
+  CONTRAFLOR_AL_RESTO = "CONTRAFLOR_AL_RESTO",
   ACHICO = "ACHICO",
 }
 
@@ -299,10 +301,11 @@ export interface IPlayer {
   hand: Array<ICard>
   usedHand: Array<ICard>
   prevHand: Array<ICard>
-  envido: Array<number>
+  envido: Array<{ value: number; cards: ICard[] }>
   _commands: Set<ECommand>
   get commands(): Array<ECommand>
   isTurn: boolean
+  hasSaidEnvidoPoints: boolean
   turnExpiresAt: number | null // Date.now()
   turnExtensionExpiresAt: number | null // Date.now()
   hasFlor: boolean
@@ -311,8 +314,9 @@ export interface IPlayer {
   disabled: boolean
   abandoned: boolean
   ready: boolean
+  saidEnvidoPoints(): void
   resetCommands(): void
-  calculateEnvido(): Array<number>
+  calculateEnvido(): Array<{ value: number; cards: ICard[] }>
   setIdx(idx: number): void
   setPayRequest(id?: number): void
   setMatchPlayerId(id?: number): void

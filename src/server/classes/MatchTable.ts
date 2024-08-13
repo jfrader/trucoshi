@@ -104,6 +104,12 @@ export function MatchTable(
         rounds: table.getHandRounds(hand),
         points: hand.points,
         matchSessionId: table.matchSessionId,
+        envido: hand.envido.winningPlayer && {
+          winner: hand.envido.winningPlayer.getPublicPlayer(),
+          data: hand.envido.winningPlayer.envido.find(
+            (e) => e.value === hand.envido.winningPointsAnswer
+          ),
+        },
       }
     },
     getPublicMatch(userSession, freshHand) {

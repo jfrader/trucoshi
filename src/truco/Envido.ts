@@ -3,7 +3,6 @@ import { getMaxNumberIndex } from "../lib/utils"
 import {
   EAnswerCommand,
   ECommand,
-  EEnvidoAnswerCommand,
   EEnvidoCommand,
   GAME_ERROR,
   IEnvidoCalculator,
@@ -22,7 +21,6 @@ export interface IEnvido {
   declineStake: number
   teamIdx: 0 | 1 | null
   answer: boolean | null
-  pointAnswersCount: number
   winningPointsAnswer: number
   turn: number
   winningPlayer: IPlayer | null
@@ -145,7 +143,6 @@ export function Envido(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITa
     possibleAnswerCommands: Object.values(EEnvidoCommand),
     declineStake: 0,
     winningPointsAnswer: -1,
-    pointAnswersCount: 0,
     winner: null,
     stake: 0,
     teams,
@@ -214,9 +211,9 @@ export function Envido(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITa
         }
       }
 
-      envido.pointAnswersCount++
+      player.saidEnvidoPoints()
 
-      if (envido.pointAnswersCount >= envido.players.filter((p) => !p.disabled).length) {
+      if (envido.players.every((p) => p.hasSaidEnvidoPoints || p.disabled)) {
         envido.finished = true
         envido.winner = teams[envido.winningPlayer.teamIdx]
       }
@@ -231,7 +228,6 @@ export function Envido(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITa
       if (answer === true) {
         envido.accepted = true
         envido.turn = 0
-        table.players.forEach((player) => player.calculateEnvido())
         envido.players = table.getPlayersForehandFirst()
 
         turnGenerator = envidoTurnGeneratorSequence(envido)

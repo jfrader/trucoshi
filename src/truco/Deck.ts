@@ -1,7 +1,7 @@
-import { ICard, IDeck, IPlayedCard, IPlayer, IPublicPlayer } from "../../types"
-import { BURNT_CARD, CARDS } from "../constants"
-import { Random } from "./Random"
-import { ITable } from "./Table"
+import { ICard, IDeck, IPlayedCard, IPlayer, IPublicPlayer } from "../types"
+import { BURNT_CARD, CARDS } from "../lib/constants"
+import { Random } from "../lib/classes/Random"
+import { ITable } from "../lib/classes/Table"
 
 export function Deck(): IDeck {
   const deck: IDeck = {

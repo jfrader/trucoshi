@@ -92,7 +92,7 @@ const sayPoints = (play: IPlayInstance) =>
       ", puede cantar: " +
       play.player?.envido.map((e) => e + ", "),
     async (line, close) => {
-      if (line && play.player?.envido.includes(Number(line))) {
+      if (line && play.player?.envido.map((e) => e.value).includes(Number(line))) {
         close()
         if (play.say(Number(line), play.player)) {
           return Promise.resolve()

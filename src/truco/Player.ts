@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto"
-import { BURNT_CARD, IPlayer } from "../types"
+import { BURNT_CARD, ICard, IPlayer } from "../types"
+import { maxBy } from "../utils/array"
 
 export function Player({
   accountId,
@@ -39,11 +40,15 @@ export function Player({
     turnExtensionExpiresAt: null,
     hasFlor: false,
     isEnvidoTurn: false,
+    hasSaidEnvidoPoints: false,
     disabled: false,
     ready: false,
     abandoned: false,
     get commands() {
       return Array.from(player._commands.values())
+    },
+    saidEnvidoPoints() {
+      player.hasSaidEnvidoPoints = true
     },
     resetCommands() {
       player._commands = new Set()
@@ -113,9 +118,11 @@ export function Player({
       player.abandoned = true
     },
     setHand(hand) {
+      player.hasSaidEnvidoPoints = false
       player.prevHand = [...player.usedHand]
       player.hand = hand
       player.usedHand = []
+      player.calculateEnvido()
       return hand
     },
     useCard(idx, card) {
@@ -186,41 +193,57 @@ const getPublicPlayer = (
   }
 }
 
-const calculateEnvidoPointsArray = (player: IPlayer) => {
-  let flor: string | null = null
+interface ISplittedCard {
+  value: number
+  palo: string
+  card: ICard
+  envidoValue: number
+}
 
-  const hand = [...player.hand, ...player.usedHand].map((c) => {
-    let num = c.charAt(0)
-    const palo = c.charAt(1)
-    if (num === "p" || num === "c" || num === "r") {
-      num = "10"
-    }
-
-    if (flor === null || flor === palo) {
-      flor = palo
-    } else {
-      flor = null
-    }
-
-    return [num, palo]
-  })
-
-  player.hasFlor = Boolean(flor)
-
-  const possibles = hand.flatMap((v, i) => hand.slice(i + 1).map((w) => [v, w]))
-  const actual = possibles.filter((couple) => couple[0][1] === couple[1][1])
-
-  player.envido = actual.map((couple) => {
-    const n1 = couple[0][0].at(-1)
-    const n2 = couple[1][0].at(-1)
-    return Number(n1) + Number(n2) + 20
-  })
-
-  if (player.envido.length) {
-    return [Math.max(...player.envido)]
+function splitCardvalues(card: ICard): ISplittedCard {
+  let value = card.charAt(0)
+  const palo = card.charAt(1)
+  if (value === "p" || value === "c" || value === "r") {
+    value = "10"
   }
 
-  player.envido = [Math.max(...hand.map((c) => Number(c[0].at(-1))))]
+  return { value: Number(value), palo, card, envidoValue: Number(value.at(-1)) }
+}
+
+const calculateEnvidoPointsArray = (player: IPlayer): IPlayer["envido"] => {
+  const hand = [...player.hand, ...player.usedHand].map(splitCardvalues)
+
+  player.hasFlor = Boolean(
+    hand.reduce((prev, curr) => {
+      if (prev === curr.palo) {
+        return curr.palo
+      }
+      return ""
+    }, hand[0].palo)
+  )
+
+  const possibles = hand.flatMap((v, i) => hand.slice(i + 1).map((w) => [v, w]))
+  const actual = possibles.filter((couple) => couple[0].palo === couple[1].palo)
+
+  const envido = actual.map((couple) => {
+    return {
+      value: couple[0].envidoValue + couple[1].envidoValue + 20,
+      cards: [couple[0].card, couple[1].card],
+    }
+  })
+
+  if (envido.length) {
+    player.envido = envido.filter((e, i, arr) => arr.findIndex((v) => v.value === e.value) === i)
+    return player.envido
+  }
+
+  const biggestCard = maxBy(hand, (c) => c.envidoValue)
+
+  player.envido = [
+    biggestCard
+      ? { value: biggestCard.envidoValue, cards: [biggestCard.card] }
+      : { value: 0, cards: [] },
+  ]
 
   return player.envido
 }

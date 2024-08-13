@@ -359,24 +359,27 @@ const setTurnCommands = (match: IMatch, hand: IHand) => {
         })
       })
     }
+
+    const currentPlayer = hand.currentPlayer
+
     if (
+      currentPlayer &&
       hand.envido.accepted &&
       !hand.envido.finished &&
       hand.envido.winningPointsAnswer > 0 &&
-      hand.currentPlayer?.teamIdx !== hand.envido.winner?.id
+      currentPlayer.teamIdx !== hand.envido.winner?.id &&
+      match.teams[currentPlayer.teamIdx].players
+        .filter((p) => p.key !== currentPlayer.key)
+        .every((v) => v.hasSaidEnvidoPoints)
     ) {
-      hand.currentPlayer?._commands.add(EEnvidoAnswerCommand.SON_BUENAS)
+      currentPlayer._commands.add(EEnvidoAnswerCommand.SON_BUENAS)
     }
 
     const isWaitingTrucoAnswer = hand.truco.state === 2 && hand.truco.answer === null
 
-    if (
-      hand.currentPlayer &&
-      !hand.envido.started &&
-      (hand.truco.state < 2 || isWaitingTrucoAnswer)
-    ) {
+    if (currentPlayer && !hand.envido.started && (hand.truco.state < 2 || isWaitingTrucoAnswer)) {
       for (const key in EEnvidoCommand) {
-        for (const player of match.teams[hand.currentPlayer.teamIdx].players) {
+        for (const player of match.teams[currentPlayer.teamIdx].players) {
           if (player.usedHand.length === 0) {
             player._commands.add(key as EEnvidoCommand)
           }
@@ -468,5 +471,6 @@ const commands: IHandCommands = {
     hand.setState(EHandState.WAITING_FLOR_ANSWER)
   },
   [EFlorCommand.CONTRAFLOR]: () => {},
+  [EFlorCommand.CONTRAFLOR_AL_RESTO]: () => {},
   [EFlorCommand.ACHICO]: () => {},
 }

@@ -8,7 +8,12 @@ import {
 } from "../../src/types"
 import { Socket } from "socket.io-client"
 import logger from "../../src/utils/logger"
-import { ClientToServerEvents, EClientEvent, EServerEvent, ServerToClientEvents } from "../../src/events"
+import {
+  ClientToServerEvents,
+  EClientEvent,
+  EServerEvent,
+  ServerToClientEvents,
+} from "../../src/events"
 import { EMatchState } from "@prisma/client"
 
 export const playRandomMatch = async (
@@ -65,7 +70,7 @@ export const playRandomMatch = async (
         }
 
         const rndIdx = Math.floor(Math.random() * match.me.envido.length)
-        const command = match.me.envido[rndIdx] as number
+        const command = match.me.envido[rndIdx][0] as number
 
         return callback({ command })
       }
@@ -175,15 +180,11 @@ export const playRandomMatch = async (
   )
 
   await new Promise<void>((res) => {
-    clients[0].emit(
-      EClientEvent.START_MATCH,
-      matchId as string,
-      ({ success, matchSessionId }) => {
-        expect(success).to.equal(true)
-        expect(matchSessionId).to.equal(matchId)
-        res()
-      }
-    )
+    clients[0].emit(EClientEvent.START_MATCH, matchId as string, ({ success, matchSessionId }) => {
+      expect(success).to.equal(true)
+      expect(matchSessionId).to.equal(matchId)
+      res()
+    })
   })
 
   await WinnerPromise

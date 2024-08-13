@@ -2,6 +2,7 @@ import { SocketError } from "../server"
 import { IPlayer, ITeam, EFlorCommand } from "../types"
 
 export interface IFlor {
+  state: null | "flor" | "contraflor" | "alresto"
   turn: number
   finished: boolean
   players: IPlayer[]
@@ -44,6 +45,7 @@ export function Flor(teams: [ITeam, ITeam]) {
     players: [],
     candidates: [],
     winners: [],
+    state: null,
     setTurn(turn) {
       flor.turn = turn
     },

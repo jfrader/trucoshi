@@ -13,7 +13,12 @@ import { ITrucoshi, Trucoshi, TrucoshiSocket } from "../../src/server/classes"
 import { session } from "../../src/server"
 import logger from "../../src/utils/logger"
 import { Api } from "lightning-accounts"
-import { ClientToServerEvents, EClientEvent, EServerEvent, ServerToClientEvents } from "../../src/events"
+import {
+  ClientToServerEvents,
+  EClientEvent,
+  EServerEvent,
+  ServerToClientEvents,
+} from "../../src/events"
 import { EMatchState } from "@prisma/client"
 
 describe("E2E", () => {
@@ -195,7 +200,7 @@ describe("E2E", () => {
           }
 
           const rndIdx = Math.floor(Math.random() * match.me.envido.length)
-          const command = match.me.envido[rndIdx] as number
+          const command = match.me.envido[rndIdx][0]
 
           return callback({ command })
         }

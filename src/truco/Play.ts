@@ -98,7 +98,7 @@ export function PlayInstance(hand: IHand, prevHand: IHand | null, teams: [ITeam,
         }
 
         if (typeof command === "number") {
-          if (command !== 0 && !player.envido.includes(command as number)) {
+          if (command !== 0 && !player.envido.map(e => e.value).includes(command as number)) {
             throw new Error(GAME_ERROR.INVALID_ENVIDO_POINTS)
           }
 
