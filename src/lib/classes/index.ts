@@ -1,3 +1,3 @@
-export * from "../../truco/Deck"
+export * from "./Deck"
 export * from "./Table"
 export * from "./Random"
