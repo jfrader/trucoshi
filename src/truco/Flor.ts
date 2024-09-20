@@ -1,8 +1,8 @@
 import { SocketError } from "../server"
-import { IPlayer, ITeam, EFlorCommand } from "../types"
+import { IPlayer, ITeam } from "../types"
 
 export interface IFlor {
-  state: null | "flor" | "contraflor" | "alresto"
+  state: number
   turn: number
   finished: boolean
   players: IPlayer[]
@@ -45,7 +45,7 @@ export function Flor(teams: [ITeam, ITeam]) {
     players: [],
     candidates: [],
     winners: [],
-    state: null,
+    state: 0,
     setTurn(turn) {
       flor.turn = turn
     },
@@ -56,14 +56,24 @@ export function Flor(teams: [ITeam, ITeam]) {
       if (!player.hasFlor) {
         throw new SocketError("FORBIDDEN")
       }
-      
-      const playerTeamIdx = player.teamIdx as 0 | 1        
-      
+
+      switch (flor.state) {
+        case 0:
+          flor.state = 3
+          break
+        case 3:
+          flor.state = 4
+          break
+        case 4:
+        default:
+          throw new SocketError("FORBIDDEN")
+      }
+
+      const playerTeamIdx = player.teamIdx as 0 | 1
+
       const opponentIdx = Number(!playerTeamIdx) as 0 | 1
 
-
-
-      flor.candidates.push(player);
+      flor.candidates.push(player)
 
       return flor
     },
@@ -71,7 +81,7 @@ export function Flor(teams: [ITeam, ITeam]) {
       return flor
     },
     sayContraflor(player) {
-      if (!player.hasFlor) {
+      if (flor.state !== 3 || !player.hasFlor) {
         throw new SocketError("FORBIDDEN")
       }
 

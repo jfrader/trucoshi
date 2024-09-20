@@ -26,6 +26,7 @@ export type IEventCallback<T = {}> = (
 
 export enum EServerEvent {
   PONG = "PONG",
+  NEW_MESSAGE = "NEW_MESSAGE",
   SET_SESSION = "SET_SESSION",
   REFRESH_IDENTITY = "REFRESH_IDENTITY",
   PREVIOUS_HAND = "PREVIOUS_HAND",
@@ -41,7 +42,8 @@ export enum EServerEvent {
 export interface ServerToClientEvents {
   [EServerEvent.PONG]: (serverTime: number, clientTime: number) => void
   [EServerEvent.PREVIOUS_HAND]: (value: IMatchPreviousHand, callback: () => void) => void
-  [EServerEvent.UPDATE_CHAT]: (room: IPublicChatRoom, message?: IChatMessage) => void
+  [EServerEvent.UPDATE_CHAT]: (room: IPublicChatRoom) => void
+  [EServerEvent.NEW_MESSAGE]: (roomId: string, message?: IChatMessage) => void
   [EServerEvent.UPDATE_ACTIVE_MATCHES]: (activeMatches: IPublicMatchInfo[]) => void
   [EServerEvent.UPDATE_MATCH]: (match: IPublicMatch, callback?: () => void) => void
   [EServerEvent.KICK_PLAYER]: (match: IPublicMatch, session: string, reason?: string) => void
@@ -78,6 +80,7 @@ export enum EClientEvent {
   START_MATCH = "START_MATCH",
   SET_PLAYER_READY = "SET_PLAYER_READY",
   FETCH_MATCH = "FETCH_MATCH",
+  FETCH_CHAT_ROOM = "FETCH_CHAT_ROOM",
   KICK_PLAYER = "KICK_PLAYER",
   CHAT = "CHAT",
   PING = "PING",
@@ -120,6 +123,7 @@ export interface ClientToServerEvents {
     matchSessionId: string,
     callback: IEventCallback<{ match: IPublicMatch | null }>
   ) => void
+  [EClientEvent.FETCH_CHAT_ROOM]: (roomId: string) => void
   [EClientEvent.FETCH_MATCH_DETAILS]: (
     matchId: number,
     callback: IEventCallback<{ match: IMatchDetails | null }>

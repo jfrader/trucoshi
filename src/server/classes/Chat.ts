@@ -86,11 +86,7 @@ const ChatRoom = (io: TrucoshiServer, id: string) => {
       room.emit(message)
     },
     emit(message) {
-      io.to(room.id).emit(
-        EServerEvent.UPDATE_CHAT,
-        { id: room.id, messages: room.messages },
-        message
-      )
+      io.to(room.id).emit(EServerEvent.NEW_MESSAGE, room.id, message)
     },
   }
 
@@ -132,6 +128,7 @@ export const Chat = (io: TrucoshiServer) => {
     if (chatroom) {
       log.info(`${name} entro a la sala ${room}`)
       chatroom.system(`${name} entro a la sala`)
+      userSocket.emit(EServerEvent.UPDATE_CHAT, { id: chatroom.id, messages: chatroom.messages })
     }
 
     userSocket.on(EClientEvent.CHAT, (matchId, message, callback) => {

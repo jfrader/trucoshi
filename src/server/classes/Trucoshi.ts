@@ -1301,6 +1301,10 @@ export const Trucoshi = ({
       player.setPayRequest(prId)
       player.setMatchPlayerId(matchPlayerId)
 
+      server.chat.rooms
+        .get(table.matchSessionId)
+        ?.system(`${player.name} se unió al equipo ${teamIdx === 0 ? "Nosotros" : "Ellos"}`)
+
       return player
     },
     async cleanupUserTables(userSession) {
@@ -1614,8 +1618,6 @@ export const Trucoshi = ({
               .catch(log.error)
           }
         }
-
-        server.chat.rooms.get(table.matchSessionId)?.socket.emit(socket.id)
 
         return table.getPublicMatch(socket.data.user.session)
       }

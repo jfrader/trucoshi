@@ -228,6 +228,17 @@ export const trucoshi =
     })
 
     /**
+     * Fetch chat room
+     */
+    socket.on(EClientEvent.FETCH_CHAT_ROOM, (roomId) => {
+      if (!socket.data.user) {
+        return
+      }
+
+      server.chat.rooms.get(roomId)?.socket.emit(socket.id)
+    })
+
+    /**
      * Fetch match with session
      */
     socket.on(EClientEvent.KICK_PLAYER, async (matchSessionId, key, callback) => {
