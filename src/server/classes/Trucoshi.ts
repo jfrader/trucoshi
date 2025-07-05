@@ -4,6 +4,7 @@ import { Server, Socket } from "socket.io"
 import {
   EAnswerCommand,
   ECommand,
+  EFlorCommand,
   EHandState,
   ESayCommand,
   GAME_ERROR,
@@ -180,6 +181,7 @@ export interface ITrucoshi {
   onTurn(table: IMatchTable, play: IPlayInstance): Promise<void>
   onTruco(table: IMatchTable, play: IPlayInstance): Promise<void>
   onEnvido(table: IMatchTable, play: IPlayInstance, isPointsRounds: boolean): Promise<void>
+  onFlor(table: IMatchTable, play: IPlayInstance): Promise<void>
   onWinner(table: IMatchTable, winner: ITeam): Promise<void>
   removePlayerAndCleanup(table: IMatchTable, player: IPlayer): Promise<void>
   deletePlayerAndReturnBet(table: IMatchTable, player: MatchPlayer): Promise<void>
@@ -862,6 +864,51 @@ export const Trucoshi = ({
         })
       })
     },
+    onFlor(table, play) {
+      log.trace(
+        {
+          match: table.getPublicMatchInfo(),
+          player: play.player,
+          handIdx: play.handIdx,
+        },
+        "Flor answer turn started"
+      )
+      return new Promise<void>((resolve) => {
+        const session = play.player?.session as string
+        if (!session || !play || !play.player) {
+          throw new Error("No session, play instance or player found")
+        }
+
+        play.player.setTurnExpiration(table.lobby.options.turnTime, table.lobby.options.abandonTime)
+
+        const turn = () =>
+          server
+            .emitWaitingPossibleSay({ play, table })
+            .then(() => resolve())
+            .catch((e) => {
+              log.error(e, "ONFLOR CALLBACK ERROR")
+              turn()
+            })
+
+        turn()
+
+        const player = play.player
+        const user = server.sessions.getOrThrow(session)
+
+        const timeout = server.setTurnTimeout(table, player, user, turn, () => {
+          server
+            .sayCommand({ table, play, player, command: EFlorCommand.FLOR }, true)
+            .catch((e) => log.error(e, "Flor turn timeout failed to say FLOR command"))
+            .finally(resolve)
+        })
+
+        server.turns.set(table.matchSessionId, {
+          play,
+          resolve,
+          timeout,
+        })
+      })
+    },
     onEnvido(table, play, isPointsRound) {
       log.trace(
         {
@@ -1435,6 +1482,7 @@ export const Trucoshi = ({
         .onTurn(server.onTurn.bind(null, table))
         .onEnvido(server.onEnvido.bind(null, table))
         .onTruco(server.onTruco.bind(null, table))
+        .onFlor(server.onFlor.bind(null, table))
         .onWinner(async (winnerTeam, points) => {
           if (server.store) {
             if (!table.matchId) {

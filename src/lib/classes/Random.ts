@@ -41,7 +41,7 @@ export interface IRng {
     T extends { probability: number } = {
       probability: number
       [x: string]: any
-    }
+    },
   >(
     clientSeed: string,
     serverSeed: string,
@@ -60,7 +60,7 @@ function Rng(): IRng {
      * @param   {number} nonce      - the nonce
      * @returns {string} combined string
      */
-    combine: (client, server, nonce) => client + server + nonce,
+    combine: (clientSeed, serverSeed, nonce: number): string => clientSeed + serverSeed + nonce,
 
     /**
      * Generates a sha512 hash from a string

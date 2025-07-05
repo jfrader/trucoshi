@@ -24,6 +24,7 @@ export interface IPlayInstance {
   waitingPlay: boolean
   lastCommand: ECommand | number | null
   lastCard: ICard | null
+  getHand(): IHand
   setWaiting(waiting: boolean): void
   use(idx: number, card: ICard): ICard | null
   say(command: ECommand | number, player: IPlayer, force?: boolean): typeof command | null
@@ -64,6 +65,9 @@ export function PlayInstance(hand: IHand, prevHand: IHand | null, teams: [ITeam,
     setWaiting(waiting) {
       instance.waitingPlay = waiting
     },
+    getHand() {
+      return hand
+    },
     use(idx, card) {
       if (busy) {
         return play()
@@ -98,7 +102,7 @@ export function PlayInstance(hand: IHand, prevHand: IHand | null, teams: [ITeam,
         }
 
         if (typeof command === "number") {
-          if (command !== 0 && !player.envido.map(e => e.value).includes(command as number)) {
+          if (command !== 0 && !player.envido.map((e) => e.value).includes(command as number)) {
             throw new Error(GAME_ERROR.INVALID_ENVIDO_POINTS)
           }
 
@@ -118,7 +122,7 @@ export function PlayInstance(hand: IHand, prevHand: IHand | null, teams: [ITeam,
         }
         return result
       } catch (e) {
-        log.error(e, "Error trying to say command")
+        log.error(e, "Error trying to say command " + command)
         return null
       }
     },

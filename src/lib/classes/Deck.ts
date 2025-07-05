@@ -1,4 +1,5 @@
 import { BURNT_CARD, CARDS, ICard, IDeck, IPlayedCard, IPlayer, IPublicPlayer } from "../../types"
+import logger from "../../utils/logger"
 import { Random } from "./Random"
 import { ITable } from "./Table"
 
@@ -14,6 +15,15 @@ export function Deck(): IDeck {
     },
     takeThree() {
       return [deck.takeCard(), deck.takeCard(), deck.takeCard()]
+    },
+    pick(card) {
+      const idx = deck.cards.findIndex((c) => c === card)
+      if (idx > -1) {
+        deck.cards.splice(idx, 1)
+        deck.usedCards.push(card)
+        return card
+      }
+      return null
     },
     shuffle(dealer) {
       deck.cards = getAllCards()
@@ -34,11 +44,23 @@ export const getAllCards = () => Object.keys(CARDS) as Array<ICard>
 export function dealCards<
   TPlayer extends { key: string; idx: number; setHand(h: Array<ICard>): void } = IPlayer
 >(table: ITable<TPlayer>, deck: IDeck) {
-  const playerHands: any[] = []
+  const cheat_lots_of_flowers = process.env.APP_CHEAT_LOTS_OF_FLOWERS_FOR_TESTING === "1"
+  const playerHands: ICard[][] = []
+  const players = table.getPlayersForehandFirst()
 
   for (let i = 0; i < 3; i++) {
-    for (const player of table.getPlayersForehandFirst()) {
-      playerHands[player.idx] = [...(playerHands[player.idx] || []), deck.takeCard()]
+    for (const player of players) {
+      playerHands[player.idx] = [...(playerHands[player.idx] || []), deck.takeCard()] as ICard[]
+    }
+  }
+
+  if (cheat_lots_of_flowers && table.forehandIdx % 2 === 0) {
+    deck.shuffle(players[0].idx)
+    for (const player of players) {
+      const first = deck.takeCard()
+      const second = deck.pick(deck.cards.find((c) => c.charAt(1) === first.charAt(1))!)!
+      const third = deck.pick(deck.cards.find((c) => c.charAt(1) === first.charAt(1))!)!
+      playerHands[player.idx] = [first, second, third]
     }
   }
 

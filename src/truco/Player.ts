@@ -41,6 +41,7 @@ export function Player({
     hasFlor: false,
     isEnvidoTurn: false,
     hasSaidEnvidoPoints: false,
+    hasSaidFlorPoints: false,
     disabled: false,
     ready: false,
     abandoned: false,
@@ -49,6 +50,10 @@ export function Player({
     },
     saidEnvidoPoints() {
       player.hasSaidEnvidoPoints = true
+    },
+
+    saidFlorPoints() {
+      player.hasSaidFlorPoints = true
     },
     resetCommands() {
       player._commands = new Set()
@@ -200,7 +205,7 @@ interface ISplittedCard {
   envidoValue: number
 }
 
-function splitCardvalues(card: ICard): ISplittedCard {
+export function splitCardvalues(card: ICard): ISplittedCard {
   let value = card.charAt(0)
   const palo = card.charAt(1)
   if (value === "p" || value === "c" || value === "r") {

@@ -1,5 +1,5 @@
 import { expect } from "chai"
-import { EAnswerCommand, EEnvidoAnswerCommand, ESayCommand } from "../../src/types"
+import { EAnswerCommand, EEnvidoAnswerCommand, EFlorCommand, ESayCommand } from "../../src/types"
 import { Lobby } from "../../src/truco"
 
 describe("Trucoshi Lib", () => {
@@ -71,6 +71,40 @@ describe("Trucoshi Lib", () => {
 
             play.say(EAnswerCommand.QUIERO, play.player)
           })
+
+          .onFlor(async (play) => {
+            if (!play.player) {
+              return
+            }
+
+            if (play.player._commands.has(EFlorCommand.FLOR)) {
+              if (play.player._commands.has(EFlorCommand.CONTRAFLOR) && Math.random() > 0.49) {
+                if (Math.random() > 0.51) {
+                  if (Math.random() > 50) {
+                    play.say(EFlorCommand.ACHICO, play.player)
+                    return
+                  }
+
+                  play.say(EFlorCommand.CONTRAFLOR, play.player)
+                  return
+                }
+
+                play.say(EFlorCommand.CONTRAFLOR_AL_RESTO, play.player)
+                return
+              }
+
+              play.say(EFlorCommand.FLOR, play.player)
+              return
+            }
+
+            if (Math.random() > 0.55) {
+              play.say(EAnswerCommand.NO_QUIERO, play.player)
+              return
+            }
+
+            play.say(EAnswerCommand.QUIERO, play.player)
+          })
+
           .onTruco(async (play) => {
             if (!play.player) {
               return

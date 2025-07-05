@@ -49,6 +49,7 @@ export interface ISaidCommand {
 
 export interface IMatchPreviousHand {
   envido: { winner: IPublicPlayer; data?: { value: number; cards: ICard[] } } | null
+  flor: { winner: IPublicPlayer; data?: { value: number; cards: ICard[] } } | null
   rounds: IPlayedCard[][]
   points: IHandPoints
   matchSessionId: string
@@ -148,7 +149,6 @@ export enum EHandState {
   WAITING_ENVIDO_ANSWER = "WAITING_ENVIDO_ANSWER",
   WAITING_ENVIDO_POINTS_ANSWER = "WAITING_ENVIDO_POINTS_ANSWER",
   WAITING_FLOR_ANSWER = "WAITING_FLOR_ANSWER",
-  WAITING_FLOR_POINTS_ANSWER = "WAITING_FLOR_POINTS_ANSWER",
   BEFORE_FINISHED = "BEFORE_FINISHED",
   FINISHED = "FINISHED",
 }
@@ -186,6 +186,7 @@ export enum GAME_ERROR {
   INVALID_COMAND = "INVALID_COMAND",
   INSUFFICIENT_BALANCE = "INSUFFICIENT_BALANCE",
   GAME_REQUIRES_ACCOUNT = "GAME_REQUIRES_ACCOUNT",
+  NO_FLOR = "NO_FLOR",
 }
 
 export interface EnvidoState {
@@ -219,6 +220,7 @@ export interface IDeck {
   random: IRandom
   cards: Array<ICard>
   usedCards: Array<ICard>
+  pick(card: ICard): ICard | null
   takeCard(): ICard
   takeThree(): [ICard, ICard, ICard]
   shuffle(dealerIdx: number): IDeck
@@ -305,16 +307,18 @@ export interface IPlayer {
   _commands: Set<ECommand>
   get commands(): Array<ECommand>
   isTurn: boolean
-  hasSaidEnvidoPoints: boolean
   turnExpiresAt: number | null // Date.now()
   turnExtensionExpiresAt: number | null // Date.now()
   hasFlor: boolean
+  hasSaidFlorPoints: boolean
+  hasSaidEnvidoPoints: boolean
   isEnvidoTurn: boolean
   isOwner: boolean
   disabled: boolean
   abandoned: boolean
   ready: boolean
   saidEnvidoPoints(): void
+  saidFlorPoints(): void
   resetCommands(): void
   calculateEnvido(): Array<{ value: number; cards: ICard[] }>
   setIdx(idx: number): void

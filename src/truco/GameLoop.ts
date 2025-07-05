@@ -10,6 +10,7 @@ export type ITrucoCallback = (play: IPlayInstance) => Promise<void>
 export type IHandFinishedCallback = (hand: IHand | null) => Promise<void>
 export type IBeforeHandFinishedCallback = () => Promise<void>
 export type IEnvidoCallback = (play: IPlayInstance, pointsRound: boolean) => Promise<void>
+export type IFlorCallback = (play: IPlayInstance) => Promise<void>
 
 const log = logger.child({ class: "Gameloop" })
 
@@ -18,6 +19,7 @@ export interface IGameLoop {
   _onTurn: ITurnCallback
   _onWinner: IWinnerCallback
   _onEnvido: IEnvidoCallback
+  _onFlor: IFlorCallback
   _onHandFinished: IHandFinishedCallback
   _onBeforeHandFinished: IBeforeHandFinishedCallback
   currentPlayer: IPlayer | null
@@ -30,6 +32,7 @@ export interface IGameLoop {
   onWinner: (callback: IWinnerCallback) => IGameLoop
   onTruco: (callback: ITrucoCallback) => IGameLoop
   onEnvido: (callback: IEnvidoCallback) => IGameLoop
+  onFlor: (callback: IFlorCallback) => IGameLoop
   onHandFinished: (callback: IHandFinishedCallback) => IGameLoop
   onBeforeHandFinished: (callback: IBeforeHandFinishedCallback) => IGameLoop
   begin: () => Promise<void>
@@ -38,6 +41,7 @@ export interface IGameLoop {
 export const GameLoop = (match: IMatch) => {
   let gameloop: IGameLoop = {
     _onEnvido: () => Promise.resolve(),
+    _onFlor: () => Promise.resolve(),
     _onTruco: () => Promise.resolve(),
     _onTurn: () => Promise.resolve(),
     _onWinner: () => Promise.resolve(),
@@ -71,6 +75,10 @@ export const GameLoop = (match: IMatch) => {
     },
     onEnvido: (callback) => {
       gameloop._onEnvido = callback
+      return gameloop
+    },
+    onFlor: (callback) => {
+      gameloop._onFlor = callback
       return gameloop
     },
     async begin() {
@@ -141,6 +149,13 @@ export const GameLoop = (match: IMatch) => {
             continue
           }
 
+          if (play.state === EHandState.WAITING_FLOR_ANSWER) {
+            play.player.setTurn(true)
+            await gameloop._onFlor(play)
+            play.player.setTurn(false)
+            continue
+          }
+
           if (play.state === EHandState.WAITING_FOR_TRUCO_ANSWER) {
             play.player.setTurn(true)
             await gameloop._onTruco(play)
@@ -165,10 +180,12 @@ export const GameLoop = (match: IMatch) => {
       }
 
       if (!match.winner) {
-        throw new Error("Something went very wrong in the game loop")
+        log.fatal("No winner found in game loop, forcing termination")
+        match.setWinner(match.teams[0])
+        winner = match.teams[0]
       }
 
-      winner = match.winner
+      winner = match.winner!
 
       log.trace(
         { matchId: match.id, winnerIdx: winner.id, points: winner.points },
