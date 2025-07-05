@@ -149,7 +149,7 @@ export function Flor(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITabl
         return flor
       }
 
-      flor.stake = 3 // Base points for Flor
+      flor.stake = 3
       flor.declineStake = 0
       flor.players = teams[opponentIdx].players.filter((p) => !p.disabled && p.hasFlor)
       flor.candidates.push(player)

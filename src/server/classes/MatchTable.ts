@@ -10,7 +10,7 @@ import {
   IPublicMatchInfo,
 } from "../../types"
 import logger from "../../utils/logger"
-import { calculateFlorPoints } from "../../lib/utils"
+import { calculateFlorPoints, getMaxNumberIndex } from "../../lib/utils"
 
 export interface IMatchTable {
   matchId?: number
@@ -111,13 +111,15 @@ export function MatchTable(
             (e) => e.value === hand.envido.winningPointsAnswer
           ),
         },
-        flor: hand.flor.winningPlayer
+        flor: hand.flor.candidates.length
           ? {
-              winner: hand.flor.winningPlayer.getPublicPlayer(),
-              data: {
-                cards: [...hand.flor.winningPlayer.hand, ...hand.flor.winningPlayer.usedHand],
-                value: calculateFlorPoints(hand.flor.winningPlayer),
-              },
+              data: table.lobby.players
+                .filter((p) => p.hasSaidFlorPoints)
+                .map((p) => ({
+                  cards: [...p.hand, ...p.usedHand],
+                  idx: p.idx,
+                  value: calculateFlorPoints(p),
+                })),
             }
           : null,
       }

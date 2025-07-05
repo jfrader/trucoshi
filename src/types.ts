@@ -49,7 +49,7 @@ export interface ISaidCommand {
 
 export interface IMatchPreviousHand {
   envido: { winner: IPublicPlayer; data?: { value: number; cards: ICard[] } } | null
-  flor: { winner: IPublicPlayer; data?: { value: number; cards: ICard[] } } | null
+  flor: { data: Array<{ idx: number; value: number; cards: ICard[] }> } | null
   rounds: IPlayedCard[][]
   points: IHandPoints
   matchSessionId: string
