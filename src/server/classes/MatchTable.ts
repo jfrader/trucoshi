@@ -1,16 +1,14 @@
-import { Logger } from "pino"
 import { IHand, ILobby, Lobby } from "../../truco"
 import {
   EMatchState,
   ILobbyOptions,
+  IMatchFlorBattle,
   IMatchPreviousHand,
   IPlayedCard,
   IPlayer,
   IPublicMatch,
   IPublicMatchInfo,
 } from "../../types"
-import logger from "../../utils/logger"
-import { calculateFlorPoints, getMaxNumberIndex } from "../../lib/utils"
 
 export interface IMatchTable {
   matchId?: number
@@ -22,6 +20,7 @@ export interface IMatchTable {
   setBusy(busy: boolean): void
   isSessionPlaying(session: string): IPlayer | null
   getPreviousHand(hand: IHand): IMatchPreviousHand
+  getFlorBattle(hand: IHand): IMatchFlorBattle
   getHandRounds(hand: IHand): IPlayedCard[][]
   getPublicMatch(session?: string, freshHand?: boolean): IPublicMatch
   getPublicMatchInfo(): IPublicMatchInfo
@@ -100,25 +99,40 @@ export function MatchTable(
       }
       return hand.rounds.map((round) => round.cards) || []
     },
-    getPreviousHand(hand) {
+    getFlorBattle(hand) {
       return {
-        rounds: table.getHandRounds(hand),
-        points: hand.points,
+        playersWithFlor: table.lobby.players
+          .filter((p) => p.hasSaidFlor)
+          .map((p) => ({
+            idx: p.idx,
+            cards: hand.flor.state === 5 ? p.flor?.cards : undefined,
+            points: p.flor?.value || 0,
+          })),
+        winnerTeamIdx: hand.flor.winner?.id || null,
+        winner: hand.flor.winningPlayer?.getPublicPlayer() || null,
         matchSessionId: table.matchSessionId,
-        envido: hand.envido.winningPlayer && {
-          winner: hand.envido.winningPlayer.getPublicPlayer(),
-          data: hand.envido.winningPlayer.envido.find(
-            (e) => e.value === hand.envido.winningPointsAnswer
+      }
+    },
+    getPreviousHand(previousHand) {
+      return {
+        rounds: table.getHandRounds(previousHand),
+        points: previousHand.points,
+        matchSessionId: table.matchSessionId,
+        envido: previousHand.envido.winningPlayer && {
+          winner: previousHand.envido.winningPlayer.getPublicPlayer(),
+          data: previousHand.envido.winningPlayer.envido.find(
+            (e) => e.value === previousHand.envido.winningPointsAnswer
           ),
         },
-        flor: hand.flor.candidates.length
+        flor: previousHand.flor.winningPlayer
           ? {
+              winner: previousHand.flor.winningPlayer?.getPublicPlayer() || null,
               data: table.lobby.players
-                .filter((p) => p.hasSaidFlorPoints)
+                .filter((p) => p.hasSaidFlor)
                 .map((p) => ({
-                  cards: [...p.hand, ...p.usedHand],
+                  cards: p.flor?.cards || [],
                   idx: p.idx,
-                  value: calculateFlorPoints(p),
+                  value: p.flor?.value || 0,
                 })),
             }
           : null,
@@ -157,6 +171,8 @@ const getPublicMatch = (
   const teams = gameLoop?.teams || lobby.teams
   const publicTeams = teams.map((team) => team.getPublicTeam(userSession))
 
+  const currentHand = gameLoop?.currentHand;
+
   return {
     id: table.matchId,
     me,
@@ -166,12 +182,13 @@ const getPublicMatch = (
     state: table.state(),
     teams: publicTeams,
     players: publicPlayers,
-    handState: gameLoop?.currentHand?.state || null,
+    handState: currentHand?.state || null,
     lastCommand: gameLoop?.lastCommand,
     lastCard: gameLoop?.lastCard,
     freshHand,
     ownerKey: players.find((p) => p.session === table.ownerSession)?.key || "",
     rounds,
+    florBattle: currentHand?.displayingFlorBattle() ? table.getFlorBattle(currentHand) : null,
     busy: table.busy,
   }
 }

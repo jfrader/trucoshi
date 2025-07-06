@@ -53,6 +53,7 @@ export interface IHand {
   use(idx: number, card: ICard, burn?: boolean): ICard | null
   finished: () => boolean
   beforeFinished: () => boolean
+  displayingFlorBattle: () => boolean
   setTurnCommands(): void
   play(prevHand: IHand | null): IPlayInstance
   nextTurn(): void
@@ -117,6 +118,15 @@ function* handTurnGeneratorSequence(match: IMatch, hand: IHand) {
           hand.setCurrentPlayer(value.currentPlayer)
           yield hand
         }
+      }
+
+      while (hand.state === EHandState.DISPLAY_FLOR_BATTLE) {
+        if (hand.currentPlayer) {
+          hand.setCurrentPlayer(null)
+        } else {
+          hand.endFlor()
+        }
+        yield hand
       }
 
       if (hand.truco.answer === false) {
@@ -374,6 +384,7 @@ export function Hand(match: IMatch, idx: number) {
       return hand._currentPlayer
     },
     setState(state) {
+      logger.trace({ previousState: hand.state, newState: state }, "Setting Hand State")
       hand.state = state
       return hand.state
     },
@@ -382,6 +393,9 @@ export function Hand(match: IMatch, idx: number) {
     },
     beforeFinished: () => {
       return hand.state === EHandState.BEFORE_FINISHED
+    },
+    displayingFlorBattle: () => {
+      return hand.state === EHandState.DISPLAY_FLOR_BATTLE
     },
   }
 
@@ -430,7 +444,7 @@ const setTurnCommands = (match: IMatch, hand: IHand) => {
   ) {
     // Allow players in the same team to also declare FLOR
     match.teams[hand.flor.teamIdx].players
-      .filter((p) => p.hasFlor && !p.disabled)
+      .filter((p) => p.hasFlor && !p.hasSaidFlor && !p.disabled)
       .forEach((player) => {
         player._commands.add(EFlorCommand.FLOR)
       })
@@ -516,9 +530,11 @@ const commands: IHandCommands = {
     } else if (hand.state === EHandState.WAITING_ENVIDO_ANSWER) {
       hand.envido.sayAnswer(player, true)
       hand.setState(EHandState.WAITING_ENVIDO_POINTS_ANSWER)
-    } else if (hand.state === EHandState.WAITING_FLOR_ANSWER && hand.flor.state >= 4) {
-      hand.flor.sayAnswer(player, true)
-      hand.endFlor()
+    } else if (hand.state === EHandState.WAITING_FLOR_ANSWER) {
+      if (hand.flor.state >= 4) {
+        hand.flor.sayAnswer(player, true)
+        hand.setState(EHandState.DISPLAY_FLOR_BATTLE)
+      }
     }
   },
   [EAnswerCommand.NO_QUIERO]: (hand, player) => {
@@ -528,9 +544,11 @@ const commands: IHandCommands = {
     } else if (hand.state === EHandState.WAITING_ENVIDO_ANSWER) {
       hand.envido.sayAnswer(player, false)
       hand.endEnvido()
-    } else if (hand.state === EHandState.WAITING_FLOR_ANSWER && hand.flor.state >= 4) {
-      hand.flor.sayAnswer(player, false)
-      hand.endFlor()
+    } else if (hand.state === EHandState.WAITING_FLOR_ANSWER) {
+      if (hand.flor.state >= 4) {
+        hand.flor.sayAnswer(player, false)
+        hand.endFlor()
+      }
     }
   },
   [EEnvidoAnswerCommand.SON_BUENAS]: (hand, player) => {
@@ -557,8 +575,10 @@ const commands: IHandCommands = {
     const currentFlor = hand.flor.sayFlor(player)
     if (!currentFlor.finished && !currentFlor.answered) {
       hand.setState(EHandState.WAITING_FLOR_ANSWER)
-    } else {
-      hand.endFlor()
+    }
+
+    if (currentFlor.finished) {
+      hand.setState(EHandState.DISPLAY_FLOR_BATTLE)
     }
   },
   [EFlorCommand.CONTRAFLOR]: (hand, player) => {

@@ -69,6 +69,14 @@ describe("Trucoshi Lib", () => {
               return
             }
 
+            if (!play.player._commands.has(EAnswerCommand.QUIERO)) {
+              console.log(play.player.idx)
+              console.log(play.player.commands)
+              console.log(play.getHand().roundsLog)
+              console.log("------------------------------")
+              return process.abort()
+            }
+
             play.say(EAnswerCommand.QUIERO, play.player)
           })
 

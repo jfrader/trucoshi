@@ -34,6 +34,7 @@ export function Player({
     usedHand: [],
     prevHand: [],
     envido: [],
+    flor: null,
     isOwner,
     isTurn: false,
     turnExpiresAt: null,
@@ -41,7 +42,7 @@ export function Player({
     hasFlor: false,
     isEnvidoTurn: false,
     hasSaidEnvidoPoints: false,
-    hasSaidFlorPoints: false,
+    hasSaidFlor: false,
     disabled: false,
     ready: false,
     abandoned: false,
@@ -52,8 +53,8 @@ export function Player({
       player.hasSaidEnvidoPoints = true
     },
 
-    saidFlorPoints() {
-      player.hasSaidFlorPoints = true
+    saidFlor() {
+      player.hasSaidFlor = true
     },
     resetCommands() {
       player._commands = new Set()
@@ -205,7 +206,7 @@ interface ISplittedCard {
   envidoValue: number
 }
 
-export function splitCardvalues(card: ICard): ISplittedCard {
+function splitCardvalues(card: ICard): ISplittedCard {
   let value = card.charAt(0)
   const palo = card.charAt(1)
   if (value === "p" || value === "c" || value === "r") {
@@ -216,16 +217,11 @@ export function splitCardvalues(card: ICard): ISplittedCard {
 }
 
 const calculateEnvidoPointsArray = (player: IPlayer): IPlayer["envido"] => {
-  const hand = [...player.hand, ...player.usedHand].map(splitCardvalues)
+  const cards = [...player.hand, ...player.usedHand]
+  const hand = cards.map(splitCardvalues)
 
-  player.hasFlor = Boolean(
-    hand.reduce((prev, curr) => {
-      if (prev === curr.palo) {
-        return curr.palo
-      }
-      return ""
-    }, hand[0].palo)
-  )
+  player.hasFlor = hand.every((card) => card.palo === hand[0].palo)
+  player.flor = { cards, value: hand.reduce((sum, card) => sum + card.envidoValue, 20) }
 
   const possibles = hand.flatMap((v, i) => hand.slice(i + 1).map((w) => [v, w]))
   const actual = possibles.filter((couple) => couple[0].palo === couple[1].palo)

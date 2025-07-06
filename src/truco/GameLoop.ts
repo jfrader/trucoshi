@@ -7,10 +7,11 @@ import { IPlayInstance } from "./Play"
 export type IWinnerCallback = (winner: ITeam, points: [ITeamPoints, ITeamPoints]) => Promise<void>
 export type ITurnCallback = (play: IPlayInstance) => Promise<void>
 export type ITrucoCallback = (play: IPlayInstance) => Promise<void>
-export type IHandFinishedCallback = (hand: IHand | null) => Promise<void>
+export type IHandFinishedCallback = (previousHand: IHand | null) => Promise<void>
 export type IBeforeHandFinishedCallback = () => Promise<void>
 export type IEnvidoCallback = (play: IPlayInstance, pointsRound: boolean) => Promise<void>
 export type IFlorCallback = (play: IPlayInstance) => Promise<void>
+export type IFlorBattleCallback = (play: IPlayInstance, hand: IHand | null) => Promise<void>
 
 const log = logger.child({ class: "Gameloop" })
 
@@ -20,6 +21,7 @@ export interface IGameLoop {
   _onWinner: IWinnerCallback
   _onEnvido: IEnvidoCallback
   _onFlor: IFlorCallback
+  _onFlorBattle: IFlorBattleCallback
   _onHandFinished: IHandFinishedCallback
   _onBeforeHandFinished: IBeforeHandFinishedCallback
   currentPlayer: IPlayer | null
@@ -33,6 +35,7 @@ export interface IGameLoop {
   onTruco: (callback: ITrucoCallback) => IGameLoop
   onEnvido: (callback: IEnvidoCallback) => IGameLoop
   onFlor: (callback: IFlorCallback) => IGameLoop
+  onFlorBattle: (callback: IFlorBattleCallback) => IGameLoop
   onHandFinished: (callback: IHandFinishedCallback) => IGameLoop
   onBeforeHandFinished: (callback: IBeforeHandFinishedCallback) => IGameLoop
   begin: () => Promise<void>
@@ -42,6 +45,7 @@ export const GameLoop = (match: IMatch) => {
   let gameloop: IGameLoop = {
     _onEnvido: () => Promise.resolve(),
     _onFlor: () => Promise.resolve(),
+    _onFlorBattle: () => Promise.resolve(),
     _onTruco: () => Promise.resolve(),
     _onTurn: () => Promise.resolve(),
     _onWinner: () => Promise.resolve(),
@@ -81,6 +85,11 @@ export const GameLoop = (match: IMatch) => {
       gameloop._onFlor = callback
       return gameloop
     },
+
+    onFlorBattle: (callback) => {
+      gameloop._onFlorBattle = callback
+      return gameloop
+    },
     async begin() {
       log.trace(
         {
@@ -117,6 +126,11 @@ export const GameLoop = (match: IMatch) => {
 
           if (play.state === EHandState.BEFORE_FINISHED) {
             await gameloop._onBeforeHandFinished()
+            continue
+          }
+
+          if (play.state === EHandState.DISPLAY_FLOR_BATTLE) {
+            await gameloop._onFlorBattle(play, match.currentHand)
             continue
           }
 

@@ -1,5 +1,5 @@
 import { SocketError } from "../server"
-import { getMaxNumberIndex, calculateFlorPoints, getMinNumberIndex } from "../lib/utils"
+import { getMinNumberIndex } from "../lib/utils"
 import { EAnswerCommand, EFlorCommand, GAME_ERROR, IPlayer, ITeam, ILobbyOptions } from "../types"
 import { ITable } from "../lib/classes/Table"
 
@@ -90,8 +90,11 @@ export function Flor(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITabl
       const playerTeamIdx = player.teamIdx as 0 | 1
       const opponentIdx = Number(!playerTeamIdx) as 0 | 1
 
+      player.saidFlor()
       flor.started = true
+
       if (flor.teamIdx === null) {
+        flor.winningPlayer = player
         flor.teamIdx = playerTeamIdx
       } else if (flor.teamIdx === playerTeamIdx) {
         // Same team can say FLOR
@@ -124,7 +127,7 @@ export function Flor(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITabl
         // Calculate points for all candidates
         flor.winners = flor.candidates.map((p) => ({
           player: p,
-          points: calculateFlorPoints(p),
+          points: p.flor?.value || 0,
         }))
         // Determine winner
         let maxPoints = -1
@@ -180,6 +183,9 @@ export function Flor(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITabl
       if (playerTeamIdx === flor.teamIdx) {
         throw new SocketError(GAME_ERROR.INVALID_COMAND)
       }
+
+      player.saidFlor()
+
       const opponentIdx = Number(!playerTeamIdx) as 0 | 1
 
       flor.stake = 6
@@ -208,6 +214,9 @@ export function Flor(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITabl
       if (playerTeamIdx === flor.teamIdx) {
         throw new SocketError(GAME_ERROR.INVALID_COMAND)
       }
+
+      player.saidFlor()
+
       const opponentIdx = Number(!playerTeamIdx) as 0 | 1
 
       const totals = teams.map((team) => team.points.malas + team.points.buenas)
@@ -236,6 +245,7 @@ export function Flor(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITabl
       if (!player.hasFlor) {
         throw new SocketError(GAME_ERROR.NO_FLOR)
       }
+      player.saidFlor()
       flor.finished = true
       flor.winner = teams[Number(!player.teamIdx)]
       flor.stake = 3
@@ -259,12 +269,13 @@ export function Flor(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITabl
       flor.teamIdx = opponentIdx
 
       if (answer) {
+        player.saidFlor()
         flor.accepted = true
         flor.stake = flor.state === 4 ? 6 : flor.state === 5 ? flor.stake : 4
         // Calculate points for all candidates
         flor.winners = flor.candidates.map((p) => ({
           player: p,
-          points: calculateFlorPoints(p),
+          points: p.flor?.value || 0,
         }))
         // Determine winner
         let maxPoints = -1

@@ -9,9 +9,6 @@ const transport = pino.transport({
   options: { colorize: true },
 })
 
-const logger = pino(
-  { level: process.env.APP_DEBUG_LEVEL },
-  transport
-)
+const logger = pino({ level: process.env.APP_DEBUG_LEVEL }, transport)
 
 export default logger

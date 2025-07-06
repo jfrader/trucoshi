@@ -1,27 +1,6 @@
-import { IRound, IRoundPoints, splitCardvalues } from "../truco"
-import { ICard, IPlayer } from "../types"
+import { IRound, IRoundPoints } from "../truco"
+import { ICard } from "../types"
 import { CARDS } from "./constants"
-
-// Calculates the Flor points for a player's hand.
-// Returns the sum of the envidoValue of three cards of the same suit plus 20, or 0 if no Flor exists.
-export function calculateFlorPoints(player: IPlayer): number {
-  if (!player.hasFlor) {
-    return 0
-  }
-
-  const hand = [...player.hand, ...player.usedHand].map(splitCardvalues)
-
-  // Verify that all cards share the same suit (should be true if player.hasFlor is set)
-  const sameSuit = hand.every((card) => card.palo === hand[0].palo)
-  if (!sameSuit) {
-    return 0
-  }
-
-  // Sum the envidoValue of all cards (figures are 0)
-  const points = hand.reduce((sum, card) => sum + card.value, 20)
-
-  return points
-}
 
 export function getMaxNumberIndex<T = number>(array: Array<T>) {
   return array.reduce((accumulator, current, index) => {

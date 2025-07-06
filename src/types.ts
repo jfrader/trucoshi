@@ -47,9 +47,16 @@ export interface ISaidCommand {
   command: ECommand | number
 }
 
+export interface IMatchFlorBattle {
+  matchSessionId: string
+  playersWithFlor: { idx: number; cards?: ICard[]; points: number }[]
+  winnerTeamIdx: 0 | 1 | null
+  winner: IPublicPlayer | null
+}
+
 export interface IMatchPreviousHand {
   envido: { winner: IPublicPlayer; data?: { value: number; cards: ICard[] } } | null
-  flor: { data: Array<{ idx: number; value: number; cards: ICard[] }> } | null
+  flor: { winner: IPublicPlayer | null, data: Array<{ idx: number; value: number; cards: ICard[] }> } | null
   rounds: IPlayedCard[][]
   points: IHandPoints
   matchSessionId: string
@@ -61,6 +68,7 @@ export interface IPublicMatch {
   busy: boolean
   state: EMatchState
   handState: EHandState | null
+  florBattle: IMatchFlorBattle | null
   winner: ITeam | null
   matchSessionId: string
   ownerKey: string
@@ -149,6 +157,7 @@ export enum EHandState {
   WAITING_ENVIDO_ANSWER = "WAITING_ENVIDO_ANSWER",
   WAITING_ENVIDO_POINTS_ANSWER = "WAITING_ENVIDO_POINTS_ANSWER",
   WAITING_FLOR_ANSWER = "WAITING_FLOR_ANSWER",
+  DISPLAY_FLOR_BATTLE = "DISPLAY_FLOR_BATTLE",
   BEFORE_FINISHED = "BEFORE_FINISHED",
   FINISHED = "FINISHED",
 }
@@ -310,7 +319,8 @@ export interface IPlayer {
   turnExpiresAt: number | null // Date.now()
   turnExtensionExpiresAt: number | null // Date.now()
   hasFlor: boolean
-  hasSaidFlorPoints: boolean
+  flor: { value: number; cards: ICard[] } | null
+  hasSaidFlor: boolean
   hasSaidEnvidoPoints: boolean
   isEnvidoTurn: boolean
   isOwner: boolean
@@ -318,7 +328,7 @@ export interface IPlayer {
   abandoned: boolean
   ready: boolean
   saidEnvidoPoints(): void
-  saidFlorPoints(): void
+  saidFlor(): void
   resetCommands(): void
   calculateEnvido(): Array<{ value: number; cards: ICard[] }>
   setIdx(idx: number): void
