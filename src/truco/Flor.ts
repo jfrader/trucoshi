@@ -2,6 +2,7 @@ import { SocketError } from "../server"
 import { getMinNumberIndex } from "../lib/utils"
 import { EAnswerCommand, EFlorCommand, GAME_ERROR, IPlayer, ITeam, ILobbyOptions } from "../types"
 import { ITable } from "../lib/classes/Table"
+import logger from "../utils/logger"
 
 export interface IFlor {
   state: number
@@ -100,12 +101,17 @@ export function Flor(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITabl
         // Same team can say FLOR
         flor.candidates.push(player)
         // Check if all players in the team with Flor have declared
-        const teamPlayersWithFlor = teams[playerTeamIdx].players.filter(
-          (p) => p.hasFlor && !p.disabled
-        )
-        if (flor.candidates.length === teamPlayersWithFlor.length) {
+        if (
+          teams[playerTeamIdx].players
+            .filter((p) => p.hasFlor && !p.disabled)
+            .every((p) => p.hasSaidFlor || p.usedHand.length > 0)
+        ) {
           // All team players with Flor have said it, check opponents
-          if (!teams[opponentIdx].players.some((p) => p.hasFlor && !p.disabled)) {
+          if (
+            teams[opponentIdx].players
+              .filter((p) => !p.disabled && p.hasFlor)
+              .every((p) => p.hasSaidFlor || p.usedHand.length > 0)
+          ) {
             flor.finished = true
             flor.winner = teams[playerTeamIdx]
             flor.stake = 3 // 3 points for unopposed Flor
@@ -146,15 +152,32 @@ export function Flor(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITabl
           }
         }
         flor.winningPlayer = winningPlayer
-        flor.winner = winningPlayer ? teams[winningPlayer.teamIdx] : null
-        flor.finished = true
+
+        // Check if all players in the team with Flor have declared
+        if (
+          teams[playerTeamIdx].players
+            .filter((p) => p.hasFlor && !p.disabled)
+            .every((p) => p.hasSaidFlor || p.usedHand.length > 0)
+        ) {
+          // All team players with Flor have said it, check opponents
+          if (
+            teams[opponentIdx].players
+              .filter((p) => !p.disabled && p.hasFlor)
+              .every((p) => p.hasSaidFlor || p.usedHand.length > 0)
+          ) {
+            flor.winner = winningPlayer ? teams[winningPlayer.teamIdx] : null
+            flor.finished = true
+            return flor
+          }
+        }
+
         turnGenerator = florTurnGeneratorSequence(flor)
         return flor
       }
 
       flor.stake = 3
       flor.declineStake = 0
-      flor.players = teams[opponentIdx].players.filter((p) => !p.disabled && p.hasFlor)
+      flor.players = table.getPlayersForehandFirst().filter((p) => p.hasFlor && !p.hasSaidFlor)
       flor.candidates.push(player)
       flor.state = 3
       flor.accepted = false
@@ -328,15 +351,20 @@ export function Flor(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITabl
 function* florTurnGeneratorSequence(flor: IFlor) {
   while (!flor.finished && !flor.winner) {
     const player = flor.players[flor.turn]
-    flor.setCurrentPlayer(player)
-    if (player?.disabled) {
-      flor.setCurrentPlayer(null)
-    }
 
     if (flor.turn >= flor.players.length - 1) {
       flor.setTurn(0)
     } else {
       flor.setTurn(flor.turn + 1)
+    }
+
+    if (!player.hasFlor || (flor.state === 3 && player.hasSaidFlor)) {
+      yield flor
+    }
+
+    flor.setCurrentPlayer(player)
+    if (player?.disabled) {
+      flor.setCurrentPlayer(null)
     }
 
     yield flor

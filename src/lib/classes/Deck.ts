@@ -54,13 +54,18 @@ export function dealCards<
     }
   }
 
-  if (cheat_lots_of_flowers && table.forehandIdx % 2 === 0) {
+  if (cheat_lots_of_flowers) {
     deck.shuffle(players[0].idx)
     for (const player of players) {
-      const first = deck.takeCard()
-      const second = deck.pick(deck.cards.find((c) => c.charAt(1) === first.charAt(1))!)!
-      const third = deck.pick(deck.cards.find((c) => c.charAt(1) === first.charAt(1))!)!
-      playerHands[player.idx] = [first, second, third]
+      if (Math.random() > 0.50) {
+        const first = deck.takeCard()
+        const second = deck.pick(deck.cards.find((c) => c.charAt(1) === first.charAt(1))!)!
+        const third = deck.pick(deck.cards.find((c) => c.charAt(1) === first.charAt(1))!)!
+        playerHands[player.idx] = [first, second, third]
+        continue
+      }
+
+      playerHands[player.idx] = deck.takeThree()
     }
   }
 

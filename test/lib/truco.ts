@@ -69,11 +69,20 @@ describe("Trucoshi Lib", () => {
               return
             }
 
+            if (play.player._commands.has(EFlorCommand.FLOR)) {
+              play.say(EFlorCommand.FLOR, play.player)
+              return
+            }
+
             if (!play.player._commands.has(EAnswerCommand.QUIERO)) {
-              console.log(play.player.idx)
-              console.log(play.player.commands)
+              console.log({
+                onEnvido: true,
+                idx: play.player.idx,
+                commands: play.player.commands,
+                hand: play.player.hand,
+                hasFlor: play.player.hasFlor,
+              })
               console.log(play.getHand().roundsLog)
-              console.log("------------------------------")
               return process.abort()
             }
 
@@ -105,9 +114,22 @@ describe("Trucoshi Lib", () => {
               return
             }
 
-            if (Math.random() > 0.55) {
+            if (Math.random() > 0.75) {
               play.say(EAnswerCommand.NO_QUIERO, play.player)
               return
+            }
+
+            if (!play.player._commands.has(EAnswerCommand.QUIERO)) {
+              console.log({
+                onFlor: true,
+                florAnswered: play.getHand().flor.teamIdx,
+                idx: play.player.idx,
+                commands: play.player.commands,
+                hand: play.player.hand,
+                hasFlor: play.player.hasFlor,
+              })
+              console.log(play.getHand().roundsLog)
+              return process.abort()
             }
 
             play.say(EAnswerCommand.QUIERO, play.player)
@@ -124,7 +146,12 @@ describe("Trucoshi Lib", () => {
               return
             }
 
-            if (Math.random() > 0.51) {
+            if (play.player._commands.has(EFlorCommand.FLOR)) {
+              play.say(EFlorCommand.FLOR, play.player)
+              return
+            }
+
+            if (play.player.commands.length && Math.random() > 0.51) {
               let randomIdx = Math.floor(Math.random() * play.player.commands.length)
 
               let i = 0
@@ -137,7 +164,9 @@ describe("Trucoshi Lib", () => {
                 i++
               }
 
-              play.say(play.player.commands[randomIdx], play.player)
+              const new_command = play.player.commands[randomIdx]
+
+              play.say(new_command, play.player)
               return
             }
 
@@ -156,15 +185,18 @@ describe("Trucoshi Lib", () => {
     let played = 0
     let playedProm: Promise<any>[] = []
 
-    while (played < 100) {
+    while (played < 500) {
       played++
       playedProm.push(
-        new Promise((resolve) => {
+        new Promise((resolve, reject) => {
           playGame(resolve)
+          setTimeout(() => reject("timeout"), 10000)
         })
       )
     }
 
-    Promise.allSettled(playedProm).finally(done)
+    Promise.allSettled(playedProm).then((r) => {
+      console.log("rejected: ", r.filter(a=> a.status === "rejected").length)
+    }).finally(done)
   })
 })

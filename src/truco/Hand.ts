@@ -405,105 +405,118 @@ export function Hand(match: IMatch, idx: number) {
 }
 
 const setTurnCommands = (match: IMatch, hand: IHand) => {
-  match.table.players.forEach((player) => {
-    player.resetCommands()
-  })
+  // Reset commands for all players
+  match.table.players.forEach((player) => player.resetCommands())
 
   const currentPlayer = hand.currentPlayer
+  if (!currentPlayer) return
 
-  // Envido commands
-  if (hand.envido.teamIdx !== null && !hand.envido.answered) {
-    match.teams[Number(!hand.envido.teamIdx)].players
-      .filter((p) => !p.disabled)
+  // Set commands for Envido, Flor, and Truco/Mazo
+  handleEnvido(match, hand, currentPlayer)
+  handleFlor(match, hand, currentPlayer)
+  handleTrucoAndMazo(match, hand, currentPlayer)
+}
+
+// Handle Envido commands
+const handleEnvido = (match: IMatch, hand: IHand, currentPlayer: IPlayer) => {
+  const envido = hand.envido
+
+  // Opposing team responds to Envido if not yet answered
+  if (envido.teamIdx !== null && !envido.answered) {
+    const opposingTeamIdx = Number(!envido.teamIdx)
+    match.teams[opposingTeamIdx].players
+      .filter((p) => !p.disabled && !p.hasFlor)
       .forEach((player) => {
-        hand.envido.possibleAnswerCommands.forEach((command) => {
-          player._commands.add(command)
-        })
+        envido.possibleAnswerCommands.forEach((cmd) => player._commands.add(cmd))
       })
   }
 
+  // Current player says "Son Buenas" if conditions met
   if (
-    currentPlayer &&
-    hand.envido.accepted &&
-    !hand.envido.finished &&
-    hand.envido.winningPointsAnswer > 0 &&
-    currentPlayer.teamIdx !== hand.envido.winner?.id &&
+    envido.accepted &&
+    !envido.finished &&
+    envido.winningPointsAnswer > 0 &&
+    currentPlayer.teamIdx !== envido.winner?.id &&
     match.teams[currentPlayer.teamIdx].players
       .filter((p) => p.key !== currentPlayer.key)
-      .every((v) => v.hasSaidEnvidoPoints)
+      .every((p) => p.hasSaidEnvidoPoints)
   ) {
     currentPlayer._commands.add(EEnvidoAnswerCommand.SON_BUENAS)
   }
 
-  // Flor commands
+  // Add Envido commands before cards are played
+  if (hand.rounds.length <= 1 && !envido.started && !hand.flor.started && !hand.truco.answer) {
+    match.teams[currentPlayer.teamIdx].players
+      .filter((p) => p.isTurn && !p.hasFlor && p.usedHand.length === 0 && !p.disabled)
+      .forEach((player) => {
+        for (const cmd in EEnvidoCommand) {
+          player._commands.add(cmd as ECommand)
+        }
+      })
+  }
+}
+
+// Handle Flor commands
+const handleFlor = (match: IMatch, hand: IHand, currentPlayer: IPlayer) => {
+  const flor = hand.flor
+  const teamIdx = flor.teamIdx
+  const opposingTeamIdx = Number(!teamIdx)
+
+  // Handle Flor responses and declarations
   if (
     hand.truco.answer === null &&
     hand.envido.answer === null &&
-    hand.flor.teamIdx !== null &&
-    !hand.flor.answered
+    teamIdx !== null &&
+    !flor.answered
   ) {
-    // Allow players in the same team to also declare FLOR
-    match.teams[hand.flor.teamIdx].players
+    // Same team can declare Flor
+    match.teams[teamIdx].players
       .filter((p) => p.hasFlor && !p.hasSaidFlor && !p.disabled)
+      .forEach((player) => player._commands.add(EFlorCommand.FLOR))
+
+    // Opposing team responds to Flor
+    match.teams[opposingTeamIdx].players
+      .filter((p) => p.hasFlor && !p.disabled)
       .forEach((player) => {
-        player._commands.add(EFlorCommand.FLOR)
-      })
-    // Allow opponents with hasFlor to respond with CONTRAFLOR, CONTRAFLOR_AL_RESTO, FLOR, or ACHICO
-    // For state >= 4, allow QUIERO/NO_QUIERO for all non-disabled opponents
-    match.teams[Number(!hand.flor.teamIdx)].players
-      .filter((p) => (hand.flor.state < 4 ? p.hasFlor : true) && !p.disabled)
-      .forEach((player) => {
-        hand.flor.possibleAnswerCommands.forEach((command) => {
-          player._commands.add(command)
-        })
+        flor.possibleAnswerCommands.forEach((cmd) => player._commands.add(cmd))
       })
   }
 
-  // Allow Envido and Flor commands before any cards are played, if not already started
-  if (currentPlayer && hand.rounds.length <= 1) {
-    if (!hand.envido.started && !hand.flor.started) {
-      for (const key in EEnvidoCommand) {
-        for (const player of match.teams[currentPlayer.teamIdx].players) {
-          if (player.usedHand.length === 0 && !player.disabled) {
-            player._commands.add(key as EEnvidoCommand)
-          }
-        }
-      }
-    }
-    if (!hand.truco.answer && !hand.envido.answer && !hand.flor.started) {
-      for (const player of match.teams[currentPlayer.teamIdx].players) {
-        if (player.hasFlor && player.usedHand.length === 0 && !player.disabled) {
-          player._commands.add(EFlorCommand.FLOR)
-        }
-      }
-    }
+  // Add Flor command before cards are played
+  if (hand.rounds.length <= 1 && !hand.truco.answer && !hand.envido.answer && flor.state < 4) {
+    match.table.players
+      .filter((p) => !p.hasSaidFlor && p.hasFlor && p.usedHand.length === 0 && !p.disabled)
+      .forEach((player) => player._commands.add(EFlorCommand.FLOR))
   }
+}
 
-  // Truco and Mazo commands
-  if (
-    (!hand.flor.started || hand.flor.finished) &&
-    (!hand.envido.started || hand.envido.finished)
-  ) {
-    if (hand.truco.waitingAnswer) {
-      match.teams[Number(!hand.truco.teamIdx)].players
+// Handle Truco and Mazo commands
+const handleTrucoAndMazo = (match: IMatch, hand: IHand, currentPlayer: IPlayer) => {
+  const truco = hand.truco
+  const flor = hand.flor
+  const envido = hand.envido
+
+  // Only proceed if Flor and Envido are not in progress
+  if ((!flor.started || flor.finished) && (!envido.started || envido.finished)) {
+    if (truco.waitingAnswer) {
+      // Opposing team responds to Truco
+      const opposingTeamIdx = Number(!truco.teamIdx)
+      match.teams[opposingTeamIdx].players
         .filter((p) => !p.disabled)
         .forEach((player) => {
-          const nextCommand = hand.truco.getNextTrucoCommand()
-          if (nextCommand) {
-            player._commands.add(nextCommand)
-          }
+          const nextCmd = truco.getNextTrucoCommand()
+          if (nextCmd) player._commands.add(nextCmd)
           player._commands.add(EAnswerCommand.QUIERO)
           player._commands.add(EAnswerCommand.NO_QUIERO)
         })
     } else {
+      // Add Truco or Mazo for eligible players
       match.table.players
-        .filter((p) => !p.disabled)
+        .filter((p) => !p.disabled && (!p.hasFlor || p.hasSaidFlor))
         .forEach((player) => {
-          if (hand.truco.teamIdx !== player.teamIdx) {
-            const nextCommand = hand.truco.getNextTrucoCommand()
-            if (nextCommand) {
-              player._commands.add(nextCommand)
-            }
+          if (truco.teamIdx !== player.teamIdx) {
+            const nextCmd = truco.getNextTrucoCommand()
+            if (nextCmd) player._commands.add(nextCmd)
           }
           player._commands.add(ESayCommand.MAZO)
         })
@@ -573,12 +586,11 @@ const commands: IHandCommands = {
   },
   [EFlorCommand.FLOR]: (hand, player) => {
     const currentFlor = hand.flor.sayFlor(player)
-    if (!currentFlor.finished && !currentFlor.answered) {
-      hand.setState(EHandState.WAITING_FLOR_ANSWER)
-    }
 
     if (currentFlor.finished) {
       hand.setState(EHandState.DISPLAY_FLOR_BATTLE)
+    } else {
+      hand.setState(EHandState.WAITING_FLOR_ANSWER)
     }
   },
   [EFlorCommand.CONTRAFLOR]: (hand, player) => {

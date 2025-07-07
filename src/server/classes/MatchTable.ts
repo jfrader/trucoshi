@@ -100,14 +100,16 @@ export function MatchTable(
       return hand.rounds.map((round) => round.cards) || []
     },
     getFlorBattle(hand) {
+      const playersThatSaidFlor = table.lobby.players.filter((p) => p.hasSaidFlor)
       return {
-        playersWithFlor: table.lobby.players
-          .filter((p) => p.hasSaidFlor)
-          .map((p) => ({
-            idx: p.idx,
-            cards: hand.flor.state === 5 ? p.flor?.cards : undefined,
-            points: p.flor?.value || 0,
-          })),
+        playersWithFlor:
+          playersThatSaidFlor.length > 1
+            ? playersThatSaidFlor.map((p) => ({
+                idx: p.idx,
+                cards: hand.flor.state === 5 ? p.flor?.cards : undefined,
+                points: p.flor?.value || 0,
+              }))
+            : [],
         winnerTeamIdx: hand.flor.winner?.id || null,
         winner: hand.flor.winningPlayer?.getPublicPlayer() || null,
         matchSessionId: table.matchSessionId,
@@ -171,7 +173,7 @@ const getPublicMatch = (
   const teams = gameLoop?.teams || lobby.teams
   const publicTeams = teams.map((team) => team.getPublicTeam(userSession))
 
-  const currentHand = gameLoop?.currentHand;
+  const currentHand = gameLoop?.currentHand
 
   return {
     id: table.matchId,
@@ -188,7 +190,11 @@ const getPublicMatch = (
     freshHand,
     ownerKey: players.find((p) => p.session === table.ownerSession)?.key || "",
     rounds,
-    florBattle: currentHand?.displayingFlorBattle() ? table.getFlorBattle(currentHand) : null,
+    florBattle:
+      currentHand?.displayingFlorBattle() ||
+      (currentHand?.beforeFinished() && currentHand.flor.state === 5)
+        ? table.getFlorBattle(currentHand)
+        : null,
     busy: table.busy,
   }
 }

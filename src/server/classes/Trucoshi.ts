@@ -117,7 +117,7 @@ export interface ITrucoshi {
     onlyThisSocket?: string
   }): Promise<"say" | "play">
   emitMatchUpdate(table: IMatchTable, skipSocketIds?: Array<string>): Promise<void>
-  emitPreviousHand(hand: IHand, table: IMatchTable): Promise<void>
+  emitPreviousHand(previousHand: IHand, table: IMatchTable): Promise<void>
   emitFlorBattle(hand: IHand, table: IMatchTable): Promise<void>
   emitSocketMatch(socket: TrucoshiSocket, currentMatchId: string | null): IPublicMatch | null
   playCard(input: {
@@ -716,14 +716,13 @@ export const Trucoshi = ({
       await server.emitMatchUpdate(table)
 
       const promises: Array<PromiseLike<void>> = []
-      await server.getTableSockets(table, async (playerSocket, player) => {
+      await server.getTableSockets(table, async (_playerSocket, player) => {
         promises.push(
           new Promise<void>((resolvePlayer, rejectPlayer) => {
-            log.fatal({ player: player?.idx, hand: hand.idx })
             if (!player || !hand) {
               return rejectPlayer()
             }
-            setTimeout(resolvePlayer, table.lobby.options.handAckTime + PLAYER_TIMEOUT_GRACE)
+            setTimeout(resolvePlayer, table.lobby.options.handAckTime)
           }).catch(() => log.error(player, "Resolved flor battle emit"))
         )
       })

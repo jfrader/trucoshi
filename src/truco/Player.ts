@@ -52,7 +52,6 @@ export function Player({
     saidEnvidoPoints() {
       player.hasSaidEnvidoPoints = true
     },
-
     saidFlor() {
       player.hasSaidFlor = true
     },
@@ -124,7 +123,11 @@ export function Player({
       player.abandoned = true
     },
     setHand(hand) {
+      player.hasFlor = false
+      player.hasSaidFlor = false
       player.hasSaidEnvidoPoints = false
+      player.flor = null
+      player.envido = []
       player.prevHand = [...player.usedHand]
       player.hand = hand
       player.usedHand = []
@@ -135,6 +138,7 @@ export function Player({
       if (player.hand[idx] && player.hand[idx] === card) {
         const playedCard = player.hand.splice(idx, 1)[0]
         player.usedHand.push(playedCard)
+        player.hasFlor = false
         return playedCard
       }
       return null
