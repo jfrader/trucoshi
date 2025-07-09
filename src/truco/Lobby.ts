@@ -22,7 +22,7 @@ const disableTimer = process.env.APP_DISABLE_TURN_TIMER === "1"
 
 export const DEFAULT_LOBBY_OPTIONS: ILobbyOptions = {
   faltaEnvido: 1,
-  flor: false,
+  flor: true,
   matchPoint: 9,
   maxPlayers: 6,
   handAckTime: envHandAckTimeout ? Number(envHandAckTimeout) : PREVIOUS_HAND_ACK_TIMEOUT,

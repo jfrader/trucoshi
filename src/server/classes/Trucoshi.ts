@@ -722,10 +722,25 @@ export const Trucoshi = ({
             if (!player || !hand) {
               return rejectPlayer()
             }
+
+            const florPlayer = hand.flor.candidates.find((c) => c.idx === player.idx)
+
+            if (florPlayer?.flor && hand.flor.state >= 3) {
+              server.chat.rooms
+                .getOrThrow(table.matchSessionId)
+                .command(florPlayer.teamIdx as 0 | 1, florPlayer.flor.value)
+            }
+
             setTimeout(resolvePlayer, table.lobby.options.handAckTime)
           }).catch(() => log.error(player, "Resolved flor battle emit"))
         )
       })
+
+      if (hand.flor.winner) {
+        server.chat.rooms
+          .getOrThrow(table.matchSessionId)
+          .system(`La flor se la lleva ${hand.flor.winner.name}`)
+      }
 
       log.trace(table.getPublicMatchInfo(), "Awaiting all flor battle promises")
 

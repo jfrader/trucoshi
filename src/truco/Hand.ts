@@ -413,8 +413,11 @@ const setTurnCommands = (match: IMatch, hand: IHand) => {
 
   // Set commands for Envido, Flor, and Truco/Mazo
   handleEnvido(match, hand, currentPlayer)
-  handleFlor(match, hand, currentPlayer)
   handleTrucoAndMazo(match, hand, currentPlayer)
+
+  if (match.options.flor) {
+    handleFlor(match, hand, currentPlayer)
+  }
 }
 
 // Handle Envido commands
@@ -425,7 +428,7 @@ const handleEnvido = (match: IMatch, hand: IHand, currentPlayer: IPlayer) => {
   if (envido.teamIdx !== null && !envido.answered) {
     const opposingTeamIdx = Number(!envido.teamIdx)
     match.teams[opposingTeamIdx].players
-      .filter((p) => !p.disabled && !p.hasFlor)
+      .filter((p) => !p.disabled && (!p.hasFlor || !match.options.flor))
       .forEach((player) => {
         envido.possibleAnswerCommands.forEach((cmd) => player._commands.add(cmd))
       })
@@ -446,13 +449,15 @@ const handleEnvido = (match: IMatch, hand: IHand, currentPlayer: IPlayer) => {
 
   // Add Envido commands before cards are played
   if (hand.rounds.length <= 1 && !envido.started && !hand.flor.started && !hand.truco.answer) {
-    match.teams[currentPlayer.teamIdx].players
-      .filter((p) => p.isTurn && !p.hasFlor && p.usedHand.length === 0 && !p.disabled)
-      .forEach((player) => {
-        for (const cmd in EEnvidoCommand) {
-          player._commands.add(cmd as ECommand)
-        }
-      })
+    if (
+      (!match.options.flor || !currentPlayer.hasFlor) &&
+      currentPlayer.usedHand.length === 0 &&
+      !currentPlayer.disabled
+    ) {
+      for (const cmd in EEnvidoCommand) {
+        currentPlayer._commands.add(cmd as ECommand)
+      }
+    }
   }
 }
 
@@ -484,9 +489,14 @@ const handleFlor = (match: IMatch, hand: IHand, currentPlayer: IPlayer) => {
 
   // Add Flor command before cards are played
   if (hand.rounds.length <= 1 && !hand.truco.answer && !hand.envido.answer && flor.state < 4) {
-    match.table.players
-      .filter((p) => !p.hasSaidFlor && p.hasFlor && p.usedHand.length === 0 && !p.disabled)
-      .forEach((player) => player._commands.add(EFlorCommand.FLOR))
+    if (
+      !currentPlayer.hasSaidFlor &&
+      !currentPlayer.disabled &&
+      currentPlayer.hasFlor &&
+      currentPlayer.usedHand.length === 0
+    ) {
+      currentPlayer._commands.add(EFlorCommand.FLOR)
+    }
   }
 }
 
@@ -502,7 +512,7 @@ const handleTrucoAndMazo = (match: IMatch, hand: IHand, currentPlayer: IPlayer) 
       // Opposing team responds to Truco
       const opposingTeamIdx = Number(!truco.teamIdx)
       match.teams[opposingTeamIdx].players
-        .filter((p) => !p.disabled)
+        .filter((p) => !p.disabled && (!p.hasFlor || p.hasSaidFlor || !match.options.flor))
         .forEach((player) => {
           const nextCmd = truco.getNextTrucoCommand()
           if (nextCmd) player._commands.add(nextCmd)
@@ -512,7 +522,7 @@ const handleTrucoAndMazo = (match: IMatch, hand: IHand, currentPlayer: IPlayer) 
     } else {
       // Add Truco or Mazo for eligible players
       match.table.players
-        .filter((p) => !p.disabled && (!p.hasFlor || p.hasSaidFlor))
+        .filter((p) => !p.disabled && (!p.hasFlor || p.hasSaidFlor || !match.options.flor))
         .forEach((player) => {
           if (truco.teamIdx !== player.teamIdx) {
             const nextCmd = truco.getNextTrucoCommand()
