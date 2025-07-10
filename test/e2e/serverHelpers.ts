@@ -70,7 +70,7 @@ export const playRandomMatch = async (
         }
 
         const rndIdx = Math.floor(Math.random() * match.me.envido.length)
-        const command = match.me.envido[rndIdx][0] as number
+        const command = match.me.envido[rndIdx].value
 
         return callback({ command })
       }

@@ -114,6 +114,9 @@ function* handTurnGeneratorSequence(match: IMatch, hand: IHand) {
 
       while (hand.state === EHandState.WAITING_FOR_TRUCO_ANSWER) {
         const { value } = hand.truco.getNextPlayer()
+
+        log.debug({ newTrucoPlayer: value?.currentPlayer })
+
         if (value && value.currentPlayer) {
           hand.setCurrentPlayer(value.currentPlayer)
           yield hand
@@ -125,6 +128,7 @@ function* handTurnGeneratorSequence(match: IMatch, hand: IHand) {
           hand.setCurrentPlayer(null)
         } else {
           hand.endFlor()
+          continue
         }
         yield hand
       }
@@ -345,6 +349,8 @@ export function Hand(match: IMatch, idx: number) {
         hand.setTurn(hand.turn + 1)
       }
 
+      log.debug({ round: hand.currentRound }, "Calling round next turn")
+
       hand.currentRound?.nextTurn()
     },
     setTrucoWinner(idx) {
@@ -423,12 +429,18 @@ const setTurnCommands = (match: IMatch, hand: IHand) => {
 // Handle Envido commands
 const handleEnvido = (match: IMatch, hand: IHand, currentPlayer: IPlayer) => {
   const envido = hand.envido
+  const opposingTeamIdx = Number(!envido.teamIdx)
 
   // Opposing team responds to Envido if not yet answered
-  if (envido.teamIdx !== null && !envido.answered) {
-    const opposingTeamIdx = Number(!envido.teamIdx)
+  if (
+    envido.teamIdx !== null &&
+    !envido.answered &&
+    (!match.options.flor ||
+      hand.flor.finished ||
+      match.teams[opposingTeamIdx].players.every((p) => !p.hasFlor || p.hasSaidFlor))
+  ) {
     match.teams[opposingTeamIdx].players
-      .filter((p) => !p.disabled && (!p.hasFlor || !match.options.flor))
+      .filter((p) => !p.disabled)
       .forEach((player) => {
         envido.possibleAnswerCommands.forEach((cmd) => player._commands.add(cmd))
       })
@@ -450,7 +462,9 @@ const handleEnvido = (match: IMatch, hand: IHand, currentPlayer: IPlayer) => {
   // Add Envido commands before cards are played
   if (hand.rounds.length <= 1 && !envido.started && !hand.flor.started && !hand.truco.answer) {
     if (
-      (!match.options.flor || !currentPlayer.hasFlor) &&
+      (!match.options.flor ||
+        hand.flor.finished ||
+        match.teams[currentPlayer.teamIdx].players.every((p) => !p.hasFlor || p.hasSaidFlor)) &&
       currentPlayer.usedHand.length === 0 &&
       !currentPlayer.disabled
     ) {
@@ -505,14 +519,26 @@ const handleTrucoAndMazo = (match: IMatch, hand: IHand, currentPlayer: IPlayer) 
   const truco = hand.truco
   const flor = hand.flor
   const envido = hand.envido
+  const opposingTeamIdx = Number(!truco.teamIdx)
 
-  // Only proceed if Flor and Envido are not in progress
-  if ((!flor.started || flor.finished) && (!envido.started || envido.finished)) {
+  const florInProgress =
+    match.options.flor &&
+    !flor.finished &&
+    (flor.started ||
+      match.teams[currentPlayer.teamIdx].players.some(
+        (p) => !p.disabled && p.hasFlor && !p.hasSaidFlor
+      ))
+
+  const envidoInProgress = !envido.finished && envido.started
+
+  if (!florInProgress && !envidoInProgress) {
     if (truco.waitingAnswer) {
-      // Opposing team responds to Truco
-      const opposingTeamIdx = Number(!truco.teamIdx)
       match.teams[opposingTeamIdx].players
-        .filter((p) => !p.disabled && (!p.hasFlor || p.hasSaidFlor || !match.options.flor))
+        .filter(
+          (p) =>
+            !p.disabled &&
+            (hand.flor.finished || !p.hasFlor || p.hasSaidFlor || !match.options.flor)
+        )
         .forEach((player) => {
           const nextCmd = truco.getNextTrucoCommand()
           if (nextCmd) player._commands.add(nextCmd)
@@ -520,9 +546,8 @@ const handleTrucoAndMazo = (match: IMatch, hand: IHand, currentPlayer: IPlayer) 
           player._commands.add(EAnswerCommand.NO_QUIERO)
         })
     } else {
-      // Add Truco or Mazo for eligible players
       match.table.players
-        .filter((p) => !p.disabled && (!p.hasFlor || p.hasSaidFlor || !match.options.flor))
+        .filter((p) => !p.disabled)
         .forEach((player) => {
           if (truco.teamIdx !== player.teamIdx) {
             const nextCmd = truco.getNextTrucoCommand()

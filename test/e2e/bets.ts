@@ -21,7 +21,7 @@ import {
 } from "../../src/events"
 import { EMatchState } from "@prisma/client"
 
-describe("E2E", () => {
+describe("Bets", () => {
   let clients: Socket<ServerToClientEvents, ClientToServerEvents>[] = []
   let server: ITrucoshi
   let identities: string[] = []
@@ -200,7 +200,7 @@ describe("E2E", () => {
           }
 
           const rndIdx = Math.floor(Math.random() * match.me.envido.length)
-          const command = match.me.envido[rndIdx][0]
+          const command = match.me.envido[rndIdx].value
 
           return callback({ command })
         }

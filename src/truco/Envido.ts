@@ -115,16 +115,26 @@ export const EnvidoCalculator: IEnvidoCalculator = {
 
 function* envidoTurnGeneratorSequence(envido: IEnvido) {
   while (envido.answer === null || envido.winner === null) {
-    const player = envido.players[envido.turn]
-    envido.setCurrentPlayer(player)
-    if (player.disabled) {
-      envido.setCurrentPlayer(null)
-    }
+    let player = envido.players[envido.turn]
 
     if (envido.turn >= envido.players.length - 1) {
       envido.setTurn(0)
     } else {
       envido.setTurn(envido.turn + 1)
+    }
+
+    // const playerWithFlorIndex = envido.players.findIndex(
+    //   (p) => p.idx !== player.idx && p.hasFlor && !p.hasSaidFlor && !p.disabled
+    // )
+
+    // if (playerWithFlorIndex > -1) {
+    //   envido.setTurn(playerWithFlorIndex)
+    //   player = envido.players[playerWithFlorIndex]
+    // }
+
+    envido.setCurrentPlayer(player)
+    if (player.disabled) {
+      envido.setCurrentPlayer(null)
     }
 
     yield envido
@@ -172,7 +182,9 @@ export function Envido(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITa
         envido.teamIdx = playerTeamIdx
         envido.stake += accept
         envido.declineStake += decline
-        envido.players = teams[opponentIdx].players
+        envido.players = [...teams[opponentIdx].players].sort((a, b) =>
+          a.hasFlor && !a.hasSaidFlor ? -1 : b.hasFlor && !b.hasSaidFlor ? 1 : 0
+        )
         envido.started = true
         envido.answered = false
 

@@ -35,37 +35,22 @@ export interface IFlor {
   getNextPlayer(): IteratorResult<IFlor, IFlor | void>
 }
 
-const EMPTY_FLOR: Pick<
-  IFlor,
-  | "turn"
-  | "teamIdx"
-  | "answer"
-  | "currentPlayer"
-  | "players"
-  | "candidates"
-  | "winners"
-  | "winningPlayer"
-  | "winner"
-> = {
-  turn: 0,
-  teamIdx: null,
-  answer: null,
-  currentPlayer: null,
-  players: [],
-  candidates: [],
-  winners: [],
-  winningPlayer: null,
-  winner: null,
-}
-
 export function Flor(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITable) {
   const flor: IFlor = {
-    ...EMPTY_FLOR,
     state: 0,
     finished: false,
     answered: false,
     started: false,
     accepted: false,
+    turn: 0,
+    teamIdx: null,
+    answer: null,
+    currentPlayer: null,
+    players: [],
+    candidates: [],
+    winners: [],
+    winningPlayer: null,
+    winner: null,
     stake: 0,
     declineStake: 0,
     possibleAnswerCommands: [
@@ -191,6 +176,7 @@ export function Flor(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITabl
           EFlorCommand.ACHICO,
         ]
       } else {
+        flor.winner = teams[player.teamIdx]
         flor.finished = true
         flor.answered = true
       }
@@ -358,9 +344,9 @@ function* florTurnGeneratorSequence(flor: IFlor) {
       flor.setTurn(flor.turn + 1)
     }
 
-    if (!player.hasFlor || (flor.state === 3 && player.hasSaidFlor)) {
-      yield flor
-    }
+    // if (!player.hasFlor || (flor.state === 3 && player.hasSaidFlor)) {
+    //   yield flor
+    // }
 
     flor.setCurrentPlayer(player)
     if (player?.disabled) {

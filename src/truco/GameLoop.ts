@@ -101,7 +101,53 @@ export const GameLoop = (match: IMatch) => {
       let winner: ITeam | null = null
       gameloop.teams = match.teams
 
+      let timeout: any = null
+      let times = 0
+
       while (!match.winner) {
+        // times++
+        // if (times > 1000) {
+        //   match.hands.map((h) => {
+        //     const { currentPlayer, idx, state } = h
+        //     const {
+        //       idx: currentPlayerIdx,
+        //       commands,
+        //       hand,
+        //       hasFlor,
+        //       hasSaidFlor,
+        //     } = currentPlayer || {}
+        //     console.log({
+        //       currentPlayer: { currentPlayerIdx, commands, hand, hasFlor, hasSaidFlor },
+        //       idx,
+        //       state,
+        //     })
+        //     console.log(h.roundsLog)
+        //     console.log("----------")
+        //   })
+        //   return process.abort()
+        // }
+
+        // timeout = setTimeout(() => {
+        //   match.hands.map((h) => {
+        //     const { currentPlayer, idx, state } = h
+        //     const {
+        //       idx: currentPlayerIdx,
+        //       commands,
+        //       hand,
+        //       hasFlor,
+        //       hasSaidFlor,
+        //     } = currentPlayer || {}
+        //     console.log({
+        //       currentPlayer: { currentPlayerIdx, commands, hand, hasFlor, hasSaidFlor },
+        //       idx,
+        //       state,
+        //     })
+        //     console.log(h.roundsLog)
+        //     console.log("----------")
+        //   })
+        //   process.abort()
+        // }, 5000)
+
         for (const player of match.table.players) {
           player.setTurn(false)
         }
@@ -111,6 +157,26 @@ export const GameLoop = (match: IMatch) => {
         gameloop.currentHand = match.currentHand
 
         try {
+          // for (const h of match.hands) {
+          //   const { currentPlayer, idx, state } = h
+          //   const {
+          //     idx: currentPlayerIdx,
+          //     commands,
+          //     hand,
+          //     hasFlor,
+          //     hasSaidFlor,
+          //   } = currentPlayer || {}
+          //   console.log({
+          //     matchId: match.id,
+          //     currentPlayer: currentPlayer
+          //       ? { currentPlayerIdx, commands, hand, hasFlor, hasSaidFlor }
+          //       : undefined,
+          //     idx,
+          //     state,
+          //   })
+          //   console.log(h.roundsLog, "----------------------------------")
+          // }
+
           if (!play && match.prevHand) {
             await gameloop._onHandFinished(match.prevHand)
             continue
@@ -192,6 +258,8 @@ export const GameLoop = (match: IMatch) => {
 
         break
       }
+
+      clearTimeout(timeout)
 
       if (!match.winner) {
         log.fatal("No winner found in game loop, forcing termination")

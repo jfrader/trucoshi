@@ -725,13 +725,15 @@ export const Trucoshi = ({
 
             const florPlayer = hand.flor.candidates.find((c) => c.idx === player.idx)
 
-            if (florPlayer?.flor && hand.flor.state >= 3) {
+            if (florPlayer?.flor && hand.flor.accepted) {
               server.chat.rooms
                 .getOrThrow(table.matchSessionId)
                 .command(florPlayer.teamIdx as 0 | 1, florPlayer.flor.value)
+
+              return setTimeout(resolvePlayer, table.lobby.options.handAckTime)
             }
 
-            setTimeout(resolvePlayer, table.lobby.options.handAckTime)
+            return resolvePlayer()
           }).catch(() => log.error(player, "Resolved flor battle emit"))
         )
       })
@@ -764,7 +766,7 @@ export const Trucoshi = ({
               return rejectPlayer()
             }
             playerSocket.emit(EServerEvent.PREVIOUS_HAND, previousHand, resolvePlayer)
-            setTimeout(rejectPlayer, table.lobby.options.handAckTime + PLAYER_TIMEOUT_GRACE)
+            setTimeout(resolvePlayer, table.lobby.options.handAckTime + PLAYER_TIMEOUT_GRACE)
           }).catch(() => log.error(player, "Resolved previous hand emit"))
         )
       })
@@ -955,7 +957,7 @@ export const Trucoshi = ({
         })
       })
     },
-    onFlorBattle(table, play, hand) {
+    async onFlorBattle(table, play, hand) {
       log.trace(
         {
           match: table.getPublicMatchInfo(),
@@ -963,6 +965,12 @@ export const Trucoshi = ({
           handIdx: play.handIdx,
         },
         "Flor battle turn started"
+      )
+
+      const previousHandAckTime = process.env.APP_PREVIOUS_HAND_ACK_TIMEOUT
+
+      await new Promise<void>((resolve) =>
+        setTimeout(resolve, previousHandAckTime ? Number(previousHandAckTime) : 1800)
       )
 
       if (!hand) {
@@ -998,6 +1006,7 @@ export const Trucoshi = ({
             .emitWaitingPossibleSay({ play, table })
             .then(() => resolve())
             .catch((e) => {
+              process.abort()
               log.error(e, "ONENVIDO CALLBACK ERROR")
               turn()
             })

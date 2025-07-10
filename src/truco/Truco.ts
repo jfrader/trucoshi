@@ -1,4 +1,7 @@
 import { ECommand, ETrucoCommand, IPlayer, ITeam } from "../types"
+import logger from "../utils/logger"
+
+const log = logger.child({ class: "Truco" })
 
 interface IPlayerCurrentCommands {
   player: IPlayer
@@ -23,19 +26,6 @@ export interface ITruco {
   getNextTrucoCommand(): ETrucoCommand | null
   setCurrentPlayer(player: IPlayer | null): IPlayer | null
   getNextPlayer(): IteratorResult<ITruco, ITruco | void>
-  reset(): void
-}
-
-const EMPTY_TRUCO: Pick<
-  ITruco,
-  "turn" | "teamIdx" | "answer" | "waitingAnswer" | "currentPlayer" | "players"
-> = {
-  turn: 0,
-  teamIdx: null,
-  answer: null,
-  waitingAnswer: false,
-  currentPlayer: null,
-  players: [],
 }
 
 const TRUCO_STATE_MAP = {
@@ -47,16 +37,26 @@ const TRUCO_STATE_MAP = {
 
 function* trucoTurnGeneratorSequence(truco: ITruco): Generator<ITruco, void, ITruco> {
   while (truco.answer === null) {
-    const player = truco.players[truco.turn]
-    truco.setCurrentPlayer(player)
-    if (player.disabled) {
-      truco.setCurrentPlayer(null)
-    }
+    let player = truco.players[truco.turn]
 
     if (truco.turn >= truco.players.length - 1) {
       truco.setTurn(0)
     } else {
       truco.setTurn(truco.turn + 1)
+    }
+
+    // const playerWithFlorIndex = truco.players.findIndex(
+    //   (p) => p.idx !== player.idx && p.hasFlor && !p.hasSaidFlor && !p.disabled
+    // )
+
+    // if (playerWithFlorIndex > -1) {
+    //   truco.setTurn(playerWithFlorIndex)
+    //   player = truco.players[playerWithFlorIndex]
+    // }
+
+    truco.setCurrentPlayer(player)
+    if (player.disabled) {
+      truco.setCurrentPlayer(null)
     }
 
     yield truco
@@ -67,30 +67,38 @@ function* trucoTurnGeneratorSequence(truco: ITruco): Generator<ITruco, void, ITr
 
 export function Truco(teams: [ITeam, ITeam]) {
   const truco: ITruco = {
-    ...EMPTY_TRUCO,
+    turn: 0,
+    teamIdx: null,
+    answer: null,
+    waitingAnswer: false,
+    currentPlayer: null,
+    players: [],
     state: 1,
     teams,
     currentCommands: [],
     getNextTrucoCommand() {
       return TRUCO_STATE_MAP[truco.state]
     },
-    reset() {
-      Object.assign(truco, EMPTY_TRUCO)
-    },
     sayTruco(player) {
       if (truco.state === 4) {
         return truco
       }
+
       truco.turn = 0
       const playerTeamIdx = player.teamIdx as 0 | 1
       const teamIdx = truco.teamIdx
+
+      log.debug({ teamIdx, playerTeamIdx }, "SAID TRUCO")
+
       if (teamIdx === null || teamIdx !== playerTeamIdx) {
         truco.waitingAnswer = true
         truco.state++
         const opponentIdx = Number(!playerTeamIdx) as 0 | 1
         truco.teamIdx = playerTeamIdx
         truco.answer = null
-        truco.players = teams[opponentIdx].players
+        truco.players = [...teams[opponentIdx].players].sort((a, b) =>
+          a.hasFlor && !a.hasSaidFlor ? -1 : b.hasFlor && !b.hasSaidFlor ? 1 : 0
+        )
 
         turnGenerator = trucoTurnGeneratorSequence(truco)
 
