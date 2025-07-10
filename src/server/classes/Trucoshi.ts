@@ -4,6 +4,7 @@ import { Server, Socket } from "socket.io"
 import {
   EAnswerCommand,
   ECommand,
+  EEnvidoAnswerCommand,
   EFlorCommand,
   EHandState,
   ESayCommand,
@@ -659,6 +660,9 @@ export const Trucoshi = ({
         if (command || command === 0) {
           log.trace({ player, command }, "Attempt to say command")
 
+          const hand = play.getHand()
+          const currentState = hand.state
+
           const saidCommand = play.say(command, player, force)
 
           if (saidCommand || saidCommand === 0) {
@@ -669,6 +673,16 @@ export const Trucoshi = ({
             server.chat.rooms
               .getOrThrow(table.matchSessionId)
               .command(player.teamIdx as 0 | 1, saidCommand)
+
+            if (
+              currentState === EHandState.WAITING_ENVIDO_POINTS_ANSWER &&
+              hand.envido.finished &&
+              hand.envido.winner
+            ) {
+              server.chat.rooms
+                .getOrThrow(table.matchSessionId)
+                .system(`El envido se lo lleva ${hand.envido.winner.name}`)
+            }
 
             return server
               .resetSocketsMatchState(table)
@@ -1006,7 +1020,6 @@ export const Trucoshi = ({
             .emitWaitingPossibleSay({ play, table })
             .then(() => resolve())
             .catch((e) => {
-              process.abort()
               log.error(e, "ONENVIDO CALLBACK ERROR")
               turn()
             })

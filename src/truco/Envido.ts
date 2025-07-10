@@ -87,7 +87,7 @@ export const EnvidoCalculator: IEnvidoCalculator = {
     const points = teams[higher].points
     const next = [EAnswerCommand.QUIERO, EAnswerCommand.NO_QUIERO]
     const accept = 0
-    const decline = 2
+    const decline = 1
 
     if (faltaEnvido === 2) {
       const replace =
