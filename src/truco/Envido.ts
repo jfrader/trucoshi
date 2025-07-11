@@ -225,7 +225,10 @@ export function Envido(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITa
 
       player.saidEnvidoPoints()
 
-      if (envido.players.every((p) => p.hasSaidEnvidoPoints || p.disabled)) {
+      const winningPlayerTeamIdx = envido.winningPlayer.teamIdx as 0 | 1
+      const loosingTeamIdx = Number(!winningPlayerTeamIdx) as 0 | 1
+
+      if (envido.teams[loosingTeamIdx].players.every((p) => p.hasSaidEnvidoPoints || p.disabled)) {
         envido.finished = true
         envido.winner = teams[envido.winningPlayer.teamIdx]
       }
