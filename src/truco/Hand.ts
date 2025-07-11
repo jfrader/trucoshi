@@ -114,9 +114,6 @@ function* handTurnGeneratorSequence(match: IMatch, hand: IHand) {
 
       while (hand.state === EHandState.WAITING_FOR_TRUCO_ANSWER) {
         const { value } = hand.truco.getNextPlayer()
-
-        log.debug({ newTrucoPlayer: value?.currentPlayer })
-
         if (value && value.currentPlayer) {
           hand.setCurrentPlayer(value.currentPlayer)
           yield hand
@@ -556,6 +553,12 @@ const handleTrucoAndMazo = (match: IMatch, hand: IHand, currentPlayer: IPlayer) 
           player._commands.add(ESayCommand.MAZO)
         })
     }
+  } else {
+    match.table.players
+      .filter((p) => !p.disabled)
+      .forEach((player) => {
+        player._commands.add(ESayCommand.MAZO)
+      })
   }
 }
 
@@ -567,6 +570,21 @@ const trucoCommand = (hand: IHand, player: IPlayer) => {
 const commands: IHandCommands = {
   [ESayCommand.MAZO]: (hand, player) => {
     hand.disablePlayer(player)
+
+    if (hand.state === EHandState.WAITING_ENVIDO_ANSWER) {
+      hand.envido.sayAnswer(player, false)
+      hand.endEnvido()
+    }
+
+    if (hand.state === EHandState.WAITING_ENVIDO_POINTS_ANSWER) {
+      hand.sayEnvidoPoints(player, 0, false)
+    }
+
+    if (hand.state === EHandState.WAITING_FLOR_ANSWER && hand.flor.state >= 4) {
+      hand.flor.sayAnswer(player, false)
+      hand.endFlor()
+    }
+
     if (player.isTurn) {
       hand.nextTurn()
     }

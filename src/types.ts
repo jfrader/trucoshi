@@ -56,7 +56,10 @@ export interface IMatchFlorBattle {
 
 export interface IMatchPreviousHand {
   envido: { winner: IPublicPlayer; data?: { value: number; cards: ICard[] } } | null
-  flor: { winner: IPublicPlayer | null, data: Array<{ idx: number; value: number; cards: ICard[] }> } | null
+  flor: {
+    winner: IPublicPlayer | null
+    data: Array<{ idx: number; value: number; cards: ICard[] }>
+  } | null
   rounds: IPlayedCard[][]
   points: IHandPoints
   matchSessionId: string
@@ -71,6 +74,7 @@ export interface IPublicMatch {
   florBattle: IMatchFlorBattle | null
   winner: ITeam | null
   matchSessionId: string
+  forehandIdx: number
   ownerKey: string
   teams: Array<IPublicTeam>
   players: Array<IPublicPlayer>
@@ -146,9 +150,9 @@ export enum EEnvidoAnswerCommand {
 }
 
 export enum EEnvidoCommand {
-  ENVIDO = "ENVIDO",
-  REAL_ENVIDO = "REAL_ENVIDO",
   FALTA_ENVIDO = "FALTA_ENVIDO",
+  REAL_ENVIDO = "REAL_ENVIDO",
+  ENVIDO = "ENVIDO",
 }
 
 export enum EHandState {
@@ -303,7 +307,7 @@ export interface IPlayer {
   teamIdx: number
   accountId: number | undefined
   matchPlayerId: number | undefined
-  avatarUrl: string | undefined
+  avatarUrl: string | undefined | null
   name: string
   key: string
   session: string

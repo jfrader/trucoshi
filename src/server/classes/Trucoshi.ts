@@ -798,7 +798,7 @@ export const Trucoshi = ({
         "Previous hand timeout has finished, all players settled for next hand"
       )
     },
-    setTurnTimeout(table, player, user, onReconnection, onTimeout) {
+    setTurnTimeout(table, player, userSession, onReconnection, onTimeout) {
       log.trace({ player, options: table.lobby.options }, "Setting turn timeout")
 
       const chat = server.chat.rooms.getOrThrow(table.matchSessionId)
@@ -813,7 +813,7 @@ export const Trucoshi = ({
 
         const startTime = Date.now()
 
-        user
+        userSession
           .waitReconnection(
             table.matchSessionId,
             table.lobby.options.abandonTime - player.abandonedTime,
@@ -827,7 +827,7 @@ export const Trucoshi = ({
               { match: table.getPublicMatchInfo(), player: player.getPublicPlayer() },
               "Player reconnected"
             )
-            table.playerReconnected(player)
+            table.playerReconnected(player, userSession)
             onReconnection()
           })
           .catch(() => {
@@ -984,7 +984,7 @@ export const Trucoshi = ({
       const previousHandAckTime = process.env.APP_PREVIOUS_HAND_ACK_TIMEOUT
 
       await new Promise<void>((resolve) =>
-        setTimeout(resolve, previousHandAckTime ? Number(previousHandAckTime) : 1800)
+        setTimeout(resolve, previousHandAckTime ? Number(previousHandAckTime) : 2200)
       )
 
       if (!hand) {
@@ -1279,11 +1279,17 @@ export const Trucoshi = ({
       const table = server.tables.getOrThrow(matchSessionId)
       const player = table.isSessionPlaying(userSession.session)
 
-      if (table.state() === EMatchState.STARTED || table.state() === EMatchState.FINISHED) {
+      if (
+        !player ||
+        table.state() === EMatchState.STARTED ||
+        table.state() === EMatchState.FINISHED
+      ) {
         throw new SocketError("FORBIDDEN")
       }
 
-      if (table.busy || !player || !player.isOwner || key === player.key) {
+      const is_allowed = player.isOwner || (!player.isOwner && player.key === key)
+
+      if (!is_allowed || table.busy) {
         throw new SocketError("FORBIDDEN")
       }
 
@@ -1881,7 +1887,7 @@ export const Trucoshi = ({
               .waitReconnection(table.matchSessionId, PLAYER_LOBBY_TIMEOUT, "disconnection")
               .then(() => {
                 log.trace({ ...table.getPublicMatchInfo() }, "User reconnected to lobby")
-                table.playerReconnected(player)
+                table.playerReconnected(player, userSession)
               })
               .catch(() => {
                 table.playerAbandoned(player)

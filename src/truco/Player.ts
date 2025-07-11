@@ -173,12 +173,12 @@ const getPublicPlayer = (
     ...privateProps
   } = player
 
-  const { session, commands, hasFlor, envido, hand, payRequestId } = privateProps
+  const { session, commands, hasFlor, envido, hand, payRequestId, flor } = privateProps
 
   const isMe = Boolean(userSession && session === userSession)
 
   const meProps = isMe
-    ? { isMe, commands, hasFlor, envido, hand, payRequestId }
+    ? { isMe, commands, hasFlor, envido, hand, flor, payRequestId }
     : { isMe, hand: hand.map(() => BURNT_CARD) }
 
   return {

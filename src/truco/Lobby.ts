@@ -229,7 +229,7 @@ const addPlayerToLobby = async ({
   accountId,
   avatarUrl,
   lobby,
-  name: name,
+  name,
   session,
   key,
   teamIdx,
@@ -245,77 +245,81 @@ const addPlayerToLobby = async ({
   teamIdx?: 0 | 1
   isOwner?: boolean
   teamSize: number
-}) => {
+}): Promise<IPlayer> => {
   const playerParams = { accountId, avatarUrl, name, key, teamIdx, isOwner }
   log.trace(playerParams, "Adding player to match started")
-  const exists = lobby.players.find((player) => player.session === session)
-  const hasMovedSlots = Boolean(exists)
-  if (exists) {
-    if (exists.teamIdx === teamIdx) {
-      log.trace(playerParams, "Adding player to match: Player already exists on the same team")
-      return exists
-    }
-    isOwner = exists.isOwner
 
-    log.trace(
-      playerParams,
-      "Adding player to match: Player already exists on a different team, removing player"
-    )
-    await lobby.removePlayer(exists.session as string)
-  }
+  const existing = lobby.players.find((p) => p.session === session)
+  const hasMovedSlots = Boolean(existing)
+
+  const resolvedTeamIdx: 0 | 1 =
+    teamIdx !== undefined ? teamIdx : (Number(!lobby.lastTeamIdx) as 0 | 1)
+  const resolvedIsOwner = existing?.isOwner ?? isOwner
 
   if (lobby.started) {
-    log.trace(playerParams, "Adding player to match: Match already started! Cannot add player")
+    log.trace(playerParams, "Match already started")
     throw new Error(GAME_ERROR.MATCH_ALREADY_STARTED)
   }
 
+  if (existing) {
+    if (existing.teamIdx === resolvedTeamIdx) {
+      log.trace(playerParams, "Player already on same team, skipping add")
+      return existing
+    }
+
+    log.trace(playerParams, "Player moving teams, removing old slot")
+    await lobby.removePlayer(session)
+  }
+
   if (lobby.full) {
-    log.trace(playerParams, "Adding player to match: Lobby is full. Cannot add player")
+    log.trace(playerParams, "Lobby is full")
     throw new Error(GAME_ERROR.LOBBY_IS_FULL)
   }
 
-  if (
-    lobby.full ||
-    lobby.players.filter((player) => player.teamIdx === teamIdx).length > teamSize
-  ) {
-    log.trace(playerParams, "Adding player to match: Team is full. Cannot add player")
+  // Count players already on the target team
+  const teamPlayerCount = lobby.players.filter((p) => p.teamIdx === resolvedTeamIdx).length
+  if (teamPlayerCount >= teamSize) {
+    log.trace(playerParams, "Team is full")
     throw new Error(GAME_ERROR.TEAM_IS_FULL)
   }
+
   const player = Player({
     accountId,
     key,
     name,
-    isOwner,
+    isOwner: resolvedIsOwner,
     avatarUrl,
-    teamIdx: teamIdx !== undefined ? teamIdx : Number(!lobby.lastTeamIdx),
+    teamIdx: resolvedTeamIdx,
   })
-
   player.setSession(session)
-  lobby.lastTeamIdx = player.teamIdx as 0 | 1
+  lobby.lastTeamIdx = resolvedTeamIdx
 
-  // Find team available slot
-  for (let i = 0; i < lobby._players.length; i++) {
-    if (!lobby._players[i].name) {
-      if (player.teamIdx === 0 && i % 2 === 0) {
-        lobby._players[i] = player
-        break
-      }
-      if (player.teamIdx === 1 && i % 2 !== 0) {
-        lobby._players[i] = player
-        break
-      }
+  // Find appropriate open slot for the team
+  const findTeamSlot = (teamIdx: 0 | 1): number => {
+    const start = teamIdx === 0 ? 0 : 1
+    for (let i = start; i < lobby._players.length; i += 2) {
+      if (!lobby._players[i].name) return i
     }
+    return -1
   }
 
+  const slotIndex = findTeamSlot(resolvedTeamIdx)
+  if (slotIndex === -1) {
+    log.trace(playerParams, "No slot available for team")
+    throw new Error(GAME_ERROR.TEAM_IS_FULL)
+  }
+
+  lobby._players[slotIndex] = player
+
   if (hasMovedSlots) {
-    // Reorder other players to fit possible empty slot left by this player
+    // Rebalance slots left behind
     for (let i = 0; i < lobby._players.length; i++) {
       if (!lobby._players[i].name) {
-        for (let j = i + 2; j < lobby._players.length; j = j + 2) {
+        for (let j = i + 2; j < lobby._players.length; j += 2) {
           if (lobby._players[j].name) {
-            const p = { ...lobby._players[j] }
+            const ref = lobby._players[j] as IPlayer
             lobby._players[j] = {}
-            lobby._players[i] = p
+            lobby._players[i] = ref
             break
           }
         }
@@ -326,7 +330,6 @@ const addPlayerToLobby = async ({
   lobby.calculateFull()
   lobby.calculateReady()
 
-  log.trace({ playerParams, player: player.getPublicPlayer() }, "Added player to match")
-
+  log.trace({ playerParams, player: player.getPublicPlayer() }, "Player added to match")
   return player
 }

@@ -9,6 +9,7 @@ import {
   IPublicMatch,
   IPublicMatchInfo,
 } from "../../types"
+import { IUserSession } from "./UserSession"
 
 export interface IMatchTable {
   matchId?: number
@@ -25,7 +26,7 @@ export interface IMatchTable {
   getPublicMatch(session?: string, freshHand?: boolean): IPublicMatch
   getPublicMatchInfo(): IPublicMatchInfo
   playerDisconnected(player: IPlayer): void
-  playerReconnected(player: IPlayer): void
+  playerReconnected(player: IPlayer, userSession: IUserSession): void
   playerAbandoned(player: IPlayer): void
   setMatchId(id: number): void
 }
@@ -68,7 +69,12 @@ export function MatchTable(
     playerDisconnected(player) {
       player.setReady(false)
     },
-    playerReconnected(player) {
+    playerReconnected(player, userSession) {
+      if (table.state() !== EMatchState.STARTED) {
+        player.name = userSession.name
+        player.avatarUrl = userSession.account?.avatarUrl
+      }
+
       if (player.abandoned) {
         return
       }
@@ -177,8 +183,9 @@ const getPublicMatch = (
 
   return {
     id: table.matchId,
-    me,
+    me: me?.getPublicPlayer(userSession) || null,
     winner,
+    forehandIdx: lobby.table?.forehandIdx || 0,
     options: lobby.options,
     matchSessionId: table.matchSessionId,
     state: table.state(),
