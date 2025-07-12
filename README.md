@@ -48,7 +48,7 @@ Proba la demo actual en [Trucoshi](https://trucoshi.com)
     [x] Unit tests
     [x] Bitcoin Lightning integration
     [x] Historial de partidas
-    [ ] Cantar flor
+    [x] Cantar flor
     [ ] Torneos
 
 # Donations
