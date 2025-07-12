@@ -14,7 +14,7 @@ export function Player({
   avatarUrl: string | undefined
   key: string
   name: string
-  teamIdx: number
+  teamIdx: 0 | 1
   isOwner?: boolean
 }) {
   const player: IPlayer = {

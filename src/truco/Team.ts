@@ -1,6 +1,6 @@
 import { IPlayer, ITeam } from "../types"
 
-export function Team(id: 0 | 1, players: Array<IPlayer>, name?: string) {
+export function Team(id: 0 | 1, name?: string) {
   const team: ITeam = {
     _players: new Map<string, IPlayer>(),
     get players() {
@@ -12,6 +12,11 @@ export function Team(id: 0 | 1, players: Array<IPlayer>, name?: string) {
       buenas: 0,
       malas: 0,
       winner: false,
+    },
+    setPlayers(players) {
+      team._players.clear()
+      players.forEach((player) => team._players.set(player.session as string, player))
+      return team
     },
     getPublicTeam(playerSession) {
       return {
@@ -67,8 +72,6 @@ export function Team(id: 0 | 1, players: Array<IPlayer>, name?: string) {
       return team.points
     },
   }
-
-  players.forEach((player) => team._players.set(player.session as string, player))
 
   return team
 }

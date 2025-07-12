@@ -4,6 +4,7 @@ import { TrucoshiServer } from "./Trucoshi"
 import logger from "../../utils/logger"
 import { TMap } from "./TMap"
 import { EClientEvent, EServerEvent } from "../../events"
+import { IMatchTable } from "./MatchTable"
 
 const log = logger.child({ class: "Chat" })
 
@@ -15,9 +16,10 @@ export interface IChat {
   delete(id: string): void
 }
 
-const ChatUser = (name: string) => {
+const ChatUser = (name: string, teamIdx?: 0 | 1) => {
   return {
     name,
+    teamIdx,
     key: name,
   }
 }
@@ -28,15 +30,17 @@ const ChatMessage = ({
   command,
   content,
   card,
+  sound,
 }: Partial<IChatMessage> & Pick<IChatMessage, "user">): IChatMessage => {
   return {
     id: randomUUID(),
     date: Math.floor(Date.now() / 1000),
     user,
-    content: content || "",
-    system: system || false,
-    command: command || false,
-    card: card || false,
+    content: content ?? "",
+    system: system ?? false,
+    command: command ?? false,
+    card: card ?? false,
+    sound: sound ?? false,
   }
 }
 
@@ -50,37 +54,41 @@ const ChatRoom = (io: TrucoshiServer, id: string) => {
         userSocket?.emit(EServerEvent.UPDATE_CHAT, { id: room.id, messages: room.messages })
       },
     },
-    send(user, content) {
+    send(user, content, sound) {
       const message = ChatMessage({
         user,
         content,
+        sound,
       })
       room.messages.push(message)
       room.emit(message)
     },
-    system(content) {
+    system(content, sound) {
       const message = ChatMessage({
         user: ChatUser(SYSTEM_ID),
         content,
         system: true,
+        sound,
       })
       room.messages.push(message)
       room.emit(message)
     },
-    command(team, command) {
+    command(team, command, sound) {
       const message = ChatMessage({
-        user: ChatUser(team.toString()),
+        user: ChatUser(team.toString(), team),
         content: `${command}`,
         command: true,
+        sound,
       })
       room.messages.push(message)
       room.emit(message)
     },
-    card(user, card) {
+    card(user, card, sound) {
       const message = ChatMessage({
         user,
         content: String(card),
         card: true,
+        sound,
       })
       room.messages.push(message)
       room.emit(message)
@@ -93,7 +101,11 @@ const ChatRoom = (io: TrucoshiServer, id: string) => {
   return room
 }
 
-export const Chat = (io: TrucoshiServer) => {
+export const Chat = (io?: TrucoshiServer, tables?: TMap<string, IMatchTable>) => {
+  if (!io || !tables) {
+    return {} as IChat
+  }
+
   const chat: IChat = {
     rooms: new TMap(),
     create(id) {
@@ -127,7 +139,7 @@ export const Chat = (io: TrucoshiServer) => {
 
     if (chatroom) {
       log.info(`${name} entro a la sala ${room}`)
-      chatroom.system(`${name} entro a la sala`)
+      chatroom.system(`${name} entro a la sala`, true)
       userSocket.emit(EServerEvent.UPDATE_CHAT, { id: chatroom.id, messages: chatroom.messages })
     }
 
@@ -137,8 +149,12 @@ export const Chat = (io: TrucoshiServer) => {
       }
       const chatroom = chat.rooms.get(matchId)
 
+      const player = tables
+        .get(matchId)
+        ?.lobby.players.find((p) => p.key === userSocket.data.user?.key)
+
       if (chatroom) {
-        chatroom.send({ name, key }, message)
+        chatroom.send({ name, key, teamIdx: player?.teamIdx }, message, true)
       }
       callback()
     })
@@ -156,7 +172,7 @@ export const Chat = (io: TrucoshiServer) => {
     }
 
     const { name } = userSocket.data.user
-    chat.rooms.get(room)?.system(`${name} salio de la sala`)
+    chat.rooms.get(room)?.system(`${name} salió de la sala`, "leave")
   })
 
   return chat

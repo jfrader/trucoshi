@@ -164,6 +164,8 @@ export function Lobby(matchId: string, options: Partial<ILobbyOptions> = {}): IL
     lobby._players.push({})
   }
 
+  lobby.teams = [Team(0), Team(1)]
+
   return lobby
 }
 
@@ -179,16 +181,9 @@ const startLobbyMatch = (matchId: string, lobby: IPrivateLobby) => {
     throw new Error(GAME_ERROR.TEAM_NOT_READY)
   }
 
-  lobby.teams = [
-    Team(
-      0,
-      lobby.players.filter((player) => player.teamIdx === 0)
-    ),
-    Team(
-      1,
-      lobby.players.filter((player) => player.teamIdx === 1)
-    ),
-  ]
+  for (const team of lobby.teams) {
+    team.setPlayers(lobby.players.filter((player) => player.teamIdx === team.id))
+  }
 
   if (
     lobby.teams[0].players.length !== actualTeamSize ||

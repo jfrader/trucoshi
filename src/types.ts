@@ -97,11 +97,12 @@ export type IPublicChatRoom = Pick<IChatRoom, "id" | "messages">
 export interface IChatMessage {
   id: string
   date: number
-  user: { name: string; key: string }
+  user: { name: string; key: string, teamIdx?: 0 | 1 }
   system?: boolean
   command?: boolean
   card?: boolean
   content: string
+  sound: string | boolean
 }
 
 export interface IChatRoom {
@@ -110,10 +111,10 @@ export interface IChatRoom {
   socket: {
     emit(socket: string): void
   }
-  send(user: IChatMessage["user"], message: string): void
-  card(user: IChatMessage["user"], card: ICard): void
-  command(team: 0 | 1, command: ECommand | number): void
-  system(message: string): void
+  send(user: IChatMessage["user"], message: string, sound?: string | boolean): void
+  card(user: IChatMessage["user"], card: ICard, sound?: string | boolean): void
+  command(team: 0 | 1, command: ECommand | number, sound?: string | boolean): void
+  system(message: string, sound?: string | boolean): void
   emit(message?: IChatMessage): void
 }
 
@@ -304,7 +305,7 @@ export type IPublicTeam = Pick<ITeam, "points" | "id" | "name"> & { players: Arr
 export interface IPlayer {
   idx: number
   secret: string
-  teamIdx: number
+  teamIdx: 0 | 1
   accountId: number | undefined
   matchPlayerId: number | undefined
   avatarUrl: string | undefined | null
@@ -359,6 +360,7 @@ export interface ITeam {
   name: string
   players: Array<IPlayer>
   points: ITeamPoints
+  setPlayers(players: IPlayer[]): ITeam
   pointsToWin(matchPoint: number): number
   getPublicTeam(playerSession?: string): IPublicTeam
   isTeamDisabled(): boolean

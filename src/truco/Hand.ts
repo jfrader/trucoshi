@@ -70,6 +70,17 @@ export interface IHand {
   addLog(roundIdx: number, log: IHandRoundLog): void
 }
 
+function checkTeamsDisabled(match: IMatch, winnerTeamIdx: 0 | 1 | null) {
+  if (match.teams[0].isTeamDisabled()) {
+    winnerTeamIdx = 1
+  }
+  if (match.teams[1].isTeamDisabled()) {
+    winnerTeamIdx = 0
+  }
+
+  return winnerTeamIdx
+}
+
 function* handTurnGeneratorSequence(match: IMatch, hand: IHand) {
   let currentRoundIdx = 0
   let forehandTeamIdx = match.table.getPlayerByPosition(hand.turn).teamIdx as 0 | 1
@@ -97,6 +108,10 @@ function* handTurnGeneratorSequence(match: IMatch, hand: IHand) {
         hand.state === EHandState.WAITING_ENVIDO_ANSWER ||
         hand.state === EHandState.WAITING_ENVIDO_POINTS_ANSWER
       ) {
+        if (checkTeamsDisabled(match, null) !== null) {
+          break
+        }
+
         const { value } = hand.envido.getNextPlayer()
         if (value && value.currentPlayer) {
           hand.setCurrentPlayer(value.currentPlayer)
@@ -105,6 +120,10 @@ function* handTurnGeneratorSequence(match: IMatch, hand: IHand) {
       }
 
       while (hand.state === EHandState.WAITING_FLOR_ANSWER) {
+        if (checkTeamsDisabled(match, null) !== null) {
+          break
+        }
+
         const { value } = hand.flor.getNextPlayer()
         if (value && value.currentPlayer) {
           hand.setCurrentPlayer(value.currentPlayer)
@@ -113,6 +132,10 @@ function* handTurnGeneratorSequence(match: IMatch, hand: IHand) {
       }
 
       while (hand.state === EHandState.WAITING_FOR_TRUCO_ANSWER) {
+        if (checkTeamsDisabled(match, null) !== null) {
+          break
+        }
+
         const { value } = hand.truco.getNextPlayer()
         if (value && value.currentPlayer) {
           hand.setCurrentPlayer(value.currentPlayer)
@@ -170,14 +193,7 @@ function* handTurnGeneratorSequence(match: IMatch, hand: IHand) {
       yield hand
     }
 
-    let winnerTeamIdx = checkHandWinner(hand.rounds, forehandTeamIdx)
-
-    if (match.teams[0].isTeamDisabled()) {
-      winnerTeamIdx = 1
-    }
-    if (match.teams[1].isTeamDisabled()) {
-      winnerTeamIdx = 0
-    }
+    const winnerTeamIdx = checkTeamsDisabled(match, checkHandWinner(hand.rounds, forehandTeamIdx))
 
     if (winnerTeamIdx !== null) {
       hand.addPoints(winnerTeamIdx, hand.truco.state)
@@ -360,9 +376,9 @@ export function Hand(match: IMatch, idx: number) {
       hand.florWinnerIdx = idx
     },
     getNextTurn() {
-      const player = roundsGenerator.next()
+      const updatedHand = roundsGenerator.next()
       hand.setTurnCommands()
-      return player
+      return updatedHand
     },
     disablePlayer(player) {
       match.teams[player.teamIdx].disable(player)
@@ -553,12 +569,6 @@ const handleTrucoAndMazo = (match: IMatch, hand: IHand, currentPlayer: IPlayer) 
           player._commands.add(ESayCommand.MAZO)
         })
     }
-  } else {
-    match.table.players
-      .filter((p) => !p.disabled)
-      .forEach((player) => {
-        player._commands.add(ESayCommand.MAZO)
-      })
   }
 }
 
@@ -572,8 +582,13 @@ const commands: IHandCommands = {
     hand.disablePlayer(player)
 
     if (hand.state === EHandState.WAITING_ENVIDO_ANSWER) {
-      hand.envido.sayAnswer(player, false)
-      hand.endEnvido()
+      if (
+        hand.envido.teamIdx !== player.teamIdx &&
+        !hand.envido.players.find((p) => p.teamIdx === player.teamIdx && p.key !== player.key)
+      ) {
+        hand.envido.sayAnswer(player, false)
+        hand.endEnvido()
+      }
     }
 
     if (hand.state === EHandState.WAITING_ENVIDO_POINTS_ANSWER) {
@@ -581,8 +596,22 @@ const commands: IHandCommands = {
     }
 
     if (hand.state === EHandState.WAITING_FLOR_ANSWER && hand.flor.state >= 4) {
-      hand.flor.sayAnswer(player, false)
-      hand.endFlor()
+      if (
+        hand.flor.teamIdx !== player.teamIdx &&
+        !hand.flor.players.find((p) => p.teamIdx === player.teamIdx && p.key !== player.key)
+      ) {
+        hand.flor.sayAnswer(player, false)
+        hand.endFlor()
+      }
+    }
+
+    if (hand.state === EHandState.WAITING_FOR_TRUCO_ANSWER) {
+      if (
+        hand.truco.teamIdx !== player.teamIdx &&
+        !hand.truco.players.find((p) => p.teamIdx === player.teamIdx && p.key !== player.key)
+      ) {
+        hand.truco.sayAnswer(player, false)
+      }
     }
 
     if (player.isTurn) {

@@ -227,8 +227,6 @@ export const Trucoshi = ({
     }
   )
 
-  const chat = Chat(io)
-
   const sessions = new TMap<string, IUserSession>() // sessionId (token), user
   const tables = new MatchTableMap() // sessionId, table
   const turns = new TMap<string, ITrucoshiTurn>() // sessionId, play instance, play promise resolve and type
@@ -239,8 +237,8 @@ export const Trucoshi = ({
     tables,
     turns,
     io,
+    chat: Chat(),
     httpServer,
-    chat,
     async listen(
       callback,
       { redis = true, lightningAccounts = true, store = true } = {
@@ -378,7 +376,7 @@ export const Trucoshi = ({
       }
 
       io.listen(port)
-      server.chat = Chat(io)
+      server.chat = Chat(io, tables)
       callback(io)
       return io
     },
@@ -672,7 +670,7 @@ export const Trucoshi = ({
 
             server.chat.rooms
               .getOrThrow(table.matchSessionId)
-              .command(player.teamIdx as 0 | 1, saidCommand)
+              .command(player.teamIdx as 0 | 1, saidCommand, true)
 
             if (
               currentState === EHandState.WAITING_ENVIDO_POINTS_ANSWER &&
@@ -681,7 +679,7 @@ export const Trucoshi = ({
             ) {
               server.chat.rooms
                 .getOrThrow(table.matchSessionId)
-                .system(`El envido se lo lleva ${hand.envido.winner.name}`)
+                .system(`El envido se lo lleva ${hand.envido.winner.name}`, true)
             }
 
             return server
@@ -788,7 +786,7 @@ export const Trucoshi = ({
       table.lobby.teams.map((team) => {
         server.chat.rooms
           .getOrThrow(table.matchSessionId)
-          .system(`${team.name}: +${previousHand.points[team.id]}`)
+          .system(`${team.name}: +${previousHand.points[team.id]}`, false)
       })
 
       await Promise.allSettled(promises)
@@ -836,7 +834,7 @@ export const Trucoshi = ({
               "Player abandoned"
             )
             table.playerAbandoned(player)
-            chat.system(`${player.name} se retiro de la partida.`)
+            chat.system(`${player.name} se retiro de la partida.`, "leave")
             onTimeout()
           })
           .finally(() => server.emitMatchUpdate(table).catch(log.error))
@@ -1075,6 +1073,7 @@ export const Trucoshi = ({
       return server.emitPreviousHand(previousHand, table)
     },
     onWinner(table, winner) {
+      const matchEndTime = Date.now()
       return new Promise<void>((resolve) => {
         log.trace(table.getPublicMatchInfo(), "Match has finished with a winner")
 
@@ -1097,9 +1096,28 @@ export const Trucoshi = ({
             resolve()
           })
 
-        setTimeout(() => {
-          server.cleanupMatchTable(table)
-        }, MATCH_FINISHED_CLEANUP_TIMEOUT)
+        function cleanup() {
+          const buffer = 5000
+          const lastMessageDate = chat.messages.at(-1)?.date
+          if (lastMessageDate && lastMessageDate * 1000 > matchEndTime + buffer) {
+            const now = Date.now()
+            const diff = now - lastMessageDate * 1000
+            if (diff < MATCH_FINISHED_CLEANUP_TIMEOUT) {
+              const remainingTime = MATCH_FINISHED_CLEANUP_TIMEOUT - diff
+              setTimeout(cleanup, remainingTime)
+              return
+            }
+          }
+
+          chat.system("Chat finalizado.", "leave")
+
+          setTimeout(() => {
+            server.cleanupMatchTable(table)
+            resolve()
+          }, 3 * 1000)
+        }
+
+        setTimeout(cleanup, MATCH_FINISHED_CLEANUP_TIMEOUT)
       })
     },
     async createMatchTable(matchSessionId, userSession) {
@@ -1293,14 +1311,19 @@ export const Trucoshi = ({
         throw new SocketError("FORBIDDEN")
       }
 
-      const session = table.lobby.players.find((p) => p.key === key)?.session
-
-      if (!session) {
+      if (!player.session) {
         throw new SocketError("NOT_FOUND")
       }
 
-      await table.lobby.removePlayer(session)
-      server.emitMatchUpdate(table).catch(log.error)
+      await table.lobby.removePlayer(player.session)
+
+      server
+        .emitMatchUpdate(table)
+        .catch((e) => log.error({ message: e.message }, "Emit update after kick player failed"))
+
+      server.chat.rooms
+        .getOrThrow(table.matchSessionId)
+        .system(`${player.name} salió de ${table.lobby.teams[player.teamIdx].name}`, "mate")
     },
     async setMatchPlayerReady({ matchSessionId, userSession, ready }) {
       const table = server.tables.getOrThrow(matchSessionId)
@@ -1390,6 +1413,10 @@ export const Trucoshi = ({
 
       player.setReady(ready)
 
+      server.chat.rooms
+        .get(table.matchSessionId)
+        ?.system(`${player.name} ${ready ? "está" : "no está"} listo`, ready ? "join" : "leave")
+
       server.emitMatchUpdate(table).catch(log.error)
 
       return table
@@ -1444,7 +1471,10 @@ export const Trucoshi = ({
 
       server.chat.rooms
         .get(table.matchSessionId)
-        ?.system(`${player.name} se unió al equipo ${teamIdx === 0 ? "Nosotros" : "Ellos"}`)
+        ?.system(
+          `${player.name} se unió al equipo ${table.lobby.teams[player.teamIdx].name}`,
+          "notification"
+        )
 
       return player
     },
@@ -1918,7 +1948,7 @@ export const Trucoshi = ({
 
             server.chat.rooms
               .getOrThrow(table.matchSessionId)
-              .system(`${player.name} ha abandonado la partida`)
+              .system(`${player.name} ha abandonado la partida`, "mate")
 
             table.playerDisconnected(player)
             table.playerAbandoned(player)

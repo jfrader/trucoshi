@@ -88,8 +88,6 @@ export function Truco(teams: [ITeam, ITeam]) {
       const playerTeamIdx = player.teamIdx as 0 | 1
       const teamIdx = truco.teamIdx
 
-      log.debug({ teamIdx, playerTeamIdx }, "SAID TRUCO")
-
       if (teamIdx === null || teamIdx !== playerTeamIdx) {
         truco.waitingAnswer = true
         truco.state++
