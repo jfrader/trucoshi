@@ -1,6 +1,6 @@
 import { User } from "lightning-accounts"
 import logger from "../../utils/logger"
-import { PLAYER_TIMEOUT_GRACE } from "../constants"
+import { PLAYER_TIMEOUT_GRACE } from "../../constants"
 import { IUserData } from "../../types"
 import { TMap } from "./TMap"
 

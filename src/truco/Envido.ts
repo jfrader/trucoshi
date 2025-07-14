@@ -10,6 +10,7 @@ import {
   IPlayer,
   ITeam,
 } from "../types"
+import logger from "../utils/logger"
 
 export interface IEnvido {
   started: boolean
@@ -37,6 +38,8 @@ export interface IEnvido {
   setCurrentPlayer(player: IPlayer | null): IPlayer | null
   getNextPlayer(): IteratorResult<IEnvido, IEnvido | void>
 }
+
+const log = logger.child({ class: "Envido" })
 
 const EMPTY_ENVIDO: Pick<
   IEnvido,
@@ -123,15 +126,6 @@ function* envidoTurnGeneratorSequence(envido: IEnvido) {
       envido.setTurn(envido.turn + 1)
     }
 
-    // const playerWithFlorIndex = envido.players.findIndex(
-    //   (p) => p.idx !== player.idx && p.hasFlor && !p.hasSaidFlor && !p.disabled
-    // )
-
-    // if (playerWithFlorIndex > -1) {
-    //   envido.setTurn(playerWithFlorIndex)
-    //   player = envido.players[playerWithFlorIndex]
-    // }
-
     envido.setCurrentPlayer(player)
     if (player.disabled) {
       envido.setCurrentPlayer(null)
@@ -204,26 +198,48 @@ export function Envido(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITa
         throw new Error(GAME_ERROR.ENVIDO_NOT_ACCEPTED)
       }
 
+      log.trace(
+        {
+          playerKey: player.key,
+          points,
+          currentWinningPlayer: envido.winningPlayer?.key,
+          currentWinningPoints: envido.winningPointsAnswer,
+        },
+        "sayPoints called"
+      )
+
       if (!envido.winningPlayer || envido.winningPointsAnswer === -1) {
         envido.winningPlayer = player
         envido.winningPointsAnswer = points
+        log.trace({ playerKey: player.key, points }, "Set as first winning player")
       } else {
         if (points > envido.winningPointsAnswer) {
           envido.winningPlayer = player
           envido.winningPointsAnswer = points
+          log.trace({ playerKey: player.key, points }, "New winning player due to higher points")
         }
         if (points === envido.winningPointsAnswer) {
-          const forehandWinner =
-            table.getPlayerPosition(player.key, true) <
-            table.getPlayerPosition(envido.winningPlayer.key, true)
-              ? player
-              : envido.winningPlayer
-
+          const playerPos = table.getPlayerPosition(player.key, true)
+          const currentWinnerPos = table.getPlayerPosition(envido.winningPlayer.key, true)
+          const forehandWinner = playerPos < currentWinnerPos ? player : envido.winningPlayer
+          log.trace(
+            {
+              playerKey: player.key,
+              playerPos,
+              currentWinnerKey: envido.winningPlayer.key,
+              currentWinnerPos,
+              forehandWinnerKey: forehandWinner.key,
+              forehandIdx: table.forehandIdx,
+              reorderedPlayers: table.getPlayersForehandFirst().map((p) => p.key),
+            },
+            "Tie detected, selecting forehand winner"
+          )
           envido.winningPlayer = forehandWinner
         }
       }
 
       player.saidEnvidoPoints()
+      log.trace({ playerKey: player.key }, "Player marked as having said envido points")
 
       const winningPlayerTeamIdx = envido.winningPlayer.teamIdx as 0 | 1
       const loosingTeamIdx = Number(!winningPlayerTeamIdx) as 0 | 1
@@ -231,6 +247,10 @@ export function Envido(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITa
       if (envido.teams[loosingTeamIdx].players.every((p) => p.hasSaidEnvidoPoints || p.disabled)) {
         envido.finished = true
         envido.winner = teams[envido.winningPlayer.teamIdx]
+        log.trace(
+          { winningTeamIdx: envido.winningPlayer.teamIdx, winnerKey: envido.winningPlayer.key },
+          "Envido finished, winner set"
+        )
       }
 
       return envido

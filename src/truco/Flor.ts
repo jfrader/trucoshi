@@ -344,10 +344,6 @@ function* florTurnGeneratorSequence(flor: IFlor) {
       flor.setTurn(flor.turn + 1)
     }
 
-    // if (!player.hasFlor || (flor.state === 3 && player.hasSaidFlor)) {
-    //   yield flor
-    // }
-
     flor.setCurrentPlayer(player)
     if (player?.disabled) {
       flor.setCurrentPlayer(null)

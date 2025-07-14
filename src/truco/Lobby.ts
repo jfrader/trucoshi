@@ -39,8 +39,7 @@ export interface IPrivateLobby {
   get players(): Array<IPlayer>
   teams: Array<ITeam>
   table: ITable | null
-  addQueue: IQueue
-  removeQueue: IQueue
+  queue: IQueue
   full: boolean
   ready: boolean
   started: boolean
@@ -89,8 +88,7 @@ export function Lobby(matchId: string, options: Partial<ILobbyOptions> = {}): IL
       return lobby._players.filter((player) => Boolean(player && player.name)) as IPlayer[]
     },
     teams: [],
-    addQueue: Queue(),
-    removeQueue: Queue(),
+    queue: Queue(),
     table: null,
     full: false,
     ready: false,
@@ -120,40 +118,24 @@ export function Lobby(matchId: string, options: Partial<ILobbyOptions> = {}): IL
       return calculateLobbyFullness(lobby)
     },
     async addPlayer({ accountId, key, name, session, teamIdx, isOwner, avatarUrl }) {
-      let player: IPlayer | null = null
-      await lobby.addQueue.queue(async () => {
-        try {
-          player = await addPlayerToLobby({
-            accountId,
-            lobby,
-            name,
-            session,
-            key,
-            isOwner,
-            avatarUrl: avatarUrl || undefined,
-            teamIdx,
-            teamSize: lobby.options.maxPlayers / 2,
-          })
-        } catch (e) {
-          log.error(e, "Error while adding player to match")
-        }
+      return lobby.queue.queue(async () => {
+        return addPlayerToLobby({
+          accountId,
+          lobby,
+          name,
+          session,
+          key,
+          isOwner,
+          avatarUrl: avatarUrl || undefined,
+          teamIdx,
+          teamSize: lobby.options.maxPlayers / 2,
+        })
       })
-      if (player) {
-        log.trace({ player: (player as any).id }, "Adding player to match table lobby")
-        return player
-      }
-      throw new Error("Couldn't add player to match")
     },
     async removePlayer(session) {
-      await lobby.removeQueue.queue(() => {
-        const idx = lobby._players.findIndex((player) => player && player.session === session)
-        if (idx !== -1) {
-          lobby._players[idx] = {}
-          lobby.calculateFull()
-          lobby.calculateReady()
-        }
+      return lobby.queue.queue(async () => {
+        return removePlayerFromLobby({ lobby, session })
       })
-      return lobby
     },
     startMatch() {
       return startLobbyMatch(matchId, lobby)
@@ -220,6 +202,23 @@ const calculateLobbyReadyness = (lobby: IPrivateLobby) => {
   return lobby.ready
 }
 
+const removePlayerFromLobby = async ({
+  lobby,
+  session,
+}: {
+  lobby: IPrivateLobby
+  session: string
+}) => {
+  const idx = lobby._players.findIndex((player) => player && player.session === session)
+  if (idx !== -1) {
+    lobby._players[idx] = {}
+    lobby.calculateFull()
+    lobby.calculateReady()
+  }
+
+  return lobby
+}
+
 const addPlayerToLobby = async ({
   accountId,
   avatarUrl,
@@ -234,8 +233,8 @@ const addPlayerToLobby = async ({
   accountId: number | undefined
   avatarUrl: string | undefined
   lobby: IPrivateLobby
-  name: string
   session: string
+  name: string
   key: string
   teamIdx?: 0 | 1
   isOwner?: boolean
@@ -263,7 +262,7 @@ const addPlayerToLobby = async ({
     }
 
     log.trace(playerParams, "Player moving teams, removing old slot")
-    await lobby.removePlayer(session)
+    await removePlayerFromLobby({ lobby, session })
   }
 
   if (lobby.full) {

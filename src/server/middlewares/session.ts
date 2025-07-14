@@ -5,9 +5,9 @@ import { TMap } from "../classes/TMap"
 import { EClientEvent, EServerEvent } from "../../types"
 import { validateJwt } from "../../accounts/client"
 import { Event } from "socket.io"
-import { PLAYER_LOBBY_TIMEOUT } from "../constants"
+import { PLAYER_LOBBY_TIMEOUT } from "../../constants"
 
-export const session = (server: ITrucoshi) => {
+export const sessionMiddleware = (server: ITrucoshi) => {
   server.io.on("connection", (socket) => {
     logger.debug("New socket connection %s", socket.id)
     if (socket.data.user) {
@@ -29,7 +29,14 @@ export const session = (server: ITrucoshi) => {
             userSession
               .waitReconnection(userSession.session, PLAYER_LOBBY_TIMEOUT, "disconnection")
               .catch(() => {
-                server.cleanupUserTables(userSession).catch(logger.error)
+                server
+                  .cleanupUserTables(userSession)
+                  .catch((e) =>
+                    logger.error(
+                      { message: e.message },
+                      "Failed to cleanup user tables after user disconnected and timed out"
+                    )
+                  )
               })
           }
         }

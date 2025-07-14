@@ -4,9 +4,9 @@ import logger from "../../utils/logger"
 import { getWordsId } from "../../utils/string/getRandomWord"
 import { EClientEvent, EServerEvent } from "../../events"
 
-const log = logger.child({ middleware: "trucoshi" })
+const log = logger.child({ middleware: "trucoshiMiddleware" })
 
-export const trucoshi =
+export const trucoshiMiddleware =
   (server: ITrucoshi) => (socket: TrucoshiSocket, next: (err?: ExtendedError) => void) => {
     socket.on(EClientEvent.PING, (clientTime) => {
       socket.emit(EServerEvent.PONG, Date.now(), clientTime)

@@ -1,6 +1,13 @@
 import * as readline from "readline"
 import { IPlayInstance, IRound, Lobby } from "../../../src/truco"
-import { CARDS_HUMAN_READABLE, ICard, IPlayer, ITeam } from "../../../src/types"
+import {
+  CARDS_HUMAN_READABLE,
+  ICard,
+  IPlayer,
+  ITeam,
+  EAnswerCommand,
+  EFlorCommand,
+} from "../../../src/types"
 
 const command = (
   title: string,
@@ -55,9 +62,9 @@ const playCommand = (play: IPlayInstance) =>
 
 const sayCommand = (play: IPlayInstance, canPlay: boolean) => {
   if (!play.player?._commands) {
-    return () => {}
+    return () => Promise.resolve()
   }
-  const commandsArr = Array.from(play.player?._commands?.values())
+  const commandsArr = Array.from(play.player._commands.values())
   return command(
     `${play.state} ${play.player?.name} elije una accion [${canPlay ? "0," : ""}${commandsArr.map(
       (_c, i) => i + 1
@@ -85,29 +92,38 @@ const sayCommand = (play: IPlayInstance, canPlay: boolean) => {
   )
 }
 
-const sayPoints = (play: IPlayInstance) =>
+const sayPoints = (play: IPlayInstance, isFlor: boolean = false) =>
   command(
-    "Canta los puntos " +
-      play.player?.name +
-      ", puede cantar: " +
-      play.player?.envido.map((e) => e + ", "),
+    `Canta los puntos ${play.player?.name}, puede cantar: ${
+      isFlor ? play.player?.flor?.value || [] : play.player?.envido.map((e) => e.value + ", ") || []
+    }`,
     async (line, close) => {
-      if (line && play.player?.envido.map((e) => e.value).includes(Number(line))) {
+      const points = isFlor
+        ? [play.player?.flor?.value || 0]
+        : play.player?.envido.map((e) => e.value) || []
+      if (line && points.includes(Number(line))) {
         close()
-        if (play.say(Number(line), play.player)) {
+        if (play.player && play.say(Number(line), play.player)) {
           return Promise.resolve()
         }
       }
-
       return Promise.reject()
     }
   )
 
+const sayFlor = (play: IPlayInstance) => sayPoints(play, true)
+
 ;(async () => {
   const trucoshi = Lobby("testmatch2")
 
-  const promises = ["lucas", "guada", "juli", "day", "gaspar", "fran"].map((n) =>
-    trucoshi.addPlayer({ key: n, name: n, session: n }).then((player) => player.setReady(true))
+  // Enable flor in the match options
+  trucoshi.setOptions({ flor: true })
+
+  const promises = ["lucas", "guada", "juli", "day", "gaspar", "fran"].map((n, i) =>
+    trucoshi.addPlayer({ key: n, name: n, session: n }).then((player) => {
+      player.setReady(true)
+      player.setIdx(i)
+    })
   )
 
   await Promise.allSettled(promises)
@@ -118,6 +134,9 @@ const sayPoints = (play: IPlayInstance) =>
       if (isPointsRound) {
         return sayPoints(play)()
       }
+      await sayCommand(play, false)()
+    })
+    .onFlor(async (play) => {
       await sayCommand(play, false)()
     })
     .onTruco(async (play) => {
@@ -140,6 +159,11 @@ const sayPoints = (play: IPlayInstance) =>
             )
           : ""
       )
+
+      // Display flor availability if the player has flor
+      if (play.player?.hasFlor) {
+        console.log(`${play.player.name} tiene flor: ${play.player.flor?.value}`)
+      }
 
       await sayCommand(play, true)()
     })

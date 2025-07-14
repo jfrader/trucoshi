@@ -1,6 +1,6 @@
 export * from "./events"
 
-export { CARDS, CARDS_HUMAN_READABLE, BURNT_CARD } from "./lib/constants"
+export { CARDS, CARDS_HUMAN_READABLE, BURNT_CARD } from "./constants"
 
 import { User } from "lightning-accounts"
 import { CARDS } from "./lib"

@@ -4,7 +4,6 @@ import { Server, Socket } from "socket.io"
 import {
   EAnswerCommand,
   ECommand,
-  EEnvidoAnswerCommand,
   EFlorCommand,
   EHandState,
   ESayCommand,
@@ -20,19 +19,12 @@ import {
   IUserData,
   IWaitingPlayData,
 } from "../../types"
-import {
-  MATCH_FINISHED_CLEANUP_TIMEOUT,
-  PLAYER_LOBBY_TIMEOUT,
-  PLAYER_TIMEOUT_GRACE,
-} from "../constants"
 import { Chat, IChat } from "./Chat"
 import { IMatchTable, MatchTable } from "./MatchTable"
 import { IUserSession, ISocketMatchState, UserSession } from "./UserSession"
 import logger from "../../utils/logger"
 import { PayRequest, User } from "lightning-accounts"
-
 import { createAdapter } from "@socket.io/redis-adapter"
-
 import { accountsApi, validateJwt } from "../../accounts/client"
 import { createClient } from "redis"
 import { EMatchState, Match, MatchPlayer, Prisma, PrismaClient, UserStats } from "@prisma/client"
@@ -40,6 +32,11 @@ import { SocketError } from "./SocketError"
 import { TMap } from "./TMap"
 import { ClientToServerEvents, EServerEvent, ServerToClientEvents } from "../../events"
 import { IHand, IPlayInstance } from "../../truco"
+import {
+  MATCH_FINISHED_CLEANUP_TIMEOUT,
+  PLAYER_LOBBY_TIMEOUT,
+  PLAYER_TIMEOUT_GRACE,
+} from "../../constants"
 
 const log = logger.child({ class: "Trucoshi" })
 
@@ -1285,6 +1282,8 @@ export const Trucoshi = ({
       } else {
         table.lobby.setOptions(options)
       }
+
+      server.chat.rooms.getOrThrow(table.matchSessionId).system("Las reglas han cambiado", "chat")
 
       table.lobby.players.forEach((player) => {
         player.setPayRequest(payRequests.find((pr) => pr.receiver?.id === player.accountId)?.id)

@@ -1,17 +1,19 @@
-import logger from "../utils/logger"
 import { Trucoshi } from "./classes"
 import { readFileSync } from "fs"
 
 export * from "./classes"
-export * from "./constants"
+export * from "../constants"
 export * from "./middlewares"
 
 import * as dotenv from "dotenv"
-import { trucoshi, session } from "./middlewares"
+import { trucoshiMiddleware, sessionMiddleware } from "./middlewares"
+import logger from "../utils/logger"
 
 let version = ""
 
 dotenv.config()
+
+const log = logger.child({ middleware: "sessionMiddleware" })
 
 export default () => {
   try {
@@ -19,7 +21,7 @@ export default () => {
     const pkg = JSON.parse(data)
     version = pkg.version
   } catch (e) {
-    logger.error(e, "Failed to read package.json")
+    log.error(e, "Failed to read package.json")
     process.exit(1)
   }
 
@@ -28,19 +30,19 @@ export default () => {
 
   const server = Trucoshi({ port: Number(PORT), origin: [ORIGIN], serverVersion: version })
 
-  logger.info("Starting Trucoshi " + process.env.NODE_ENV + " server version " + version)
+  log.info("Starting Trucoshi " + process.env.NODE_ENV + " server version " + version)
 
   server.listen((io) => {
-    logger.info(`Listening on port ${PORT} accepting origin ${ORIGIN}`)
+    log.info(`Listening on port ${PORT} accepting origin ${ORIGIN}`)
 
-    io.use(session(server))
-    io.use(trucoshi(server))
+    io.use(sessionMiddleware(server))
+    io.use(trucoshiMiddleware(server))
 
     process.on("uncaughtException", unexpectedErrorHandler)
     process.on("unhandledRejection", unexpectedErrorHandler)
 
     process.on("SIGTERM", () => {
-      logger.info("SIGTERM received")
+      log.info("SIGTERM received")
       exitHandler(0)
     })
   })
@@ -48,9 +50,9 @@ export default () => {
   const closeServer = (code: number = 0) => {
     server.io.close((e) => {
       if (e) {
-        logger.error(e, "Failed to close server")
+        log.error(e, "Failed to close server")
       } else {
-        logger.info("Server closed")
+        log.info("Server closed")
       }
       process.exit(code || (e ? 1 : 0))
     })
@@ -62,11 +64,11 @@ export default () => {
         server.store
           ?.$disconnect()
           .then(() => {
-            logger.info("Database closed")
+            log.info("Database closed")
             closeServer(code)
           })
           .catch((e) => {
-            logger.error(e, "Failed to close database")
+            log.error(e, "Failed to close database")
             closeServer(code || 1)
           })
       } else {
@@ -78,7 +80,7 @@ export default () => {
   }
 
   const unexpectedErrorHandler = (error: unknown) => {
-    logger.error(error)
+    log.error(error)
     exitHandler(1)
   }
 }

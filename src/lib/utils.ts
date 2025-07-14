@@ -1,6 +1,6 @@
 import { IRound, IRoundPoints } from "../truco"
 import { ICard } from "../types"
-import { CARDS } from "./constants"
+import { CARDS } from "../constants"
 
 export function getMaxNumberIndex<T = number>(array: Array<T>) {
   return array.reduce((accumulator, current, index) => {

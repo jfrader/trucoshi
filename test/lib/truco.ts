@@ -2,7 +2,6 @@ import { expect } from "chai"
 import { EAnswerCommand, EEnvidoAnswerCommand, EFlorCommand, ESayCommand } from "../../src/types"
 import { IPlayInstance, Lobby } from "../../src/truco"
 import { randomUUID } from "crypto"
-import { getMaxNumberIndex } from "../../src/lib/utils"
 
 function sayPlay(play: IPlayInstance, ...args: Parameters<typeof play.say>) {
   const r = play.say(...args)
