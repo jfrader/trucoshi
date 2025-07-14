@@ -43,6 +43,7 @@ export function Player({
     isEnvidoTurn: false,
     hasSaidEnvidoPoints: false,
     hasSaidFlor: false,
+    hasSaidTruco: false,
     disabled: false,
     ready: false,
     abandoned: false,
@@ -54,6 +55,9 @@ export function Player({
     },
     saidFlor() {
       player.hasSaidFlor = true
+    },
+    saidTruco() {
+      player.hasSaidTruco = true
     },
     resetCommands() {
       player._commands = new Set()
@@ -126,6 +130,7 @@ export function Player({
       player.hasFlor = false
       player.hasSaidFlor = false
       player.hasSaidEnvidoPoints = false
+      player.hasSaidTruco = false
       player.flor = null
       player.envido = []
       player.prevHand = [...player.usedHand]

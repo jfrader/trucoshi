@@ -88,6 +88,8 @@ export function Truco(teams: [ITeam, ITeam]) {
       const playerTeamIdx = player.teamIdx as 0 | 1
       const teamIdx = truco.teamIdx
 
+      player.saidTruco()
+
       if (teamIdx === null || teamIdx !== playerTeamIdx) {
         truco.waitingAnswer = true
         truco.state++
@@ -114,6 +116,8 @@ export function Truco(teams: [ITeam, ITeam]) {
           truco.state--
           const playerTeam = teams[player.teamIdx]
           playerTeam.players.forEach((player) => playerTeam.disable(player))
+        } else {
+          player.saidTruco()
         }
         truco.waitingAnswer = false
         truco.answer = answer

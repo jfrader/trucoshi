@@ -775,7 +775,7 @@ export const Trucoshi = ({
               return rejectPlayer()
             }
             playerSocket.emit(EServerEvent.PREVIOUS_HAND, previousHand, resolvePlayer)
-            setTimeout(resolvePlayer, table.lobby.options.handAckTime + PLAYER_TIMEOUT_GRACE)
+            setTimeout(resolvePlayer, table.lobby.options.handAckTime * table.lobby.players.length)
           }).catch(() => log.error(player, "Resolved previous hand emit"))
         )
       })

@@ -327,6 +327,7 @@ export interface IPlayer {
   flor: { value: number; cards: ICard[] } | null
   hasSaidFlor: boolean
   hasSaidEnvidoPoints: boolean
+  hasSaidTruco: boolean
   isEnvidoTurn: boolean
   isOwner: boolean
   disabled: boolean
@@ -334,6 +335,7 @@ export interface IPlayer {
   ready: boolean
   saidEnvidoPoints(): void
   saidFlor(): void
+  saidTruco(): void
   resetCommands(): void
   calculateEnvido(): Array<{ value: number; cards: ICard[] }>
   setIdx(idx: number): void

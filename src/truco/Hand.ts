@@ -479,7 +479,8 @@ const handleEnvido = (match: IMatch, hand: IHand, currentPlayer: IPlayer) => {
         hand.flor.finished ||
         match.teams[currentPlayer.teamIdx].players.every((p) => !p.hasFlor || p.hasSaidFlor)) &&
       currentPlayer.usedHand.length === 0 &&
-      !currentPlayer.disabled
+      !currentPlayer.disabled &&
+      !currentPlayer.hasSaidTruco
     ) {
       for (const cmd in EEnvidoCommand) {
         currentPlayer._commands.add(cmd as ECommand)
@@ -560,7 +561,11 @@ const handleTrucoAndMazo = (match: IMatch, hand: IHand, currentPlayer: IPlayer) 
         })
     } else {
       match.table.players
-        .filter((p) => !p.disabled)
+        .filter(
+          (p) =>
+            !p.disabled &&
+            (hand.flor.finished || !p.hasFlor || p.hasSaidFlor || !match.options.flor)
+        )
         .forEach((player) => {
           if (truco.teamIdx !== player.teamIdx) {
             const nextCmd = truco.getNextTrucoCommand()
