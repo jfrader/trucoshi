@@ -1,4 +1,4 @@
-import { CARDS_HUMAN_READABLE } from "../../lib"
+import { CARDS_HUMAN_READABLE } from "../../lib/constants"
 import { IRound, Lobby } from "../../truco"
 ;(async () => {
   const trucoshi = Lobby("testmatch1")

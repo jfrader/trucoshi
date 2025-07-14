@@ -1,11 +1,9 @@
 export * from "./events"
 
-export { CARDS, CARDS_HUMAN_READABLE, BURNT_CARD } from "./constants"
-
 import { User } from "lightning-accounts"
-import { CARDS } from "./lib"
 import { Match, MatchPlayer, MatchHand, UserStats } from "@trucoshi/prisma"
 import { IHand } from "./truco"
+import { CARDS } from "./lib/constants"
 
 export enum EMatchState {
   UNREADY = "UNREADY",
@@ -97,7 +95,7 @@ export type IPublicChatRoom = Pick<IChatRoom, "id" | "messages">
 export interface IChatMessage {
   id: string
   date: number
-  user: { name: string; key: string, teamIdx?: 0 | 1 }
+  user: { name: string; key: string; teamIdx?: 0 | 1 }
   system?: boolean
   command?: boolean
   card?: boolean

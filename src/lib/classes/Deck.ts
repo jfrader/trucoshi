@@ -1,5 +1,5 @@
-import { BURNT_CARD, CARDS, ICard, IDeck, IPlayedCard, IPlayer, IPublicPlayer } from "../../types"
-import logger from "../../utils/logger"
+import { ICard, IDeck, IPlayedCard, IPlayer, IPublicPlayer } from "../../types"
+import { BURNT_CARD, CARDS } from "../constants"
 import { Random } from "./Random"
 import { ITable } from "./Table"
 

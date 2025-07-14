@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto"
-import { BURNT_CARD, ICard, IPlayer } from "../types"
+import { ICard, IPlayer } from "../types"
 import { maxBy } from "../utils/array"
+import { BURNT_CARD } from "../lib/constants"
 
 export function Player({
   accountId,

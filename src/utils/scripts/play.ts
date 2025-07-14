@@ -1,13 +1,7 @@
 import * as readline from "readline"
 import { IPlayInstance, IRound, Lobby } from "../../../src/truco"
-import {
-  CARDS_HUMAN_READABLE,
-  ICard,
-  IPlayer,
-  ITeam,
-  EAnswerCommand,
-  EFlorCommand,
-} from "../../../src/types"
+import { ICard, IPlayer, ITeam } from "../../../src/types"
+import { CARDS_HUMAN_READABLE } from "../../lib/constants"
 
 const command = (
   title: string,
