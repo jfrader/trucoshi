@@ -1,9 +1,11 @@
 export * from "./events"
 
+export { CARDS, CARDS_HUMAN_READABLE, BURNT_CARD } from "./lib/constants"
+
 import { User } from "lightning-accounts"
 import { Match, MatchPlayer, MatchHand, UserStats } from "@trucoshi/prisma"
 import { IHand } from "./truco"
-import { CARDS } from "./lib/constants"
+import { CARDS } from "./lib"
 
 export enum EMatchState {
   UNREADY = "UNREADY",
