@@ -2081,10 +2081,11 @@ export const Trucoshi = ({
                 WHEN "win" = 0 THEN 0.0
                 ELSE "win"::float / "loss"
               END AS ratio,
-              "win" + "loss" AS matches
+              ("win" + "loss")::integer AS matches
         FROM "UserStats"
-        ORDER BY ratio DESC, "win" DESC, "matches" DESC
-        LIMIT 10;
+        WHERE "win" >= 0 AND "loss" >= 0
+        ORDER BY ratio DESC, "win" DESC, "matches" DESC, "accountId" ASC
+        LIMIT 20;
       `
 
       const ranking: Array<IPlayerRanking> = []
