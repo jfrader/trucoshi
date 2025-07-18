@@ -106,9 +106,13 @@ function Rng(): IRng {
      * @param   {number} nonce       - the nonce
      * @returns {string} combined string
      */
-    combine: (clientSeed, serverSeed, bitcoinHash, nonce: number): string =>
-      clientSeed + serverSeed + bitcoinHash + nonce,
+    combine: (clientSeed, serverSeed, bitcoinHash, nonce: number): string => {
+      if (bitcoinHash) {
+        return clientSeed + serverSeed + bitcoinHash + nonce
+      }
 
+      return clientSeed + serverSeed + nonce
+    },
     /**
      * Generates a sha512 hash from a string
      *
