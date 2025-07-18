@@ -2079,7 +2079,7 @@ export const Trucoshi = ({
               CASE 
                 WHEN "loss" = 0 THEN 1.0
                 WHEN "win" = 0 THEN 0.0
-                ELSE "win"::float / "loss"
+                ELSE "win"::float / "loss"::float
               END AS ratio,
               ("win" + "loss")::integer AS matches
         FROM "UserStats"
@@ -2095,13 +2095,15 @@ export const Trucoshi = ({
           const account = await accountsApi.users.usersDetail(String(stats.accountId))
 
           if (account.data) {
-            ranking.push({
+            const rank = {
               accountId: stats.accountId,
               loss: stats.loss,
               name: account.data.name,
               win: stats.win,
               avatarUrl: account.data.avatarUrl,
-            })
+            }
+            logger.debug({ rank }, "Pushing player to ranking")
+            ranking.push(rank)
           }
         } catch (e) {
           log.error({ stats }, "Failed to get ranking account details")
