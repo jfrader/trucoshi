@@ -2080,9 +2080,10 @@ export const Trucoshi = ({
                 WHEN "loss" = 0 THEN 1.0
                 WHEN "win" = 0 THEN 0.0
                 ELSE "win"::float / "loss"
-              END AS ratio
+              END AS ratio,
+              "win" + "loss" AS matches
         FROM "UserStats"
-        ORDER BY ratio DESC, "win" DESC
+        ORDER BY ratio DESC, "win" DESC, "matches" DESC
         LIMIT 10;
       `
 
