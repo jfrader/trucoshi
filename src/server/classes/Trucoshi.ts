@@ -2077,13 +2077,15 @@ export const Trucoshi = ({
       const userstats = await server.store.$queryRaw<UserStats[]>`
         SELECT *, 
               CASE 
-                WHEN loss = 0 THEN win 
-                ELSE win::float / loss 
+                WHEN "loss" = 0 THEN 1.0
+                WHEN "win" = 0 THEN 0.0
+                ELSE "win"::float / "loss"
               END AS ratio
         FROM "UserStats"
-        ORDER BY ratio DESC
+        ORDER BY ratio DESC, "win" DESC
         LIMIT 10;
       `
+
       const ranking: Array<IPlayerRanking> = []
 
       for (const stats of userstats) {
