@@ -17,18 +17,18 @@ export interface IMatch {
   currentHand: IHand | null
   deck: IDeck
   table: ITable
-  play(): IPlayInstance | null
+  play(): Promise<IPlayInstance | null>
   addPoints(points: IHandPoints): [ITeam, ITeam]
   pushHand(hand: IHand): void
   setPrevHand(hand: IHand | null): IHand | null
   setCurrentHand(hand: IHand | null): IHand | null
   setWinner(winner: ITeam): void
-  getNextTurn(): IteratorResult<IMatch | null, IMatch | null | void>
+  getNextTurn(): Promise<IteratorResult<IMatch | null, IMatch | null | void>>
 }
 
 const playerAbandoned = (player: IPlayer) => player.abandoned
 
-function* matchTurnGeneratorSequence(match: IMatch) {
+async function* matchTurnGeneratorSequence(match: IMatch) {
   while (!match.winner) {
     if (match.teams[0].players.every(playerAbandoned)) {
       match.setWinner(match.teams[1])
@@ -44,7 +44,8 @@ function* matchTurnGeneratorSequence(match: IMatch) {
 
     yield match
 
-    const hand = match.setCurrentHand(Hand(match, match.hands.length + 1)) as IHand
+    const newHand = Hand(match, match.hands.length + 1)
+    const hand = match.setCurrentHand(await newHand.init()) as IHand
     match.pushHand(hand)
     match.setPrevHand(null)
 
@@ -101,12 +102,12 @@ export function Match(
     table,
     prevHand: null,
     currentHand: null,
-    play() {
+    async play() {
       log.trace(
         { players: table.players.map((p) => p.getPublicPlayer()) },
         "Attempting to get match next turn"
       )
-      match.getNextTurn()
+      await match.getNextTurn()
       if (!match.currentHand) {
         return null
       }

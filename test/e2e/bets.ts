@@ -1,6 +1,5 @@
 import { io as Client, Socket } from "socket.io-client"
 import { assert, expect } from "chai"
-import { trucoshi } from "../../src/server/middlewares/trucoshi"
 import {
   EAnswerCommand,
   ECommand,
@@ -10,7 +9,6 @@ import {
   IPublicPlayer,
 } from "../../src/types"
 import { ITrucoshi, Trucoshi, TrucoshiSocket } from "../../src/server/classes"
-import { session } from "../../src/server"
 import logger from "../../src/utils/logger"
 import { Api } from "lightning-accounts"
 import {
@@ -20,6 +18,7 @@ import {
   ServerToClientEvents,
 } from "../../src/events"
 import { EMatchState } from "@prisma/client"
+import { sessionMiddleware, trucoshiMiddleware } from "../../src/server"
 
 describe("Bets", () => {
   let clients: Socket<ServerToClientEvents, ClientToServerEvents>[] = []
@@ -34,8 +33,8 @@ describe("Bets", () => {
 
     server.listen(
       (io) => {
-        io.use(session(server))
-        io.use(trucoshi(server))
+        io.use(sessionMiddleware(server))
+        io.use(trucoshiMiddleware(server))
 
         for (let i = 0; i < 6; i++) {
           clients.push(

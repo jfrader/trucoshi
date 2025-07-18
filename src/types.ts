@@ -256,10 +256,13 @@ export interface IHandPoints {
 export interface IRandom {
   secret: string
   clients: string[]
+  bitcoinHash: string
+  bitcoinHeight: number
   nonce: number
+  getLatestBitcoinBlock(): Promise<void>
   next(): void
   pick(idx: number, max: number): number
-  reveal(): { secret: string; clients: string[] }
+  reveal(): { secret: string; clients: string[]; bitcoinHash: string; bitcoinHeight: number }
 }
 
 export type IPublicPlayer = Pick<

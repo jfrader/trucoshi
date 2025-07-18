@@ -29,6 +29,8 @@ export interface IHand {
   idx: number
   secret: string
   clientSecrets: string[]
+  bitcoinHash: string
+  bitcoinHeight: number
   state: EHandState
   turn: number
   started: boolean
@@ -45,6 +47,8 @@ export interface IHand {
   get currentPlayer(): IPlayer | null
   set currentPlayer(player: IPlayer | null)
   currentRound: IRound | null
+  init(): Promise<IHand>
+  setBitcoinBlock(hash: string, height: number): void
   setTrucoWinner(teamIdx: 0 | 1): void
   setEnvidoWinner(teamIdx: 0 | 1): void
   setFlorWinner(teamIdx: 0 | 1): void
@@ -223,27 +227,12 @@ function* handTurnGeneratorSequence(match: IMatch, hand: IHand) {
 }
 
 export function Hand(match: IMatch, idx: number) {
-  match.deck.random.next()
-  match.deck.shuffle(match.table.getPlayerByPosition(0, true).idx)
-
-  dealCards(match.table, match.deck)
-
-  for (const team of match.teams) {
-    for (const player of team.players) {
-      if (player.abandoned) {
-        continue
-      }
-      player.enable()
-      player.resetCommands()
-    }
-  }
-
-  const { secret, clients: clientSecrets } = match.deck.random.reveal()
-
   const hand: IHand = {
     idx,
-    secret,
-    clientSecrets,
+    secret: "",
+    clientSecrets: [],
+    bitcoinHash: "",
+    bitcoinHeight: 0,
     started: false,
     trucoWinnerIdx: undefined,
     envidoWinnerIdx: undefined,
@@ -279,6 +268,33 @@ export function Hand(match: IMatch, idx: number) {
         player = hand.truco.currentPlayer
       }
       return player
+    },
+    async init() {
+      match.deck.random.next()
+
+      await match.deck.random.getLatestBitcoinBlock()
+      hand.setBitcoinBlock(match.deck.random.bitcoinHash, match.deck.random.bitcoinHeight)
+
+      match.deck.shuffle(match.table.getPlayerByPosition(0, true).idx)
+
+      dealCards(match.table, match.deck)
+
+      for (const team of match.teams) {
+        for (const player of team.players) {
+          if (player.abandoned) {
+            continue
+          }
+          player.enable()
+          player.resetCommands()
+        }
+      }
+
+      const { secret, clients: clientSecrets } = match.deck.random.reveal()
+
+      hand.secret = secret
+      hand.clientSecrets = clientSecrets
+
+      return hand
     },
     addLog(roundIdx, log) {
       hand.roundsLog[roundIdx].push(log)
@@ -365,6 +381,10 @@ export function Hand(match: IMatch, idx: number) {
       log.debug({ round: hand.currentRound }, "Calling round next turn")
 
       hand.currentRound?.nextTurn()
+    },
+    setBitcoinBlock(hash, height) {
+      hand.bitcoinHash = hash
+      hand.bitcoinHeight = height
     },
     setTrucoWinner(idx) {
       hand.trucoWinnerIdx = idx

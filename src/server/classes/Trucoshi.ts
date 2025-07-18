@@ -769,11 +769,12 @@ export const Trucoshi = ({
 
       const promises: Array<PromiseLike<void>> = []
       await server.getTableSockets(table, async (playerSocket, player) => {
+        if (!player || !hand) {
+          playerSocket.emit(EServerEvent.PREVIOUS_HAND, previousHand, () => {})
+        }
+
         promises.push(
           new Promise<void>((resolvePlayer, rejectPlayer) => {
-            if (!player || !hand) {
-              return rejectPlayer()
-            }
             playerSocket.emit(EServerEvent.PREVIOUS_HAND, previousHand, resolvePlayer)
             setTimeout(resolvePlayer, table.lobby.options.handAckTime * table.lobby.players.length)
           }).catch(() => log.error(player, "Resolved previous hand emit"))
@@ -1584,6 +1585,8 @@ export const Trucoshi = ({
               data: {
                 clientSecrets: hand.clientSecrets,
                 secret: hand.secret,
+                bitcoinHash: hand.bitcoinHash,
+                bitcoinHeight: hand.bitcoinHeight,
                 trucoWinnerIdx: hand.trucoWinnerIdx,
                 envidoWinnerIdx: hand.envidoWinnerIdx,
                 florWinnerIdx: hand.florWinnerIdx,

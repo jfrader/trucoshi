@@ -8,6 +8,8 @@ services:
     extends:
       file: docker-compose.base.yml
       service: postgres
+    ports:
+      - 25432:5432
   redis:
     extends:
       file: docker-compose.base.yml

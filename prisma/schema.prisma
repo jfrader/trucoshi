@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -33,22 +30,22 @@ model Match {
   state          EMatchState   @default(UNREADY)
   ownerAccountId Int?
   options        Json          @default("{}")
-  results        Json          @default("[{\"buenas\": 0,\"malas\": 0 },{ \"buenas\": 0,\"malas\": 0 }]")
+  results        Json          @default("[{\"malas\": 0, \"buenas\": 0}, {\"malas\": 0, \"buenas\": 0}]")
   winnerIdx      Int?
-  players        MatchPlayer[]
-  hands          MatchHand[]
   bet            MatchBet?
+  hands          MatchHand[]
+  players        MatchPlayer[]
 }
 
 model MatchBet {
   id             Int      @id @default(autoincrement())
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
-  match          Match    @relation(fields: [matchId], references: [id])
   matchId        Int      @unique
   satsPerPlayer  Int
   allPlayersPaid Boolean
   winnerAwarded  Boolean
+  match          Match    @relation(fields: [matchId], references: [id])
 }
 
 model MatchHand {
@@ -61,10 +58,12 @@ model MatchHand {
   rounds          Json     @default("[[]]")
   results         Json     @default("[0, 0]")
   matchId         Int
-  match           Match    @relation(fields: [matchId], references: [id])
   trucoWinnerIdx  Int?
   envidoWinnerIdx Int?
   florWinnerIdx   Int?
+  bitcoinHash     String   @default("")
+  bitcoinHeight   Int      @default(0)
+  match           Match    @relation(fields: [matchId], references: [id])
 }
 
 model MatchPlayer {
