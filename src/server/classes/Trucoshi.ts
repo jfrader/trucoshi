@@ -2077,9 +2077,8 @@ export const Trucoshi = ({
       const userstats = await server.store.$queryRaw<UserStats[]>`
         SELECT *, 
               CASE 
-                WHEN "loss" = 0 THEN 1.0
-                WHEN "win" = 0 THEN 0.0
-                ELSE "win"::float / "loss"::float
+                WHEN ("win" + "loss") = 0 THEN 0.0
+                ELSE "win"::float / ("win"::float + "loss"::float)
               END AS ratio,
               ("win" + "loss")::integer AS matches
         FROM "UserStats"
