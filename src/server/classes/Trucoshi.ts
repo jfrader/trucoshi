@@ -2101,7 +2101,6 @@ export const Trucoshi = ({
           }
         } catch (e) {
           log.error({ stats }, "Failed to get ranking account details")
-          return []
         }
       }
 
