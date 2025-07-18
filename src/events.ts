@@ -5,8 +5,8 @@ import {
   IChatMessage,
   ILobbyOptions,
   IMatchDetails,
-  IMatchFlorBattle,
   IMatchPreviousHand,
+  IPlayerRanking,
   IPublicChatRoom,
   IPublicMatch,
   IPublicMatchInfo,
@@ -75,6 +75,7 @@ export enum EClientEvent {
   FETCH_MATCH_DETAILS = "FETCH_MATCH_DETAILS",
   SET_MATCH_OPTIONS = "SET_MATCH_OPTIONS",
   LIST_MATCHES = "LIST_MATCHES",
+  LIST_RANKING = "LIST_RANKING",
   JOIN_MATCH = "JOIN_MATCH",
   START_MATCH = "START_MATCH",
   SET_PLAYER_READY = "SET_PLAYER_READY",
@@ -134,6 +135,12 @@ export interface ClientToServerEvents {
   [EClientEvent.LIST_MATCHES]: (
     filters: { state?: Array<EMatchState> },
     callback: IEventCallback<{ matches: Array<IPublicMatchInfo> }>
+  ) => void
+  [EClientEvent.LIST_RANKING]: (
+    filters: {},
+    callback: IEventCallback<{
+      ranking: Array<IPlayerRanking>
+    }>
   ) => void
   [EClientEvent.LOGIN]: (
     user: User,

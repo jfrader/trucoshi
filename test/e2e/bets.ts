@@ -8,7 +8,7 @@ import {
   IPublicMatch,
   IPublicPlayer,
 } from "../../src/types"
-import { ITrucoshi, Trucoshi, TrucoshiSocket } from "../../src/server/classes"
+import { ITrucoshi, Trucoshi } from "../../src/server/classes"
 import logger from "../../src/utils/logger"
 import { Api } from "lightning-accounts"
 import {

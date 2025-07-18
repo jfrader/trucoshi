@@ -230,8 +230,12 @@ const calculateEnvidoPointsArray = (player: IPlayer): IPlayer["envido"] => {
   const cards = [...player.hand, ...player.usedHand]
   const hand = cards.map(splitCardvalues)
 
-  player.hasFlor = hand.every((card) => card.palo === hand[0].palo)
-  player.flor = { cards, value: hand.reduce((sum, card) => sum + card.envidoValue, 20) }
+  const hasFlor = hand.every((card) => card.palo === hand[0].palo)
+
+  player.hasFlor = hasFlor
+  player.flor = hasFlor
+    ? { cards, value: hand.reduce((sum, card) => sum + card.envidoValue, 20) }
+    : null
 
   const possibles = hand.flatMap((v, i) => hand.slice(i + 1).map((w) => [v, w]))
   const actual = possibles.filter((couple) => couple[0].palo === couple[1].palo)

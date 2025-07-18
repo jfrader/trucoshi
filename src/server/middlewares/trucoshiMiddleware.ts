@@ -184,6 +184,13 @@ export const trucoshiMiddleware =
     })
 
     /**
+     * Get public ranking
+     */
+    socket.on(EClientEvent.LIST_RANKING, (filters = {}, callback) => {
+      callback({ success: true, ranking: server.ranking })
+    })
+
+    /**
      * Login
      */
     socket.on(EClientEvent.LOGIN, async (account, identityJwt, callback) => {

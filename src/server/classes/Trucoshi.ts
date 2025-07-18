@@ -12,6 +12,7 @@ import {
   ILobbyOptions,
   IMatchDetails,
   IPlayer,
+  IPlayerRanking,
   IPublicMatch,
   IPublicMatchInfo,
   IPublicPlayer,
@@ -89,6 +90,7 @@ export type TrucoshiSocket = Socket<
 export interface ITrucoshi {
   io: TrucoshiServer
   httpServer: HttpServer
+  ranking: IPlayerRanking[]
   store?: PrismaClient
   chat: IChat
   tables: MatchTableMap // sessionId, table
@@ -191,6 +193,7 @@ export interface ITrucoshi {
     accountId: number
   ): Promise<{ stats: UserStats | null; matches: Array<Match>; account: User }>
   getMatchDetails(socket: TrucoshiSocket, matchId: number): Promise<IMatchDetails>
+  getRanking(): Promise<Array<IPlayerRanking>>
   resetSocketsMatchState(table: IMatchTable): Promise<void>
   listen: (
     callback: (io: TrucoshiServer) => void,
@@ -231,6 +234,7 @@ export const Trucoshi = ({
   const server: ITrucoshi = {
     sessions,
     store: undefined,
+    ranking: [],
     tables,
     turns,
     io,
@@ -370,6 +374,10 @@ export const Trucoshi = ({
         } catch (e) {
           logger.error(e, "Failed to repay unpaid matches")
         }
+      }
+
+      if (lightningAccounts && store) {
+        await server.getRanking()
       }
 
       io.listen(port)
@@ -1711,6 +1719,12 @@ export const Trucoshi = ({
                 log.fatal(e, "ON WINNER: Failed to update bet after paying awards!")
               }
             }
+
+            server
+              .getRanking()
+              .catch((e: any) =>
+                logger.error({ message: e.message }, "Failed to get ranking after match ended")
+              )
           }
 
           return server.onWinner(table, winnerTeam)
@@ -2054,6 +2068,45 @@ export const Trucoshi = ({
         matches,
         account: account.data,
       }
+    },
+    async getRanking() {
+      if (!server.store) {
+        throw new Error("Este server no soporta rankings")
+      }
+
+      const userstats = await server.store.$queryRaw<UserStats[]>`
+        SELECT *, 
+              CASE 
+                WHEN loss = 0 THEN win 
+                ELSE win::float / loss 
+              END AS ratio
+        FROM "UserStats"
+        ORDER BY ratio DESC
+        LIMIT 10;
+      `
+      const ranking: Array<IPlayerRanking> = []
+
+      for (const stats of userstats) {
+        try {
+          const account = await accountsApi.users.usersDetail(String(stats.accountId))
+
+          if (account.data) {
+            ranking.push({
+              accountId: stats.accountId,
+              loss: stats.loss,
+              name: account.data.name,
+              win: stats.win,
+              avatarUrl: account.data.avatarUrl,
+            })
+          }
+        } catch (e) {
+          log.error({ stats }, "Failed to get ranking account details")
+          return []
+        }
+      }
+
+      server.ranking = ranking
+      return ranking
     },
     async cleanupMatchTable(table) {
       const matchSessionId = table.matchSessionId

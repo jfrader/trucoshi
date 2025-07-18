@@ -22,6 +22,7 @@ import { ITruco, Truco } from "./Truco"
 import { PlayedCard, dealCards } from "../lib"
 import { checkHandWinner } from "../lib/utils"
 import { Flor, IFlor } from "./Flor"
+import { accountsApi } from "../accounts/client"
 
 const log = logger.child({ class: "Hand" })
 
@@ -272,7 +273,7 @@ export function Hand(match: IMatch, idx: number) {
     async init() {
       match.deck.random.next()
 
-      await match.deck.random.getLatestBitcoinBlock()
+      await match.deck.random.getLatestBitcoinBlock(accountsApi.wallet.getLatestBitcoinBlock)
       hand.setBitcoinBlock(match.deck.random.bitcoinHash, match.deck.random.bitcoinHeight)
 
       match.deck.shuffle(match.table.getPlayerByPosition(0, true).idx)

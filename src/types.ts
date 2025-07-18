@@ -2,10 +2,11 @@ export * from "./events"
 
 export { CARDS, CARDS_HUMAN_READABLE, BURNT_CARD } from "./lib/constants"
 
-import { User } from "lightning-accounts"
+import { RequestParams, User } from "lightning-accounts"
 import { Match, MatchPlayer, MatchHand, UserStats } from "@trucoshi/prisma"
 import { IHand } from "./truco"
 import { CARDS } from "./lib"
+import { AxiosResponse } from "axios"
 
 export enum EMatchState {
   UNREADY = "UNREADY",
@@ -13,6 +14,9 @@ export enum EMatchState {
   STARTED = "STARTED",
   FINISHED = "FINISHED",
 }
+
+export type IPlayerRanking = Omit<UserStats, "id" | "satsBet" | "satsWon" | "satsLost"> &
+  Pick<User, "name" | "avatarUrl">
 
 export interface IMatchDetails extends Match {
   players: Array<Pick<MatchPlayer, "id" | "accountId" | "teamIdx" | "name" | "idx">>
@@ -259,7 +263,17 @@ export interface IRandom {
   bitcoinHash: string
   bitcoinHeight: number
   nonce: number
-  getLatestBitcoinBlock(): Promise<void>
+  getLatestBitcoinBlock(
+    fn: (params?: RequestParams) => Promise<
+      AxiosResponse<
+        {
+          hash: string
+          height: number
+        },
+        any
+      >
+    >
+  ): Promise<void>
   next(): void
   pick(idx: number, max: number): number
   reveal(): { secret: string; clients: string[]; bitcoinHash: string; bitcoinHeight: number }

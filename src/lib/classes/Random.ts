@@ -1,6 +1,7 @@
-import { accountsApi } from "../../accounts/client"
+import { RequestParams } from "lightning-accounts"
 import { IRandom } from "../../types"
 import forge from "node-forge"
+import { AxiosResponse } from "axios"
 
 const rnd = Rng()
 
@@ -11,8 +12,8 @@ export const Random = () => {
     bitcoinHash: "",
     bitcoinHeight: 0,
     nonce: 0,
-    async getLatestBitcoinBlock() {
-      const { hash, height } = await rnd.getBitcoinLatestBlockHash()
+    async getLatestBitcoinBlock(fn) {
+      const { hash, height } = await rnd.getBitcoinLatestBlockHash(fn)
       random.bitcoinHash = hash
       random.bitcoinHeight = height
     },
@@ -46,7 +47,17 @@ export interface IRng {
   combine(client: string, server: string, bitcoinHash: string, nonce: number): string
   sha512(string: string): string
   generateServerSeed(): string
-  getBitcoinLatestBlockHash(): Promise<{ hash: string; height: number }>
+  getBitcoinLatestBlockHash(
+    fn: (params?: RequestParams) => Promise<
+      AxiosResponse<
+        {
+          hash: string
+          height: number
+        },
+        any
+      >
+    >
+  ): Promise<{ hash: string; height: number }>
   hexToBytes(hex: string): Uint8Array
   byteGenerator(
     clientseed: string,
@@ -231,12 +242,9 @@ function Rng(): IRng {
      *
      * @returns {Promise<string>} The latest Bitcoin block hash
      */
-    getBitcoinLatestBlockHash: async function (): Promise<{ hash: string; height: number }> {
+    getBitcoinLatestBlockHash: async function (fn): Promise<{ hash: string; height: number }> {
       try {
-        if (!accountsApi.instance.defaults.baseURL) {
-          return { hash: "", height: 0 }
-        }
-        return (await accountsApi.wallet.getLatestBitcoinBlock()).data || { hash: "", height: 0 }
+        return (await fn()).data || { hash: "", height: 0 }
       } catch (error) {
         return { hash: "", height: 0 }
       }
