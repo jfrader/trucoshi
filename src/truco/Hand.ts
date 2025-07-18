@@ -379,7 +379,7 @@ export function Hand(match: IMatch, idx: number) {
         hand.setTurn(hand.turn + 1)
       }
 
-      log.debug({ round: hand.currentRound }, "Calling round next turn")
+      log.trace({ round: hand.currentRound }, "Calling round next turn")
 
       hand.currentRound?.nextTurn()
     },

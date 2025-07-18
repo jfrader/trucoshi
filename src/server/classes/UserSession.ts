@@ -116,7 +116,7 @@ export function UserSession(key: string, username: string, session: string) {
       userSession.online = true
     },
     disconnect() {
-      log.debug(userSession.getPublicInfo(), "Session disconnected")
+      log.trace(userSession.getPublicInfo(), "Session disconnected")
       userSession.online = false
     },
     setName(id) {

@@ -35,7 +35,7 @@ export const trucoshiMiddleware =
           throw new Error("Attempted to create a match without a user")
         }
 
-        log.debug(userSession.getPublicInfo(), "User creating new match...")
+        log.trace(userSession.getPublicInfo(), "User creating new match...")
 
         let matchSessionId = getWordsId()
         while (server.tables.get(matchSessionId)) {
@@ -92,7 +92,7 @@ export const trucoshiMiddleware =
       try {
         const userSession = server.sessions.getOrThrow(socket.data.user?.session)
 
-        log.debug(userSession.getPublicInfo(), "User starting match...")
+        log.trace(userSession.getPublicInfo(), "User starting match...")
 
         if (matchSessionId && userSession.ownedMatches.has(matchSessionId)) {
           log.trace("Server starting match...")
@@ -119,7 +119,7 @@ export const trucoshiMiddleware =
         const userSession = server.sessions.getOrThrow(socket.data.user?.session)
         const table = server.tables.get(matchSessionId)
 
-        log.info(userSession.getPublicInfo(), "User joining match...")
+        log.trace(userSession.getPublicInfo(), "User joining match...")
 
         if (table) {
           await server.joinMatch(table, userSession, socket.data.identity || null, teamIdx)

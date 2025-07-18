@@ -9,7 +9,7 @@ import { PLAYER_LOBBY_TIMEOUT } from "../../constants"
 
 export const sessionMiddleware = (server: ITrucoshi) => {
   server.io.on("connection", (socket) => {
-    logger.debug("New socket connection %s", socket.id)
+    logger.trace("New socket connection %s", socket.id)
     if (socket.data.user) {
       socket.join(socket.data.user.session)
       server.emitSocketSession(socket)
@@ -18,7 +18,7 @@ export const sessionMiddleware = (server: ITrucoshi) => {
 
   return (socket: TrucoshiSocket, next: (err?: ExtendedError) => void) => {
     socket.on("disconnect", async (reason) => {
-      logger.info("Socket disconnected, reason?: %s", reason)
+      logger.debug("Socket disconnected, reason?: %s", reason)
       if (socket.data.user) {
         const matchingSockets = await server.io.in(socket.data.user?.session).fetchSockets()
         const isDisconnected = matchingSockets.length === 0
@@ -67,7 +67,7 @@ export const sessionMiddleware = (server: ITrucoshi) => {
           socket.data.matches = new TMap()
         }
 
-        logger.info("Socket %s connected to guest session %s", socket.id, sessionID)
+        logger.debug("Socket %s connected to guest session %s", socket.id, sessionID)
 
         return next()
       }
@@ -77,7 +77,7 @@ export const sessionMiddleware = (server: ITrucoshi) => {
     socket.data.user = userSession.getUserData()
     userSession.connect()
 
-    logger.info("Socket %s connected to NEW guest session %s", socket.id, sessionID)
+    logger.debug("Socket %s connected to NEW guest session %s", socket.id, sessionID)
 
     next()
   }

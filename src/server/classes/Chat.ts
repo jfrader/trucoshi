@@ -138,7 +138,7 @@ export const Chat = (io?: TrucoshiServer, tables?: TMap<string, IMatchTable>) =>
     const chatroom = chat.rooms.get(room)
 
     if (chatroom) {
-      log.info(`${name} entro a la sala ${room}`)
+      log.debug(`${name} entro a la sala ${room}`)
       chatroom.system(`${name} entro a la sala`, true)
       userSocket.emit(EServerEvent.UPDATE_CHAT, { id: chatroom.id, messages: chatroom.messages })
     }

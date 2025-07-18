@@ -432,7 +432,7 @@ export const Trucoshi = ({
 
       server.emitSocketSession(socket)
 
-      log.info({ ...userSession.getPublicInfo() }, "Socket has logged into account")
+      log.debug({ ...userSession.getPublicInfo() }, "Socket has logged into account")
     },
     logout(socket) {
       if (!socket.data.user) {
@@ -448,7 +448,7 @@ export const Trucoshi = ({
 
       socket.data = {}
 
-      log.info(socket.data.user, "Socket has logged out off account")
+      log.debug(socket.data.user, "Socket has logged out off account")
     },
     async emitSocketSession(socket) {
       if (!socket.data.user) {
@@ -1402,7 +1402,7 @@ export const Trucoshi = ({
             data: update,
           })
           player.setMatchPlayerId(dbPlayer.id)
-          log.debug({ dbPlayer }, "Updated match player")
+          log.trace({ dbPlayer }, "Updated match player")
         } else {
           const dbPlayer = await server.store.matchPlayer.create({
             data: {
@@ -1415,7 +1415,7 @@ export const Trucoshi = ({
             },
           })
           player.setMatchPlayerId(dbPlayer.id)
-          log.debug({ dbPlayer }, "Created match player")
+          log.trace({ dbPlayer }, "Created match player")
         }
       }
 
@@ -1978,7 +1978,7 @@ export const Trucoshi = ({
     },
     async removePlayerAndCleanup(table, player) {
       try {
-        log.debug(
+        log.trace(
           { table: table.getPublicMatchInfo(), player: player.getPublicPlayer() },
           "Removing player from match"
         )
@@ -2101,7 +2101,7 @@ export const Trucoshi = ({
               win: stats.win,
               avatarUrl: account.data.avatarUrl,
             }
-            logger.debug({ rank }, "Pushing player to ranking")
+            logger.trace({ rank }, "Pushing player to ranking")
             ranking.push(rank)
           }
         } catch (e) {
@@ -2154,7 +2154,7 @@ export const Trucoshi = ({
         server.tables.delete(matchSessionId)
         server.chat.delete(matchSessionId)
         server.turns.delete(matchSessionId)
-        log.debug({ matchSessionId }, "Deleted Match Table")
+        log.trace({ matchSessionId }, "Deleted Match Table")
       } catch (e) {
         log.error(e, "Error cleaning up MatchTable")
       }
