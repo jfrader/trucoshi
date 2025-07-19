@@ -415,13 +415,13 @@ export const Trucoshi = ({
 
       const payload = validateJwt(identityJwt, account)
 
+      const res = await accountsApi.users.usersDetail(String(payload.sub))
+
       socket.leave(socket.data.user.session)
 
       const userSession =
         server.sessions.find((s) => s.account?.id === payload.sub) ||
         server.createUserSession(socket)
-
-      const res = await accountsApi.users.usersDetail(String(payload.sub))
 
       userSession.setAccount(res.data)
       userSession.setName(res.data.name)
@@ -579,7 +579,12 @@ export const Trucoshi = ({
                     { match: table.getPublicMatchInfo(), player: player.getPublicPlayer() },
                     "Tried to say something but someone said something already"
                   )
-                  return
+                  return reject(
+                    new Error(
+                      EServerEvent.WAITING_POSSIBLE_SAY +
+                        " was not expecting this player to say anything"
+                    )
+                  )
                 }
                 const { command } = data
                 server
@@ -592,7 +597,7 @@ export const Trucoshi = ({
               }
             )
           })
-          .catch(log.error)
+          .catch((e) => log.error({ message: e.message }, "emitWaitingPossibleSay error"))
       })
     },
     async emitWaitingForPlay({ play, table, onlyThisSocket }) {
@@ -626,6 +631,7 @@ export const Trucoshi = ({
                   match: table.getPublicMatchInfo(),
                   player: player.getPublicPlayer(),
                   handIdx: play.handIdx,
+                  rounds: play.getHand().rounds,
                 },
                 "Emitting waiting play to a player"
               )
@@ -641,7 +647,11 @@ export const Trucoshi = ({
                       { match: table.getPublicMatchInfo(), player: player.getPublicPlayer() },
                       "Tried to play a card but play is not waiting a play"
                     )
-                    return
+                    return reject(
+                      new Error(
+                        EServerEvent.WAITING_PLAY + " was not expecting this player to play"
+                      )
+                    )
                   }
                   const { cardIdx, card } = data
                   server
@@ -655,7 +665,7 @@ export const Trucoshi = ({
               )
             }
           })
-          .catch(log.error)
+          .catch((e) => log.error({ message: e.message }, "emitWaitingForPlay error"))
       })
     },
     sayCommand({ table, play, player, command }, force) {
@@ -673,9 +683,16 @@ export const Trucoshi = ({
 
             clearTimeout(server.turns.getOrThrow(table.matchSessionId).timeout)
 
+            const sound =
+              currentState === EHandState.WAITING_ENVIDO_ANSWER &&
+              saidCommand === EFlorCommand.FLOR &&
+              Math.random() < 0.34
+                ? "toasty"
+                : "kiss"
+
             server.chat.rooms
               .getOrThrow(table.matchSessionId)
-              .command(player.teamIdx as 0 | 1, saidCommand, true)
+              .command(player.teamIdx as 0 | 1, saidCommand, sound)
 
             if (
               currentState === EHandState.WAITING_ENVIDO_POINTS_ANSWER &&
@@ -706,7 +723,12 @@ export const Trucoshi = ({
             log.trace({ player, card, cardIdx }, "Play card success")
             clearTimeout(server.turns.getOrThrow(table.matchSessionId).timeout)
 
-            server.chat.rooms.getOrThrow(table.matchSessionId).card(player, playedCard)
+            const sound =
+              card === "1e" && (play.roundIdx === 3 || play.rounds?.[play.roundIdx - 2]?.tie)
+                ? "espada"
+                : "play"
+
+            server.chat.rooms.getOrThrow(table.matchSessionId).card(player, playedCard, sound)
             return server.resetSocketsMatchState(table).then(resolve).catch(reject)
           }
           return reject(new Error("Invalid Card " + card))
@@ -779,13 +801,14 @@ export const Trucoshi = ({
       await server.getTableSockets(table, async (playerSocket, player) => {
         if (!player || !hand) {
           playerSocket.emit(EServerEvent.PREVIOUS_HAND, previousHand, () => {})
+          return
         }
 
         promises.push(
-          new Promise<void>((resolvePlayer, rejectPlayer) => {
+          new Promise<void>((resolvePlayer) => {
             playerSocket.emit(EServerEvent.PREVIOUS_HAND, previousHand, resolvePlayer)
             setTimeout(resolvePlayer, table.lobby.options.handAckTime * table.lobby.players.length)
-          }).catch(() => log.error(player, "Resolved previous hand emit"))
+          })
         )
       })
 
@@ -1707,6 +1730,8 @@ export const Trucoshi = ({
                     )
                   })
                 }
+
+                table.setAwardedPerPlayer(amountInSats)
               } catch (e) {
                 log.fatal(e, "ON WINNER: Failed to pay awards!")
               }

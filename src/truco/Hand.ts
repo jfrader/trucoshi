@@ -195,6 +195,10 @@ function* handTurnGeneratorSequence(match: IMatch, hand: IHand) {
         break
       }
 
+      if (round.unbeatable && checkHandWinner(hand.rounds, forehandTeamIdx) !== null) {
+        break
+      }
+
       yield hand
     }
 

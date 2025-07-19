@@ -87,6 +87,7 @@ export interface IPublicMatch {
   rounds: IPlayedCard[][]
   lastCard?: ICard | null
   lastCommand?: ECommand | number | null
+  awardedSatsPerPlayer?: number
 }
 
 export interface IPublicMatchInfo {

@@ -6,6 +6,7 @@ import { EClientEvent, EServerEvent } from "../../types"
 import { validateJwt } from "../../accounts/client"
 import { Event } from "socket.io"
 import { PLAYER_LOBBY_TIMEOUT } from "../../constants"
+import { PLAYER_ABANDON_TIMEOUT } from "../../lib"
 
 export const sessionMiddleware = (server: ITrucoshi) => {
   server.io.on("connection", (socket) => {
@@ -37,6 +38,11 @@ export const sessionMiddleware = (server: ITrucoshi) => {
                       "Failed to cleanup user tables after user disconnected and timed out"
                     )
                   )
+                  .finally(() => {
+                    setTimeout(() => {
+                      server.sessions.delete(userSession.session)
+                    }, PLAYER_ABANDON_TIMEOUT)
+                  })
               })
           }
         }

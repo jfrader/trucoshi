@@ -1,8 +1,7 @@
-import { IPlayedCard, IPlayer } from "../../types"
+import { IPlayer } from "../../types"
 
 export interface ITable<TPlayer extends { key: string } = IPlayer> {
   forehandIdx: number
-  cards: Array<Array<IPlayedCard>>
   players: Array<TPlayer>
   nextHand(): TPlayer
   getPlayerByPosition(idx?: number, forehandFirst?: boolean): TPlayer
@@ -13,7 +12,6 @@ export interface ITable<TPlayer extends { key: string } = IPlayer> {
 export function Table<TPlayer extends { key: string } = IPlayer>(players: Array<TPlayer>) {
   const table: ITable<TPlayer> = {
     players,
-    cards: [],
     forehandIdx: 0,
     nextHand() {
       if (table.forehandIdx < table.players.length - 1) {

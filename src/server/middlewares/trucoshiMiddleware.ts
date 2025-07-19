@@ -14,10 +14,15 @@ export const trucoshiMiddleware =
 
     socket.on("disconnect", async () => {
       if (socket.data.user) {
-        const user = socket.data.user
-        const tables = server.tables.findAll((table) => !!table.isSessionPlaying(user.session))
+        const matchingSockets = await server.io.in(socket.data.user?.session).fetchSockets()
+        const isDisconnected = matchingSockets.length === 0
 
-        tables.forEach((table) => server.leaveMatch(table.matchSessionId, socket))
+        if (isDisconnected) {
+          const user = socket.data.user
+          const tables = server.tables.findAll((table) => !!table.isSessionPlaying(user.session))
+
+          tables.forEach((table) => server.leaveMatch(table.matchSessionId, socket))
+        }
       }
     })
 

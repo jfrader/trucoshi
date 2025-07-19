@@ -33,6 +33,12 @@ export function checkHandWinner(rounds: Array<IRound>, forehandTeamIdx: 0 | 1): 
       roundsWon.ties = roundsWon.ties + 1
       continue
     }
+
+    if (round.unbeatable) {
+      roundsWon[round.winner?.teamIdx as 0 | 1] += 1
+      continue
+    }
+
     if (round.winner?.teamIdx === 0) {
       roundsWon[0] += 1
     }

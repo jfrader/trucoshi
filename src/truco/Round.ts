@@ -9,6 +9,7 @@ export interface IRound {
   highest: number
   cards: Array<IPlayedCard>
   turn: number
+  unbeatable: boolean
   nextTurn(): void
   use(playedCard: IPlayedCard): ICard
 }
@@ -26,6 +27,7 @@ export function Round(): IRound {
     winner: null,
     cards: [],
     tie: false,
+    unbeatable: false,
     nextTurn() {
       round.turn++
     },
@@ -39,6 +41,11 @@ export function Round(): IRound {
         round.highest = value
         round.winner = player as IPlayer
       }
+
+      if (value === 13) {
+        round.unbeatable = true
+      }
+
       round.cards.push(PlayedCard(player, card))
       return card
     },

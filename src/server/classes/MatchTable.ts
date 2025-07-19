@@ -17,6 +17,7 @@ export interface IMatchTable {
   matchSessionId: string
   lobby: ILobby
   busy: boolean
+  awardedSatsPerPlayer: number
   state(): EMatchState
   setBusy(busy: boolean): void
   isSessionPlaying(session: string): IPlayer | null
@@ -28,6 +29,7 @@ export interface IMatchTable {
   playerDisconnected(player: IPlayer): void
   playerReconnected(player: IPlayer, userSession: IUserSession): void
   playerAbandoned(player: IPlayer): void
+  setAwardedPerPlayer(award: number): void
   setMatchId(id: number): void
 }
 
@@ -41,6 +43,10 @@ export function MatchTable(
     matchSessionId,
     busy: false,
     lobby: Lobby(matchSessionId, options),
+    awardedSatsPerPlayer: 0,
+    setAwardedPerPlayer(award) {
+      table.awardedSatsPerPlayer = award
+    },
     setMatchId(id) {
       table.matchId = id
     },
@@ -194,6 +200,7 @@ const getPublicMatch = (
     handState: currentHand?.state || null,
     lastCommand: gameLoop?.lastCommand,
     lastCard: gameLoop?.lastCard,
+    awardedSatsPerPlayer: currentPlayerIdx !== -1 ? table.awardedSatsPerPlayer : undefined,
     freshHand,
     ownerKey: players.find((p) => p.session === table.ownerSession)?.key || "",
     rounds,
