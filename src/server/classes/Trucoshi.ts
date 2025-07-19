@@ -2107,7 +2107,7 @@ export const Trucoshi = ({
               END AS ratio,
               ("win" + "loss")::integer AS matches
         FROM "UserStats"
-        WHERE "win" >= 0 AND "loss" >= 0
+        WHERE "matches" >= 5
         ORDER BY ratio DESC, "win" DESC, "matches" DESC, "accountId" ASC
         LIMIT 20;
       `
