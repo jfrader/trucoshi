@@ -106,11 +106,11 @@ export const GameLoop = (match: IMatch) => {
           player.setTurn(false)
         }
 
-        const play = await match.play()
-
-        gameloop.currentHand = match.currentHand
-
         try {
+          const play = await match.play()
+
+          gameloop.currentHand = match.currentHand
+
           if (!play && match.prevHand) {
             await gameloop._onHandFinished(match.prevHand)
             continue

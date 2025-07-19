@@ -45,9 +45,7 @@ export function dealCards<
   TPlayer extends { key: string; idx: number; setHand(h: Array<ICard>): void } = IPlayer
 >(table: ITable<TPlayer>, deck: IDeck) {
   const cheat_lots_of_flowers = process.env.APP_CHEAT_LOTS_OF_FLOWERS_FOR_TESTING === "1"
-  const cheat_cards =
-    process.env.APP_CHEAT_CARDS &&
-    (JSON.parse(process.env.APP_CHEAT_CARDS) as Array<[ICard, ICard, ICard]>)
+  const cheat_cards = process.env.APP_CHEAT_CARDS || ""
   const playerHands: ICard[][] = []
   const players = table.getPlayersForehandFirst()
 
@@ -58,11 +56,17 @@ export function dealCards<
   }
 
   if (cheat_cards) {
-    deck.shuffle(players[0].idx)
-    for (const [key, player] of players.entries()) {
-      playerHands[player.idx] = cheat_cards[key]
-        ? cheat_cards[key].map((c) => deck.pick(c) || deck.takeCard())
-        : deck.takeThree()
+    try {
+      const new_cards = JSON.parse(cheat_cards) as Array<[ICard, ICard, ICard]>
+
+      deck.shuffle(players[0].idx)
+      for (const [key, player] of players.entries()) {
+        playerHands[player.idx] = new_cards[key]
+          ? new_cards[key].map((c) => deck.pick(c) || deck.takeCard())
+          : deck.takeThree()
+      }
+    } catch {
+      //noop
     }
   }
 
