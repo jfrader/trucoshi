@@ -13,14 +13,13 @@ export interface IMatch {
   teams: [ITeam, ITeam]
   hands: Array<IHand>
   winner: ITeam | null
-  prevHand: IHand | null
   currentHand: IHand | null
   deck: IDeck
   table: ITable
+  get activePlayers(): IPlayer[]
   play(): Promise<IPlayInstance | null>
   addPoints(points: IHandPoints): [ITeam, ITeam]
   pushHand(hand: IHand): void
-  setPrevHand(hand: IHand | null): IHand | null
   setCurrentHand(hand: IHand | null): IHand | null
   setWinner(winner: ITeam): void
   getNextTurn(): Promise<IteratorResult<IMatch | null, IMatch | null | void>>
@@ -47,12 +46,11 @@ async function* matchTurnGeneratorSequence(match: IMatch) {
     const newHand = Hand(match, match.hands.length + 1)
     const hand = match.setCurrentHand(await newHand.init()) as IHand
     match.pushHand(hand)
-    match.setPrevHand(null)
 
     while (!hand.finished()) {
       const { value } = hand.getNextTurn()
       if (value) {
-        if (value.currentPlayer && value.currentPlayer.disabled && !hand.beforeFinished()) {
+        if (value.currentPlayer && value.currentPlayer.disabled && !hand.displayingPreviousHand()) {
           value.nextTurn()
           continue
         }
@@ -64,7 +62,6 @@ async function* matchTurnGeneratorSequence(match: IMatch) {
       yield match
     }
 
-    match.setPrevHand(hand)
     match.setCurrentHand(null)
 
     const teams = match.addPoints(hand.points)
@@ -100,8 +97,10 @@ export function Match(
     teams: teams as [ITeam, ITeam],
     hands: [],
     table,
-    prevHand: null,
     currentHand: null,
+    get activePlayers() {
+      return match.table.players.filter((p) => !p.disabled)
+    },
     async play() {
       log.trace(
         { players: table.players.map((p) => p.getPublicPlayer()) },
@@ -111,7 +110,7 @@ export function Match(
       if (!match.currentHand) {
         return null
       }
-      return match.currentHand.play(match.prevHand)
+      return match.currentHand.play()
     },
     addPoints(points) {
       match.teams[0].addPoints(match.options.matchPoint, points[0])
@@ -124,10 +123,6 @@ export function Match(
     setCurrentHand(hand) {
       match.currentHand = hand
       return match.currentHand
-    },
-    setPrevHand(hand) {
-      match.prevHand = hand
-      return match.prevHand
     },
     setWinner(winner) {
       match.winner = winner

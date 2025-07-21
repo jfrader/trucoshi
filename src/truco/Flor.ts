@@ -162,7 +162,9 @@ export function Flor(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITabl
 
       flor.stake = 3
       flor.declineStake = 0
-      flor.players = table.getPlayersForehandFirst().filter((p) => p.hasFlor && !p.hasSaidFlor)
+      flor.players = table
+        .getPlayersForehandFirst()
+        .filter((p) => !p.disabled && p.hasFlor && !p.hasSaidFlor)
       flor.candidates.push(player)
       flor.state = 3
       flor.accepted = false
@@ -345,7 +347,7 @@ function* florTurnGeneratorSequence(flor: IFlor) {
     }
 
     flor.setCurrentPlayer(player)
-    if (player?.disabled) {
+    if (!player || player.disabled) {
       flor.setCurrentPlayer(null)
     }
 

@@ -268,14 +268,23 @@ describe("Trucoshi Lib", () => {
             finished()
           })
           .begin()
+
+        setTimeout(() => {
+          if (!match.winner) {
+            process.abort()
+          }
+        }, 12000)
       })
     }
 
-    ;(async () => {
+    async function awaitGames() {
       let played = 0
       let playedProm: Promise<any>[] = []
       while (played < 250) {
         played++
+        // await new Promise((resolve) => {
+        //   playGame(resolve)
+        // })
         playedProm.push(
           new Promise((resolve) => {
             playGame(resolve)
@@ -284,7 +293,14 @@ describe("Trucoshi Lib", () => {
       }
 
       await Promise.allSettled(playedProm)
+    }
 
+    ;(async () => {
+      await awaitGames()
+      await awaitGames()
+      await awaitGames()
+      await awaitGames()
+      await awaitGames()
       done()
     })()
   })

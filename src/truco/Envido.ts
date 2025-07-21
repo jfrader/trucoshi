@@ -126,6 +126,15 @@ function* envidoTurnGeneratorSequence(envido: IEnvido) {
       envido.setTurn(envido.turn + 1)
     }
 
+    // const playerWithFlorIndex = envido.players.findIndex(
+    //   (p) => p.idx !== player.idx && p.hasFlor && !p.hasSaidFlor && !p.disabled
+    // )
+
+    // if ((!player.hasFlor || player.hasSaidFlor) && playerWithFlorIndex > -1) {
+    //   envido.setTurn(playerWithFlorIndex)
+    //   player = envido.players[playerWithFlorIndex]
+    // }
+
     envido.setCurrentPlayer(player)
     if (player.disabled) {
       envido.setCurrentPlayer(null)

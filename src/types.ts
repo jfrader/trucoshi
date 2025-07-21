@@ -76,6 +76,7 @@ export interface IPublicMatch {
   state: EMatchState
   handState: EHandState | null
   florBattle: IMatchFlorBattle | null
+  previousHand: IMatchPreviousHand | null
   winner: ITeam | null
   matchSessionId: string
   forehandIdx: number
@@ -168,7 +169,7 @@ export enum EHandState {
   WAITING_ENVIDO_POINTS_ANSWER = "WAITING_ENVIDO_POINTS_ANSWER",
   WAITING_FLOR_ANSWER = "WAITING_FLOR_ANSWER",
   DISPLAY_FLOR_BATTLE = "DISPLAY_FLOR_BATTLE",
-  BEFORE_FINISHED = "BEFORE_FINISHED",
+  DISPLAY_PREVIOUS_HAND = "DISPLAY_PREVIOUS_HAND",
   FINISHED = "FINISHED",
 }
 
@@ -380,6 +381,7 @@ export interface ITeam {
   name: string
   players: Array<IPlayer>
   points: ITeamPoints
+  get activePlayers(): IPlayer[]
   setPlayers(players: IPlayer[]): ITeam
   pointsToWin(matchPoint: number): number
   getPublicTeam(playerSession?: string): IPublicTeam

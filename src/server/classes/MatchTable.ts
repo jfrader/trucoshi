@@ -204,9 +204,10 @@ const getPublicMatch = (
     freshHand,
     ownerKey: players.find((p) => p.session === table.ownerSession)?.key || "",
     rounds,
+    previousHand: currentHand?.displayingPreviousHand() ? table.getPreviousHand(currentHand) : null,
     florBattle:
       currentHand?.displayingFlorBattle() ||
-      (currentHand?.beforeFinished() && currentHand.flor.state === 5)
+      (currentHand?.displayingPreviousHand() && currentHand.flor.state === 5)
         ? table.getFlorBattle(currentHand)
         : null,
     busy: table.busy,

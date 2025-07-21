@@ -23,7 +23,6 @@ export interface IGameLoop {
   _onFlor: IFlorCallback
   _onFlorBattle: IFlorBattleCallback
   _onHandFinished: IHandFinishedCallback
-  _onBeforeHandFinished: IBeforeHandFinishedCallback
   currentPlayer: IPlayer | null
   currentHand: IHand | null
   lastCommand: ECommand | number | null
@@ -37,7 +36,6 @@ export interface IGameLoop {
   onFlor: (callback: IFlorCallback) => IGameLoop
   onFlorBattle: (callback: IFlorBattleCallback) => IGameLoop
   onHandFinished: (callback: IHandFinishedCallback) => IGameLoop
-  onBeforeHandFinished: (callback: IBeforeHandFinishedCallback) => IGameLoop
   begin: () => Promise<void>
 }
 
@@ -50,7 +48,6 @@ export const GameLoop = (match: IMatch) => {
     _onTurn: () => Promise.resolve(),
     _onWinner: () => Promise.resolve(),
     _onHandFinished: () => Promise.resolve(),
-    _onBeforeHandFinished: () => Promise.resolve(),
     teams: [],
     winner: null,
     currentPlayer: null,
@@ -59,10 +56,6 @@ export const GameLoop = (match: IMatch) => {
     lastCommand: null,
     onHandFinished: (callback) => {
       gameloop._onHandFinished = callback
-      return gameloop
-    },
-    onBeforeHandFinished: (callback) => {
-      gameloop._onBeforeHandFinished = callback
       return gameloop
     },
     onTruco: (callback) => {
@@ -111,11 +104,6 @@ export const GameLoop = (match: IMatch) => {
 
           gameloop.currentHand = match.currentHand
 
-          if (!play && match.prevHand) {
-            await gameloop._onHandFinished(match.prevHand)
-            continue
-          }
-
           if (!play) {
             continue
           }
@@ -124,13 +112,13 @@ export const GameLoop = (match: IMatch) => {
           gameloop.lastCommand = play.lastCommand
           gameloop.currentPlayer = play.player
 
-          if (play.state === EHandState.BEFORE_FINISHED) {
-            await gameloop._onBeforeHandFinished()
+          if (play.state === EHandState.DISPLAY_FLOR_BATTLE) {
+            await gameloop._onFlorBattle(play, match.currentHand)
             continue
           }
 
-          if (play.state === EHandState.DISPLAY_FLOR_BATTLE) {
-            await gameloop._onFlorBattle(play, match.currentHand)
+          if (play.state === EHandState.DISPLAY_PREVIOUS_HAND) {
+            await gameloop._onHandFinished(match.currentHand)
             continue
           }
 

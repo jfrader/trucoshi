@@ -19,7 +19,6 @@ export interface IPlayInstance {
   envido: IEnvido
   player: IPlayer | null
   rounds: Array<IRound> | null
-  prevHand: IHand | null
   freshHand: boolean
   waitingPlay: boolean
   lastCommand: ECommand | number | null
@@ -30,7 +29,7 @@ export interface IPlayInstance {
   say(command: ECommand | number, player: IPlayer, force?: boolean): typeof command | null
 }
 
-export function PlayInstance(hand: IHand, prevHand: IHand | null, teams: [ITeam, ITeam]) {
+export function PlayInstance(hand: IHand, teams: [ITeam, ITeam]) {
   function play<TFnType extends ((...args: any[]) => any) | undefined>(
     fn?: TFnType,
     ...args: PlayArgs<TFnType>
@@ -58,7 +57,6 @@ export function PlayInstance(hand: IHand, prevHand: IHand | null, teams: [ITeam,
     roundIdx: hand.rounds.length,
     player: hand.currentPlayer,
     rounds: hand.rounds,
-    prevHand: prevHand && !hand.started ? prevHand : null,
     freshHand: !hand.started,
     lastCard: null,
     lastCommand: null,

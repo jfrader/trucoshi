@@ -116,8 +116,8 @@ export interface ITrucoshi {
     table: IMatchTable
     onlyThisSocket?: string
   }): Promise<"say" | "play">
-  emitMatchUpdate(table: IMatchTable, skipSocketIds?: Array<string>): Promise<void>
-  emitPreviousHand(previousHand: IHand, table: IMatchTable): Promise<void>
+  emitMatchUpdate(table: IMatchTable, skipSocketIds?: Array<string>): Promise<IPublicMatch>
+  emitPreviousHand(table: IMatchTable): Promise<void>
   emitFlorBattle(hand: IHand, table: IMatchTable): Promise<void>
   emitSocketMatch(socket: TrucoshiSocket, currentMatchId: string | null): IPublicMatch | null
   playCard(input: {
@@ -517,15 +517,17 @@ export const Trucoshi = ({
     },
     async emitMatchUpdate(table, skipSocketIds = []) {
       log.trace(table.getPublicMatchInfo(), "Emitting match update to all sockets")
+      const publicMatch = table.getPublicMatch()
       await server.getTableSockets(table, async (playerSocket, player) => {
         if (skipSocketIds.includes(playerSocket.id) || !playerSocket.data.user) {
           return
         }
         playerSocket.emit(
           EServerEvent.UPDATE_MATCH,
-          table.getPublicMatch(player ? (playerSocket.data.user.session as string) : undefined)
+          player ? table.getPublicMatch(playerSocket.data.user.session) : publicMatch
         )
       })
+      return publicMatch
     },
     async emitWaitingPossibleSay({ play, table, onlyThisSocket }) {
       log.trace(
@@ -684,7 +686,7 @@ export const Trucoshi = ({
             clearTimeout(server.turns.getOrThrow(table.matchSessionId).timeout)
 
             const sound =
-              saidCommand === EFlorCommand.FLOR && currentState === EHandState.WAITING_ENVIDO_ANSWER
+              currentState === EHandState.WAITING_ENVIDO_ANSWER && saidCommand === EFlorCommand.FLOR
                 ? Math.random() < 0.34
                   ? "toasty"
                   : "kiss"
@@ -785,40 +787,27 @@ export const Trucoshi = ({
 
       log.trace(table.getPublicMatchInfo(), "Awaiting all flor battle promises")
 
-      await Promise.all(promises)
+      await Promise.allSettled(promises)
 
       log.trace(
         table.getPublicMatchInfo(),
         "Flor battle timeout has finished, all players settled for next hand"
       )
     },
-    async emitPreviousHand(hand, table) {
+    async emitPreviousHand(table) {
       log.trace(table.getPublicMatchInfo(), "Emitting previous hand to players")
 
-      const previousHand = table.getPreviousHand(hand)
-
-      const promises: Array<PromiseLike<void>> = []
-      await server.getTableSockets(table, async (playerSocket, player) => {
-        if (!player || !hand) {
-          playerSocket.emit(EServerEvent.PREVIOUS_HAND, previousHand, () => {})
-          return
-        }
-
-        promises.push(
-          new Promise<void>((resolvePlayer) => {
-            playerSocket.emit(EServerEvent.PREVIOUS_HAND, previousHand, resolvePlayer)
-            setTimeout(resolvePlayer, table.lobby.options.handAckTime * table.lobby.players.length)
-          })
-        )
-      })
+      const publicMatch = await server.emitMatchUpdate(table)
 
       table.lobby.teams.map((team) => {
         server.chat.rooms
           .getOrThrow(table.matchSessionId)
-          .system(`${team.name}: +${previousHand.points[team.id]}`, false)
+          .system(`${team.name}: +${publicMatch.previousHand?.points[team.id]}`, false)
       })
 
-      await Promise.allSettled(promises)
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, table.lobby.options.handAckTime * table.lobby.players.length)
+      })
 
       log.trace(
         table.getPublicMatchInfo(),
@@ -1091,15 +1080,10 @@ export const Trucoshi = ({
         )
         .catch(log.error)
     },
-    onHandFinished(table, previousHand) {
-      if (!previousHand) {
-        log.error({ matchId: table.matchSessionId }, "Hand finished but there's no previous hand!")
-        return Promise.resolve()
-      }
-
+    onHandFinished(table) {
       log.trace({ ...table.getPublicMatchInfo() }, `Table Hand Finished`)
 
-      return server.emitPreviousHand(previousHand, table)
+      return server.emitPreviousHand(table)
     },
     onWinner(table, winner) {
       const matchEndTime = Date.now()
@@ -1609,7 +1593,6 @@ export const Trucoshi = ({
 
       table.lobby
         .startMatch()
-        .onBeforeHandFinished(server.onBeforeHandFinished.bind(null, table))
         .onHandFinished(async (hand) => {
           if (server.store && hand) {
             await server.store.matchHand.create({

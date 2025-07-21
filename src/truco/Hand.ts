@@ -57,10 +57,10 @@ export interface IHand {
   sayEnvidoPoints(player: IPlayer, points: number, log?: boolean): number
   use(idx: number, card: ICard, burn?: boolean): ICard | null
   finished: () => boolean
-  beforeFinished: () => boolean
   displayingFlorBattle: () => boolean
+  displayingPreviousHand: () => boolean
   setTurnCommands(): void
-  play(prevHand: IHand | null): IPlayInstance
+  play(): IPlayInstance
   nextTurn(): void
   endEnvido(): void
   endFlor(): void
@@ -76,6 +76,11 @@ export interface IHand {
 }
 
 function checkTeamsDisabled(match: IMatch, winnerTeamIdx: 0 | 1 | null) {
+  if (match.table.players.find((p) => !p.disabled && p.hasFlor && !p.hasSaidFlor)) {
+    winnerTeamIdx = null
+    return winnerTeamIdx
+  }
+
   if (match.teams[0].isTeamDisabled()) {
     winnerTeamIdx = 1
   }
@@ -88,15 +93,14 @@ function checkTeamsDisabled(match: IMatch, winnerTeamIdx: 0 | 1 | null) {
 
 function* handTurnGeneratorSequence(match: IMatch, hand: IHand) {
   let currentRoundIdx = 0
-  let forehandTeamIdx = match.table.getPlayerByPosition(hand.turn).teamIdx as 0 | 1
+  let forehandTeamIdx = match.table.getPlayerByPosition(hand.turn).teamIdx
 
-  while (currentRoundIdx < 3 && !hand.beforeFinished() && !hand.finished()) {
+  while (currentRoundIdx < 3 && !hand.finished() && !hand.displayingPreviousHand()) {
     const round = Round()
     hand.setCurrentRound(round)
     hand.pushRound(round)
 
     let previousRound = hand.rounds[currentRoundIdx - 1]
-
     if (previousRound && previousRound.winner) {
       if (previousRound.tie) {
         hand.setTurn(match.table.forehandIdx)
@@ -113,10 +117,6 @@ function* handTurnGeneratorSequence(match: IMatch, hand: IHand) {
         hand.state === EHandState.WAITING_ENVIDO_ANSWER ||
         hand.state === EHandState.WAITING_ENVIDO_POINTS_ANSWER
       ) {
-        if (checkTeamsDisabled(match, null) !== null) {
-          break
-        }
-
         const { value } = hand.envido.getNextPlayer()
         if (value && value.currentPlayer) {
           hand.setCurrentPlayer(value.currentPlayer)
@@ -125,10 +125,6 @@ function* handTurnGeneratorSequence(match: IMatch, hand: IHand) {
       }
 
       while (hand.state === EHandState.WAITING_FLOR_ANSWER) {
-        if (checkTeamsDisabled(match, null) !== null) {
-          break
-        }
-
         const { value } = hand.flor.getNextPlayer()
         if (value && value.currentPlayer) {
           hand.setCurrentPlayer(value.currentPlayer)
@@ -137,10 +133,6 @@ function* handTurnGeneratorSequence(match: IMatch, hand: IHand) {
       }
 
       while (hand.state === EHandState.WAITING_FOR_TRUCO_ANSWER) {
-        if (checkTeamsDisabled(match, null) !== null) {
-          break
-        }
-
         const { value } = hand.truco.getNextPlayer()
         if (value && value.currentPlayer) {
           hand.setCurrentPlayer(value.currentPlayer)
@@ -159,7 +151,8 @@ function* handTurnGeneratorSequence(match: IMatch, hand: IHand) {
       }
 
       if (hand.truco.answer === false) {
-        hand.setState(EHandState.BEFORE_FINISHED)
+        hand.setCurrentPlayer(null)
+        hand.setState(EHandState.DISPLAY_PREVIOUS_HAND)
         break
       }
 
@@ -170,7 +163,7 @@ function* handTurnGeneratorSequence(match: IMatch, hand: IHand) {
           true
         )
         if (simulatedPoints.winner) {
-          hand.setState(EHandState.BEFORE_FINISHED)
+          hand.setState(EHandState.DISPLAY_PREVIOUS_HAND)
           break
         }
       }
@@ -182,7 +175,7 @@ function* handTurnGeneratorSequence(match: IMatch, hand: IHand) {
           true
         )
         if (simulatedPoints.winner) {
-          hand.setState(EHandState.BEFORE_FINISHED)
+          hand.setState(EHandState.DISPLAY_PREVIOUS_HAND)
           break
         }
       }
@@ -190,27 +183,28 @@ function* handTurnGeneratorSequence(match: IMatch, hand: IHand) {
       const player = match.table.getPlayerByPosition(hand.turn)
       hand.setCurrentPlayer(player)
 
-      if (match.teams.some((team) => team.isTeamDisabled())) {
-        hand.setState(EHandState.BEFORE_FINISHED)
+      if (checkTeamsDisabled(match, null) !== null) {
+        hand.setState(EHandState.DISPLAY_PREVIOUS_HAND)
         break
       }
 
-      if (round.unbeatable && checkHandWinner(hand.rounds, forehandTeamIdx) !== null) {
+      if (round.unbeatable && checkHandWinner(hand, forehandTeamIdx) !== null) {
+        hand.setState(EHandState.DISPLAY_PREVIOUS_HAND)
         break
       }
 
       yield hand
     }
 
-    const winnerTeamIdx = checkTeamsDisabled(match, checkHandWinner(hand.rounds, forehandTeamIdx))
+    const winnerTeamIdx = checkTeamsDisabled(match, checkHandWinner(hand, forehandTeamIdx))
 
     if (winnerTeamIdx !== null) {
       hand.addPoints(winnerTeamIdx, hand.truco.state)
       hand.setTrucoWinner(winnerTeamIdx)
-      hand.setState(EHandState.BEFORE_FINISHED)
+      hand.setState(EHandState.DISPLAY_PREVIOUS_HAND)
     }
 
-    if (hand.state === EHandState.BEFORE_FINISHED) {
+    if (hand.state === EHandState.DISPLAY_PREVIOUS_HAND) {
       if (hand.envido.winner) {
         hand.setEnvidoWinner(hand.envido.winner.id)
         hand.addPoints(hand.envido.winner.id, hand.envido.getPointsToGive())
@@ -225,9 +219,7 @@ function* handTurnGeneratorSequence(match: IMatch, hand: IHand) {
   }
 
   yield hand
-
   hand.setState(EHandState.FINISHED)
-
   yield hand
 }
 
@@ -277,13 +269,6 @@ export function Hand(match: IMatch, idx: number) {
     async init() {
       match.deck.random.next()
 
-      await match.deck.random.getLatestBitcoinBlock(accountsApi.wallet.getLatestBitcoinBlock)
-      hand.setBitcoinBlock(match.deck.random.bitcoinHash, match.deck.random.bitcoinHeight)
-
-      match.deck.shuffle(match.table.getPlayerByPosition(0, true).idx)
-
-      dealCards(match.table, match.deck)
-
       for (const team of match.teams) {
         for (const player of team.players) {
           if (player.abandoned) {
@@ -293,6 +278,13 @@ export function Hand(match: IMatch, idx: number) {
           player.resetCommands()
         }
       }
+
+      await match.deck.random.getLatestBitcoinBlock(accountsApi.wallet.getLatestBitcoinBlock)
+      hand.setBitcoinBlock(match.deck.random.bitcoinHash, match.deck.random.bitcoinHeight)
+
+      match.deck.shuffle(match.table.getPlayerByPosition(0, true).idx)
+
+      dealCards(match.table, match.deck)
 
       const { secret, clients: clientSecrets } = match.deck.random.reveal()
 
@@ -304,8 +296,8 @@ export function Hand(match: IMatch, idx: number) {
     addLog(roundIdx, log) {
       hand.roundsLog[roundIdx].push(log)
     },
-    play(prevHand) {
-      return PlayInstance(hand, prevHand, match.teams)
+    play() {
+      return PlayInstance(hand, match.teams)
     },
     endEnvido() {
       if (hand.truco.waitingAnswer) {
@@ -377,15 +369,27 @@ export function Hand(match: IMatch, idx: number) {
       return null
     },
     nextTurn() {
-      if (hand.turn >= match.table.players.length - 1) {
-        hand.setTurn(0)
-      } else {
-        hand.setTurn(hand.turn + 1)
+      let nextIdx = (hand.turn + 1) % match.table.players.length
+      let attempts = 0
+
+      // Find the next active player
+      while (match.table.players[nextIdx].disabled && attempts < match.table.players.length) {
+        nextIdx = (nextIdx + 1) % match.table.players.length
+        attempts++
       }
 
-      log.trace({ round: hand.currentRound?.cards }, "Calling round next turn")
+      // If no active players are found, end the hand
+      if (attempts >= match.table.players.length) {
+        log.error({ matchId: match.id }, "No active players for next turn")
+        hand.setState(EHandState.DISPLAY_PREVIOUS_HAND)
+        return
+      }
 
-      hand.currentRound?.nextTurn()
+      hand.setTurn(nextIdx)
+      // Only increment round.turn if the player is active
+      if (!match.table.players[nextIdx].disabled) {
+        hand.currentRound?.nextTurn()
+      }
     },
     setBitcoinBlock(hash, height) {
       hand.bitcoinHash = hash
@@ -435,11 +439,11 @@ export function Hand(match: IMatch, idx: number) {
     finished: () => {
       return hand.state === EHandState.FINISHED
     },
-    beforeFinished: () => {
-      return hand.state === EHandState.BEFORE_FINISHED
-    },
     displayingFlorBattle: () => {
       return hand.state === EHandState.DISPLAY_FLOR_BATTLE
+    },
+    displayingPreviousHand: () => {
+      return hand.state === EHandState.DISPLAY_PREVIOUS_HAND
     },
   }
 
@@ -475,13 +479,11 @@ const handleEnvido = (match: IMatch, hand: IHand, currentPlayer: IPlayer) => {
     !envido.answered &&
     (!match.options.flor ||
       hand.flor.finished ||
-      match.teams[opposingTeamIdx].players.every((p) => !p.hasFlor || p.hasSaidFlor))
+      match.teams[opposingTeamIdx].activePlayers.every((p) => !p.hasFlor || p.hasSaidFlor))
   ) {
-    match.teams[opposingTeamIdx].players
-      .filter((p) => !p.disabled)
-      .forEach((player) => {
-        envido.possibleAnswerCommands.forEach((cmd) => player._commands.add(cmd))
-      })
+    match.teams[opposingTeamIdx].activePlayers.forEach((player) => {
+      envido.possibleAnswerCommands.forEach((cmd) => player._commands.add(cmd))
+    })
   }
 
   // Current player says "Son Buenas" if conditions met
@@ -490,7 +492,7 @@ const handleEnvido = (match: IMatch, hand: IHand, currentPlayer: IPlayer) => {
     !envido.finished &&
     envido.winningPointsAnswer > 0 &&
     currentPlayer.teamIdx !== envido.winner?.id &&
-    match.teams[currentPlayer.teamIdx].players
+    match.teams[currentPlayer.teamIdx].activePlayers
       .filter((p) => p.key !== currentPlayer.key)
       .every((p) => p.hasSaidEnvidoPoints)
   ) {
@@ -502,13 +504,25 @@ const handleEnvido = (match: IMatch, hand: IHand, currentPlayer: IPlayer) => {
     if (
       (!match.options.flor ||
         hand.flor.finished ||
-        match.teams[currentPlayer.teamIdx].players.every((p) => !p.hasFlor || p.hasSaidFlor)) &&
-      currentPlayer.usedHand.length === 0 &&
+        match.teams[currentPlayer.teamIdx].activePlayers.every(
+          (p) => !p.hasFlor || p.hasSaidFlor
+        )) &&
       !currentPlayer.disabled &&
       !currentPlayer.hasSaidTruco
     ) {
-      for (const cmd in EEnvidoCommand) {
-        currentPlayer._commands.add(cmd as ECommand)
+      const teamatesCanEnvido = match.teams[currentPlayer.teamIdx].activePlayers.filter(
+        (p) => p.idx !== currentPlayer.idx && p.usedHand.length === 0
+      )
+
+      if (teamatesCanEnvido.length) {
+        for (const cmd in EEnvidoCommand) {
+          currentPlayer._commands.add(cmd as ECommand)
+          teamatesCanEnvido.forEach((p) => p._commands.add(cmd as ECommand))
+        }
+      } else if (currentPlayer.usedHand.length === 0) {
+        for (const cmd in EEnvidoCommand) {
+          currentPlayer._commands.add(cmd as ECommand)
+        }
       }
     }
   }
@@ -528,13 +542,13 @@ const handleFlor = (match: IMatch, hand: IHand, currentPlayer: IPlayer) => {
     !flor.answered
   ) {
     // Same team can declare Flor
-    match.teams[teamIdx].players
-      .filter((p) => p.hasFlor && !p.hasSaidFlor && !p.disabled)
+    match.teams[teamIdx].activePlayers
+      .filter((p) => p.hasFlor && !p.hasSaidFlor)
       .forEach((player) => player._commands.add(EFlorCommand.FLOR))
 
     // Opposing team responds to Flor
-    match.teams[opposingTeamIdx].players
-      .filter((p) => p.hasFlor && !p.disabled)
+    match.teams[opposingTeamIdx].activePlayers
+      .filter((p) => p.hasFlor)
       .forEach((player) => {
         flor.possibleAnswerCommands.forEach((cmd) => player._commands.add(cmd))
       })
@@ -555,52 +569,45 @@ const handleFlor = (match: IMatch, hand: IHand, currentPlayer: IPlayer) => {
 
 // Handle Truco and Mazo commands
 const handleTrucoAndMazo = (match: IMatch, hand: IHand, currentPlayer: IPlayer) => {
-  const truco = hand.truco
-  const flor = hand.flor
-  const envido = hand.envido
-  const opposingTeamIdx = Number(!truco.teamIdx)
+  const { truco, flor, envido } = hand;
+  const opposingTeamIdx = Number(!truco.teamIdx);
 
-  const florInProgress =
-    match.options.flor &&
-    !flor.finished &&
-    (flor.started ||
-      match.teams[currentPlayer.teamIdx].players.some(
-        (p) => !p.disabled && p.hasFlor && !p.hasSaidFlor
-      ))
+  const envidoInProgress = !envido.finished && envido.started;
 
-  const envidoInProgress = !envido.finished && envido.started
+  if (envidoInProgress) return;
 
-  if (!florInProgress && !envidoInProgress) {
-    if (truco.waitingAnswer) {
-      match.teams[opposingTeamIdx].players
-        .filter(
-          (p) =>
-            !p.disabled &&
-            (hand.flor.finished || !p.hasFlor || p.hasSaidFlor || !match.options.flor)
-        )
-        .forEach((player) => {
-          const nextCmd = truco.getNextTrucoCommand()
-          if (nextCmd) player._commands.add(nextCmd)
-          player._commands.add(EAnswerCommand.QUIERO)
-          player._commands.add(EAnswerCommand.NO_QUIERO)
-        })
-    } else {
-      match.table.players
-        .filter(
-          (p) =>
-            !p.disabled &&
-            (hand.flor.finished || !p.hasFlor || p.hasSaidFlor || !match.options.flor)
-        )
-        .forEach((player) => {
-          if (truco.teamIdx !== player.teamIdx) {
-            const nextCmd = truco.getNextTrucoCommand()
-            if (nextCmd) player._commands.add(nextCmd)
-          }
-          player._commands.add(ESayCommand.MAZO)
-        })
-    }
-  }
-}
+  match.activePlayers
+    .filter((p) => !match.options.flor || flor.finished || !p.hasFlor || p.hasSaidFlor)
+    .forEach((player) => {
+      const hasTeammateWithUnsaidFlor =
+        match.options.flor &&
+        !flor.finished &&
+        (flor.started ||
+          match.teams[player.teamIdx].activePlayers.some(
+            (p) => p !== player && p.hasFlor && !p.hasSaidFlor
+          ));
+
+      if (hasTeammateWithUnsaidFlor) {
+        player._commands.add(ESayCommand.MAZO);
+        return;
+      }
+
+      if (truco.waitingAnswer) {
+        if (player.teamIdx === opposingTeamIdx) {
+          const nextCmd = truco.getNextTrucoCommand();
+          if (nextCmd) player._commands.add(nextCmd);
+          player._commands.add(EAnswerCommand.QUIERO);
+          player._commands.add(EAnswerCommand.NO_QUIERO);
+        }
+      } else if (truco.teamIdx !== player.teamIdx) {
+        const nextCmd = truco.getNextTrucoCommand();
+        if (nextCmd) player._commands.add(nextCmd);
+        player._commands.add(ESayCommand.MAZO);
+      } else {
+        player._commands.add(ESayCommand.MAZO);
+      }
+    });
+};
 
 const trucoCommand = (hand: IHand, player: IPlayer) => {
   hand.truco.sayTruco(player)
@@ -614,7 +621,9 @@ const commands: IHandCommands = {
     if (hand.state === EHandState.WAITING_ENVIDO_ANSWER) {
       if (
         hand.envido.teamIdx !== player.teamIdx &&
-        !hand.envido.players.find((p) => p.teamIdx === player.teamIdx && p.key !== player.key)
+        !hand.envido.players
+          .filter((p) => !p.disabled)
+          .find((p) => p.teamIdx === player.teamIdx && p.key !== player.key)
       ) {
         hand.envido.sayAnswer(player, false)
         hand.endEnvido()
@@ -628,7 +637,9 @@ const commands: IHandCommands = {
     if (hand.state === EHandState.WAITING_FLOR_ANSWER && hand.flor.state >= 4) {
       if (
         hand.flor.teamIdx !== player.teamIdx &&
-        !hand.flor.players.find((p) => p.teamIdx === player.teamIdx && p.key !== player.key)
+        !hand.flor.players
+          .filter((p) => !p.disabled)
+          .find((p) => p.teamIdx === player.teamIdx && p.key !== player.key)
       ) {
         hand.flor.sayAnswer(player, false)
         hand.endFlor()
@@ -638,7 +649,9 @@ const commands: IHandCommands = {
     if (hand.state === EHandState.WAITING_FOR_TRUCO_ANSWER) {
       if (
         hand.truco.teamIdx !== player.teamIdx &&
-        !hand.truco.players.find((p) => p.teamIdx === player.teamIdx && p.key !== player.key)
+        !hand.truco.players
+          .filter((p) => !p.disabled)
+          .find((p) => p.teamIdx === player.teamIdx && p.key !== player.key)
       ) {
         hand.truco.sayAnswer(player, false)
       }

@@ -1,4 +1,4 @@
-import { IRound, IRoundPoints } from "../truco"
+import { IHand, IRound, IRoundPoints } from "../truco"
 import { ICard } from "../types"
 import { CARDS } from "./constants"
 
@@ -18,11 +18,17 @@ export function getCardValue(card: ICard) {
   return CARDS[card] !== undefined ? CARDS[card] : -2
 }
 
-export function checkHandWinner(rounds: Array<IRound>, forehandTeamIdx: 0 | 1): null | 0 | 1 {
+export function checkHandWinner(hand: IHand, forehandTeamIdx: 0 | 1): null | 0 | 1 {
   const roundsWon: IRoundPoints = {
     0: 0,
     1: 0,
     ties: 0,
+  }
+
+  const rounds = hand.rounds
+
+  if (hand.flor.winner && hand.flor.state === 5) {
+    return hand.flor.winner.id
   }
 
   for (let i = 0; i < rounds.length; i++) {

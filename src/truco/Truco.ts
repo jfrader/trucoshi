@@ -46,10 +46,10 @@ function* trucoTurnGeneratorSequence(truco: ITruco): Generator<ITruco, void, ITr
     }
 
     // const playerWithFlorIndex = truco.players.findIndex(
-    //   (p) => p.idx !== player.idx && p.hasFlor && !p.hasSaidFlor && !p.disabled
+    //   (p) => p.hasFlor && !p.hasSaidFlor && !p.disabled
     // )
 
-    // if (playerWithFlorIndex > -1) {
+    // if ((!player.hasFlor || player.hasSaidFlor) && playerWithFlorIndex > -1) {
     //   truco.setTurn(playerWithFlorIndex)
     //   player = truco.players[playerWithFlorIndex]
     // }

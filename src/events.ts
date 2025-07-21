@@ -28,7 +28,6 @@ export enum EServerEvent {
   NEW_MESSAGE = "NEW_MESSAGE",
   SET_SESSION = "SET_SESSION",
   REFRESH_IDENTITY = "REFRESH_IDENTITY",
-  PREVIOUS_HAND = "PREVIOUS_HAND",
   UPDATE_MATCH = "UPDATE_MATCH",
   MATCH_DELETED = "MATCH_DELETED",
   WAITING_PLAY = "WAITING_PLAY",
@@ -40,7 +39,6 @@ export enum EServerEvent {
 
 export interface ServerToClientEvents {
   [EServerEvent.PONG]: (serverTime: number, clientTime: number) => void
-  [EServerEvent.PREVIOUS_HAND]: (value: IMatchPreviousHand, callback: () => void) => void
   [EServerEvent.UPDATE_CHAT]: (room: IPublicChatRoom) => void
   [EServerEvent.NEW_MESSAGE]: (roomId: string, message?: IChatMessage) => void
   [EServerEvent.UPDATE_ACTIVE_MATCHES]: (activeMatches: IPublicMatchInfo[]) => void
