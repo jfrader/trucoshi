@@ -36,6 +36,7 @@ export interface IPrivateLobby {
   lastTeamIdx: 0 | 1
   _players: Array<IPlayer | { name?: undefined; session?: undefined; teamIdx?: 0 | 1 }>
   get players(): Array<IPlayer>
+  get ackTime(): number
   teams: Array<ITeam>
   table: ITable | null
   queue: IQueue
@@ -62,6 +63,7 @@ export interface IPrivateLobby {
 export interface ILobby
   extends Pick<
     IPrivateLobby,
+    | "ackTime"
     | "setOptions"
     | "addPlayer"
     | "removePlayer"
@@ -93,6 +95,9 @@ export function Lobby(matchId: string, options: Partial<ILobbyOptions> = {}): IL
     ready: false,
     started: false,
     gameLoop: undefined,
+    get ackTime() {
+      return lobby.options.handAckTime * Math.log(lobby.players.length * 2)
+    },
     setOptions(value) {
       if (lobby.started) {
         return new SocketError(
