@@ -68,6 +68,7 @@ export interface IHand {
   setTurn(turn: number): IPlayer
   addPoints(team: 0 | 1, points: number): void
   disablePlayer(player: IPlayer): void
+  abandonPlayer(player: IPlayer): void
   setCurrentRound(round: IRound | null): IRound | null
   setCurrentPlayer(player: IPlayer | null): IPlayer | null
   setState(state: EHandState): EHandState
@@ -76,7 +77,9 @@ export interface IHand {
 }
 
 function checkTeamsDisabled(match: IMatch, winnerTeamIdx: 0 | 1 | null) {
-  if (match.table.players.find((p) => !p.disabled && p.hasFlor && !p.hasSaidFlor)) {
+  const playerWithFlor = match.table.players.find((p) => !p.disabled && p.hasFlor && !p.hasSaidFlor)
+
+  if (playerWithFlor && !match.teams.some((t) => t.isTeamAbandoned())) {
     winnerTeamIdx = null
     return winnerTeamIdx
   }
@@ -85,6 +88,17 @@ function checkTeamsDisabled(match: IMatch, winnerTeamIdx: 0 | 1 | null) {
     winnerTeamIdx = 1
   }
   if (match.teams[1].isTeamDisabled()) {
+    winnerTeamIdx = 0
+  }
+
+  return winnerTeamIdx
+}
+
+function checkTeamsAbandoned(match: IMatch, winnerTeamIdx: 0 | 1 | null) {
+  if (match.teams[0].isTeamAbandoned()) {
+    winnerTeamIdx = 1
+  }
+  if (match.teams[1].isTeamAbandoned()) {
     winnerTeamIdx = 0
   }
 
@@ -404,6 +418,11 @@ export function Hand(match: IMatch, idx: number) {
     },
     disablePlayer(player) {
       match.teams[player.teamIdx].disable(player)
+    },
+    abandonPlayer(player) {
+      if (match.teams[player.teamIdx].abandon(player)) {
+        hand.nextTurn()
+      }
     },
     addPoints(team, points) {
       hand.points[team] = hand.points[team] + points

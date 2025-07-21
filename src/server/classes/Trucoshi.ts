@@ -169,13 +169,14 @@ export interface ITrucoshi {
     matchSessionId: string
     userSession: IUserSession
   }): Promise<void>
-  setTurnTimeout(
-    table: IMatchTable,
-    player: IPlayer,
-    user: IUserSession,
-    retry: () => void,
+  setTurnTimeout(params: {
+    table: IMatchTable
+    player: IPlayer
+    user: IUserSession
+    play: IPlayInstance
+    retry: () => void
     cancel: () => void
-  ): NodeJS.Timeout
+  }): NodeJS.Timeout
   onHandFinished(table: IMatchTable, hand: IHand | null): Promise<void>
   onTurn(table: IMatchTable, play: IPlayInstance): Promise<void>
   onTruco(table: IMatchTable, play: IPlayInstance): Promise<void>
@@ -792,7 +793,7 @@ export const Trucoshi = ({
         "Flor battle timeout has finished, all players settled for next hand"
       )
     },
-    setTurnTimeout(table, player, userSession, onReconnection, onTimeout) {
+    setTurnTimeout({ table, player, play, user, retry, cancel }) {
       log.trace({ player, options: table.lobby.options }, "Setting turn timeout")
 
       const chat = server.chat.rooms.getOrThrow(table.matchSessionId)
@@ -807,7 +808,7 @@ export const Trucoshi = ({
 
         const startTime = Date.now()
 
-        userSession
+        user
           .waitReconnection(
             table.matchSessionId,
             table.lobby.options.abandonTime - player.abandonedTime,
@@ -821,17 +822,19 @@ export const Trucoshi = ({
               { match: table.getPublicMatchInfo(), player: player.getPublicPlayer() },
               "Player reconnected"
             )
-            table.playerReconnected(player, userSession)
-            onReconnection()
+            table.playerReconnected(player, user)
+            retry()
           })
           .catch(() => {
             log.trace(
               { match: table.getPublicMatchInfo(), player: player.getPublicPlayer() },
               "Player abandoned"
             )
-            table.playerAbandoned(player)
+
+            play.getHand().abandonPlayer(player)
+
             chat.system(`${player.name} se retiro de la partida.`, "leave")
-            onTimeout()
+            cancel()
           })
           .finally(() => server.emitMatchUpdate(table).catch(log.error))
       }, table.lobby.options.turnTime + PLAYER_TIMEOUT_GRACE)
@@ -865,12 +868,18 @@ export const Trucoshi = ({
 
         turn()
 
-        const timeout = server.setTurnTimeout(table, player, user, turn, () =>
-          server
-            .sayCommand({ table, play, player, command: ESayCommand.MAZO }, true)
-            .catch((e) => log.error(e, "Turn timeout retry say command MAZO failed"))
-            .finally(resolve)
-        )
+        const timeout = server.setTurnTimeout({
+          table,
+          player,
+          play,
+          user,
+          retry: turn,
+          cancel: () =>
+            server
+              .sayCommand({ table, play, player, command: ESayCommand.MAZO }, true)
+              .catch((e) => log.error(e, "Turn timeout retry say command MAZO failed"))
+              .finally(resolve),
+        })
 
         server.turns.set(table.matchSessionId, {
           play,
@@ -906,12 +915,18 @@ export const Trucoshi = ({
         const player = play.player
         const user = server.sessions.getOrThrow(session)
 
-        const timeout = server.setTurnTimeout(table, player, user, turn, () =>
-          server
-            .sayCommand({ table, play, player, command: EAnswerCommand.NO_QUIERO }, true)
-            .catch((e) => log.error(e, "Truco turn timeout retry say command NO_QUIERO failed"))
-            .finally(resolve)
-        )
+        const timeout = server.setTurnTimeout({
+          table,
+          player,
+          play,
+          user,
+          retry: turn,
+          cancel: () =>
+            server
+              .sayCommand({ table, play, player, command: EAnswerCommand.NO_QUIERO }, true)
+              .catch((e) => log.error(e, "Truco turn timeout retry say command NO_QUIERO failed"))
+              .finally(resolve),
+        })
 
         server.turns.set(table.matchSessionId, {
           play,
@@ -951,11 +966,18 @@ export const Trucoshi = ({
         const player = play.player
         const user = server.sessions.getOrThrow(session)
 
-        const timeout = server.setTurnTimeout(table, player, user, turn, () => {
-          server
-            .sayCommand({ table, play, player, command: EFlorCommand.FLOR }, true)
-            .catch((e) => log.error(e, "Flor turn timeout failed to say FLOR command"))
-            .finally(resolve)
+        const timeout = server.setTurnTimeout({
+          table,
+          player,
+          play,
+          user,
+          retry: turn,
+          cancel: () => {
+            server
+              .sayCommand({ table, play, player, command: EFlorCommand.FLOR }, true)
+              .catch((e) => log.error(e, "Flor turn timeout failed to say FLOR command"))
+              .finally(resolve)
+          },
         })
 
         server.turns.set(table.matchSessionId, {
@@ -1023,17 +1045,24 @@ export const Trucoshi = ({
         const player = play.player
         const user = server.sessions.getOrThrow(session)
 
-        const timeout = server.setTurnTimeout(table, player, user, turn, () => {
-          if (isPointsRound) {
-            return server
-              .sayCommand({ table, play, player, command: 0 }, true)
-              .catch((e) => log.error(e, "Envido turn timeout failed to say '0' points command"))
+        const timeout = server.setTurnTimeout({
+          table,
+          player,
+          play,
+          user,
+          retry: turn,
+          cancel: () => {
+            if (isPointsRound) {
+              return server
+                .sayCommand({ table, play, player, command: 0 }, true)
+                .catch((e) => log.error(e, "Envido turn timeout failed to say '0' points command"))
+                .finally(resolve)
+            }
+            server
+              .sayCommand({ table, play, player, command: EAnswerCommand.NO_QUIERO }, true)
+              .catch((e) => log.error(e, "Envido turn timeout failed to say NO_QUIERO command"))
               .finally(resolve)
-          }
-          server
-            .sayCommand({ table, play, player, command: EAnswerCommand.NO_QUIERO }, true)
-            .catch((e) => log.error(e, "Envido turn timeout failed to say NO_QUIERO command"))
-            .finally(resolve)
+          },
         })
 
         server.turns.set(table.matchSessionId, {
@@ -1877,6 +1906,7 @@ export const Trucoshi = ({
 
         const table = server.tables.getOrThrow(matchId)
         const player = table.isSessionPlaying(userSession.session)
+        const turn = server.turns.getOrThrow(table.matchSessionId)
 
         if (!player) {
           log.trace({ matchId, socket: socket.id }, "Socket left a match but isn't in it")
@@ -1922,7 +1952,7 @@ export const Trucoshi = ({
                 table.playerReconnected(player, userSession)
               })
               .catch(() => {
-                table.playerAbandoned(player)
+                turn.play.getHand().abandonPlayer(player)
                 return server.removePlayerAndCleanup(table, player)
               })
               .catch((e) => log.error(e, "Failed to remove player and cleanup"))
@@ -1935,8 +1965,6 @@ export const Trucoshi = ({
               { player: player.getPublicPlayer(), matchSessionId: table.matchSessionId },
               "Socket left a match forcibly while playing, abandoning..."
             )
-
-            const turn = server.turns.getOrThrow(table.matchSessionId)
 
             await server.sayCommand(
               {
@@ -1952,8 +1980,8 @@ export const Trucoshi = ({
               .getOrThrow(table.matchSessionId)
               .system(`${player.name} ha abandonado la partida`, "mate")
 
+            turn.play.getHand().abandonPlayer(player)
             table.playerDisconnected(player)
-            table.playerAbandoned(player)
             turn.resolve()
             server.emitMatchUpdate(table).catch(log.error)
           }

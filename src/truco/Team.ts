@@ -32,6 +32,9 @@ export function Team(id: 0 | 1, name?: string) {
     isTeamDisabled() {
       return team.players.every((player) => player.disabled || player.abandoned)
     },
+    isTeamAbandoned() {
+      return team.players.every((player) => player.abandoned)
+    },
     enable(player) {
       if (player) {
         team._players.get(player.session as string)?.enable()
@@ -43,8 +46,12 @@ export function Team(id: 0 | 1, name?: string) {
       return team.isTeamDisabled()
     },
     disable(player) {
-      team._players.get(player.session as string)?.disable()
+      team._players.get(player.session)?.disable()
       return team.isTeamDisabled()
+    },
+    abandon(player) {
+      team._players.get(player.session)?.abandon()
+      return team.isTeamAbandoned()
     },
     pointsToWin(matchPoint) {
       if (team.points.malas < matchPoint && team.points.buenas < 1) {

@@ -85,9 +85,6 @@ export function Lobby(matchId: string, options: Partial<ILobbyOptions> = {}): IL
     options: Object.assign(structuredClone(DEFAULT_LOBBY_OPTIONS), options),
     lastTeamIdx: 1,
     _players: [],
-    get players() {
-      return lobby._players.filter((player) => Boolean(player && player.name)) as IPlayer[]
-    },
     teams: [],
     queue: Queue(),
     table: null,
@@ -95,8 +92,12 @@ export function Lobby(matchId: string, options: Partial<ILobbyOptions> = {}): IL
     ready: false,
     started: false,
     gameLoop: undefined,
+    get players() {
+      return lobby._players.filter((player) => Boolean(player && player.name)) as IPlayer[]
+    },
     get ackTime() {
-      return lobby.options.handAckTime * Math.log(lobby.players.length * 2)
+      const sec = lobby.options.handAckTime / 1000
+      return sec * Math.log(lobby.players.length * sec) * 1000
     },
     setOptions(value) {
       if (lobby.started) {

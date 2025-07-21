@@ -386,7 +386,9 @@ export interface ITeam {
   pointsToWin(matchPoint: number): number
   getPublicTeam(playerSession?: string): IPublicTeam
   isTeamDisabled(): boolean
+  isTeamAbandoned(): boolean
   disable(player: IPlayer): boolean
+  abandon(player: IPlayer): boolean
   enable(player?: IPlayer): boolean
   addPoints(matchPoint: number, points: number, simulate?: boolean): ITeamPoints
 }

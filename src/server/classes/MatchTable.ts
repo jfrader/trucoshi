@@ -28,7 +28,6 @@ export interface IMatchTable {
   getPublicMatchInfo(): IPublicMatchInfo
   playerDisconnected(player: IPlayer): void
   playerReconnected(player: IPlayer, userSession: IUserSession): void
-  playerAbandoned(player: IPlayer): void
   setAwardedPerPlayer(award: number): void
   setMatchId(id: number): void
 }
@@ -87,9 +86,6 @@ export function MatchTable(
       if (table.state() === EMatchState.STARTED) {
         player.setReady(true)
       }
-    },
-    playerAbandoned(player) {
-      player.abandon()
     },
     getPublicMatchInfo() {
       const {
