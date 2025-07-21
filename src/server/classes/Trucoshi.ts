@@ -684,11 +684,11 @@ export const Trucoshi = ({
             clearTimeout(server.turns.getOrThrow(table.matchSessionId).timeout)
 
             const sound =
-              currentState === EHandState.WAITING_ENVIDO_ANSWER &&
-              saidCommand === EFlorCommand.FLOR &&
-              Math.random() < 0.34
-                ? "toasty"
-                : "kiss"
+              saidCommand === EFlorCommand.FLOR && currentState === EHandState.WAITING_ENVIDO_ANSWER
+                ? Math.random() < 0.34
+                  ? "toasty"
+                  : "kiss"
+                : "chat"
 
             server.chat.rooms
               .getOrThrow(table.matchSessionId)
