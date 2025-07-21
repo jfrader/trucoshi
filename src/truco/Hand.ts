@@ -63,7 +63,7 @@ export interface IHand {
   play(): IPlayInstance
   nextTurn(): void
   endEnvido(): void
-  endFlor(): void
+  endEnvido(): void
   pushRound(round: IRound): IRound
   setTurn(turn: number): IPlayer
   addPoints(team: 0 | 1, points: number): void
@@ -144,7 +144,7 @@ function* handTurnGeneratorSequence(match: IMatch, hand: IHand) {
         if (hand.currentPlayer) {
           hand.setCurrentPlayer(null)
         } else {
-          hand.endFlor()
+          hand.endEnvido()
           continue
         }
         yield hand
@@ -300,13 +300,6 @@ export function Hand(match: IMatch, idx: number) {
       return PlayInstance(hand, match.teams)
     },
     endEnvido() {
-      if (hand.truco.waitingAnswer) {
-        hand.setState(EHandState.WAITING_FOR_TRUCO_ANSWER)
-      } else {
-        hand.setState(EHandState.WAITING_PLAY)
-      }
-    },
-    endFlor() {
       if (hand.truco.waitingAnswer) {
         hand.setState(EHandState.WAITING_FOR_TRUCO_ANSWER)
       } else {
@@ -541,10 +534,12 @@ const handleFlor = (match: IMatch, hand: IHand, currentPlayer: IPlayer) => {
     teamIdx !== null &&
     !flor.answered
   ) {
-    // Same team can declare Flor
-    match.teams[teamIdx].activePlayers
-      .filter((p) => p.hasFlor && !p.hasSaidFlor)
-      .forEach((player) => player._commands.add(EFlorCommand.FLOR))
+    if (flor.state < 4) {
+      // Same team can declare Flor
+      match.teams[teamIdx].activePlayers
+        .filter((p) => p.hasFlor && !p.hasSaidFlor)
+        .forEach((player) => player._commands.add(EFlorCommand.FLOR))
+    }
 
     // Opposing team responds to Flor
     match.teams[opposingTeamIdx].activePlayers
@@ -569,12 +564,12 @@ const handleFlor = (match: IMatch, hand: IHand, currentPlayer: IPlayer) => {
 
 // Handle Truco and Mazo commands
 const handleTrucoAndMazo = (match: IMatch, hand: IHand, currentPlayer: IPlayer) => {
-  const { truco, flor, envido } = hand;
-  const opposingTeamIdx = Number(!truco.teamIdx);
+  const { truco, flor, envido } = hand
+  const opposingTeamIdx = Number(!truco.teamIdx)
 
-  const envidoInProgress = !envido.finished && envido.started;
+  const envidoInProgress = !envido.finished && envido.started
 
-  if (envidoInProgress) return;
+  if (envidoInProgress) return
 
   match.activePlayers
     .filter((p) => !match.options.flor || flor.finished || !p.hasFlor || p.hasSaidFlor)
@@ -585,29 +580,29 @@ const handleTrucoAndMazo = (match: IMatch, hand: IHand, currentPlayer: IPlayer) 
         (flor.started ||
           match.teams[player.teamIdx].activePlayers.some(
             (p) => p !== player && p.hasFlor && !p.hasSaidFlor
-          ));
+          ))
 
       if (hasTeammateWithUnsaidFlor) {
-        player._commands.add(ESayCommand.MAZO);
-        return;
+        player._commands.add(ESayCommand.MAZO)
+        return
       }
 
       if (truco.waitingAnswer) {
         if (player.teamIdx === opposingTeamIdx) {
-          const nextCmd = truco.getNextTrucoCommand();
-          if (nextCmd) player._commands.add(nextCmd);
-          player._commands.add(EAnswerCommand.QUIERO);
-          player._commands.add(EAnswerCommand.NO_QUIERO);
+          const nextCmd = truco.getNextTrucoCommand()
+          if (nextCmd) player._commands.add(nextCmd)
+          player._commands.add(EAnswerCommand.QUIERO)
+          player._commands.add(EAnswerCommand.NO_QUIERO)
         }
       } else if (truco.teamIdx !== player.teamIdx) {
-        const nextCmd = truco.getNextTrucoCommand();
-        if (nextCmd) player._commands.add(nextCmd);
-        player._commands.add(ESayCommand.MAZO);
+        const nextCmd = truco.getNextTrucoCommand()
+        if (nextCmd) player._commands.add(nextCmd)
+        player._commands.add(ESayCommand.MAZO)
       } else {
-        player._commands.add(ESayCommand.MAZO);
+        player._commands.add(ESayCommand.MAZO)
       }
-    });
-};
+    })
+}
 
 const trucoCommand = (hand: IHand, player: IPlayer) => {
   hand.truco.sayTruco(player)
@@ -642,7 +637,7 @@ const commands: IHandCommands = {
           .find((p) => p.teamIdx === player.teamIdx && p.key !== player.key)
       ) {
         hand.flor.sayAnswer(player, false)
-        hand.endFlor()
+        hand.endEnvido()
       }
     }
 
@@ -685,7 +680,7 @@ const commands: IHandCommands = {
     } else if (hand.state === EHandState.WAITING_FLOR_ANSWER) {
       if (hand.flor.state >= 4) {
         hand.flor.sayAnswer(player, false)
-        hand.endFlor()
+        hand.endEnvido()
       }
     }
   },
@@ -728,6 +723,6 @@ const commands: IHandCommands = {
   },
   [EFlorCommand.ACHICO]: (hand, player) => {
     hand.flor.sayAchico(player)
-    hand.endFlor()
+    hand.endEnvido()
   },
 }
