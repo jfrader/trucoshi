@@ -1,9 +1,7 @@
 import { io as Client, Socket } from "socket.io-client"
 import { assert, expect } from "chai"
-import { trucoshi } from "../../src/server/middlewares/trucoshi"
 import { ICard, IPublicMatch } from "../../src/types"
 import { ITrucoshi, Trucoshi, TrucoshiSocket } from "../../src/server/classes"
-import { session } from "../../src/server"
 import { playRandomMatch } from "./serverHelpers"
 import {
   ClientToServerEvents,
@@ -11,6 +9,7 @@ import {
   EServerEvent,
   ServerToClientEvents,
 } from "../../src/events"
+import { sessionMiddleware, trucoshiMiddleware } from "../../src/server"
 
 describe("Socket Server", () => {
   let serverSocket: TrucoshiSocket
@@ -22,8 +21,8 @@ describe("Socket Server", () => {
 
     server.listen(
       (io) => {
-        io.use(session(server))
-        io.use(trucoshi(server))
+        io.use(sessionMiddleware(server))
+        io.use(trucoshiMiddleware(server))
 
         for (let i = 0; i < 6; i++) {
           clients.push(
@@ -125,16 +124,6 @@ describe("Socket Server", () => {
       callback(data)
     })
 
-    clients[0].on(EServerEvent.PREVIOUS_HAND, (match, callback) => {
-      expect(match.matchSessionId === matchId)
-      callback()
-    })
-
-    clients[1].on(EServerEvent.PREVIOUS_HAND, (match, callback) => {
-      expect(match.matchSessionId === matchId)
-      callback()
-    })
-
     await new Promise<void>((res) => {
       clients[0].emit(EClientEvent.CREATE_MATCH, ({ match }) => {
         expect(Boolean(match?.matchSessionId)).to.equal(true)
@@ -142,6 +131,21 @@ describe("Socket Server", () => {
         match0 = match
         res()
       })
+    })
+
+    await new Promise<void>((resolve, reject) => {
+      clients[0].emit(
+        EClientEvent.SET_MATCH_OPTIONS,
+        matchId as string,
+        { flor: false },
+        ({ success, match }) => {
+          if (success && match) {
+            match0 = match
+            return resolve()
+          }
+          reject(new Error("Failed to set match bet"))
+        }
+      )
     })
 
     await new Promise<void>((res) => {

@@ -138,8 +138,15 @@ export const Chat = (io?: TrucoshiServer, tables?: TMap<string, IMatchTable>) =>
     const chatroom = chat.rooms.get(room)
 
     if (chatroom) {
-      log.debug(`${name} entro a la sala ${room}`)
-      chatroom.system(`${name} entro a la sala`, true)
+      io.in(room)
+        .fetchSockets()
+        .then((matchingSockets) => {
+          if (matchingSockets.length <= 1) {
+            log.debug(`${name} entro a la sala ${room}`)
+            chatroom.system(`${name} entro a la sala`, true)
+          }
+        })
+
       userSocket.emit(EServerEvent.UPDATE_CHAT, { id: chatroom.id, messages: chatroom.messages })
     }
 
@@ -171,8 +178,15 @@ export const Chat = (io?: TrucoshiServer, tables?: TMap<string, IMatchTable>) =>
       return
     }
 
-    const { name } = userSocket.data.user
-    chat.rooms.get(room)?.system(`${name} salió de la sala`, "leave")
+    io.in(userSocket.data.user?.session)
+      .fetchSockets()
+      .then((matchingSockets) => {
+        const isDisconnected = matchingSockets.length === 0
+        if (userSocket.data.user && isDisconnected) {
+          const { name } = userSocket.data.user
+          chat.rooms.get(room)?.system(`${name} salió de la sala`, "leave")
+        }
+      })
   })
 
   return chat

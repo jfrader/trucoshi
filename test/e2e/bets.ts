@@ -4,6 +4,7 @@ import {
   EAnswerCommand,
   ECommand,
   EEnvidoAnswerCommand,
+  EHandState,
   ICard,
   IPublicMatch,
   IPublicPlayer,
@@ -171,6 +172,10 @@ describe("Bets", () => {
         }
         matches[i] = match
 
+        if (!match.me?.isTurn || match.handState !== EHandState.WAITING_PLAY) {
+          return
+        }
+
         if (!match.me?.hand) {
           console.error("WTF")
           process.exit(1)
@@ -189,11 +194,11 @@ describe("Bets", () => {
         }
         matches[i] = match
 
-        if (match.me?.isEnvidoTurn && match.me.envido) {
-          if (!match.me?.isTurn) {
-            return
-          }
+        if (!match.me?.isTurn && !match.me?.isEnvidoTurn) {
+          return
+        }
 
+        if (match.me?.isEnvidoTurn && match.me.envido) {
           if (match.me.commands.includes(EEnvidoAnswerCommand.SON_BUENAS) && Math.random() > 0.55) {
             return callback({ command: EEnvidoAnswerCommand.SON_BUENAS })
           }
@@ -216,16 +221,6 @@ describe("Bets", () => {
       })
     })
 
-    clients.forEach((c, i) =>
-      c.on(EServerEvent.PREVIOUS_HAND, (match, callback) => {
-        if (!checkMatch(i, match)) {
-          return
-        }
-        expect(match.matchSessionId === matchId)
-        callback()
-      })
-    )
-
     await new Promise<void>((res, rej) => {
       clients[0].emit(EClientEvent.CREATE_MATCH, ({ match }) => {
         if (!checkMatch(0, match)) {
@@ -245,7 +240,7 @@ describe("Bets", () => {
       clients[0].emit(
         EClientEvent.SET_MATCH_OPTIONS,
         matches[0].matchSessionId,
-        { satsPerPlayer: 10 },
+        { satsPerPlayer: 10, flor: false },
         ({ success, match }) => {
           if (success && match) {
             matches[0] = match
@@ -255,10 +250,6 @@ describe("Bets", () => {
         }
       )
     })
-
-    // for (const [idx, client] of clients.entries()) {
-    //   await new Promise<void>((resolve) => setTimeout(resolve, 10))
-    // }
 
     const joinPromises = clients.map((c, i) => {
       const sendReady = (matchId: any, j: number, me?: IPublicPlayer | null) => {
@@ -398,7 +389,7 @@ describe("Bets", () => {
       clients[0].emit(
         EClientEvent.SET_MATCH_OPTIONS,
         matches[0].matchSessionId,
-        { satsPerPlayer: 10 },
+        { satsPerPlayer: 10, flor: false },
         ({ success, match }) => {
           if (success && match) {
             matches[0] = match

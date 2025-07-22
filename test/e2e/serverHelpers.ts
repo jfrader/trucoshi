@@ -87,16 +87,6 @@ export const playRandomMatch = async (
     })
   })
 
-  clients.forEach((c, i) =>
-    c.on(EServerEvent.PREVIOUS_HAND, (match, callback) => {
-      if (!checkMatch(i, match)) {
-        return
-      }
-      expect(match.matchSessionId === matchId)
-      callback()
-    })
-  )
-
   await new Promise<void>((res, rej) => {
     clients[0].emit(EClientEvent.CREATE_MATCH, ({ match }) => {
       if (!checkMatch(0, match)) {
@@ -178,6 +168,20 @@ export const playRandomMatch = async (
       }
     })
   )
+
+  await new Promise<void>((resolve, reject) => {
+    clients[0].emit(
+      EClientEvent.SET_MATCH_OPTIONS,
+      matchId as string,
+      { flor: false },
+      ({ success }) => {
+        if (success) {
+          return resolve()
+        }
+        reject(new Error("Failed to set match bet"))
+      }
+    )
+  })
 
   await new Promise<void>((res) => {
     clients[0].emit(EClientEvent.START_MATCH, matchId as string, ({ success, matchSessionId }) => {
