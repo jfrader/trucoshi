@@ -141,7 +141,7 @@ export const Chat = (io?: TrucoshiServer, tables?: TMap<string, IMatchTable>) =>
       io.in(room)
         .fetchSockets()
         .then((matchingSockets) => {
-          if (matchingSockets.length <= 1) {
+          if (matchingSockets.filter((s) => s.data.user?.key === key).length <= 1) {
             log.debug(`${name} entro a la sala ${room}`)
             chatroom.system(`${name} entro a la sala`, true)
           }
