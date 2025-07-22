@@ -1906,7 +1906,7 @@ export const Trucoshi = ({
 
         const table = server.tables.getOrThrow(matchId)
         const player = table.isSessionPlaying(userSession.session)
-        const turn = server.turns.getOrThrow(table.matchSessionId)
+        const turn = server.turns.get(table.matchSessionId)
 
         if (!player) {
           log.trace({ matchId, socket: socket.id }, "Socket left a match but isn't in it")
@@ -1952,7 +1952,9 @@ export const Trucoshi = ({
                 table.playerReconnected(player, userSession)
               })
               .catch(() => {
-                turn.play.getHand().abandonPlayer(player)
+                if (turn) {
+                  turn.play.getHand().abandonPlayer(player)
+                }
                 return server.removePlayerAndCleanup(table, player)
               })
               .catch((e) => log.error(e, "Failed to remove player and cleanup"))
@@ -1966,24 +1968,30 @@ export const Trucoshi = ({
               "Socket left a match forcibly while playing, abandoning..."
             )
 
-            await server.sayCommand(
-              {
-                table,
-                command: ESayCommand.MAZO,
-                player,
-                play: turn.play,
-              },
-              true
-            )
+            if (turn) {
+              await server.sayCommand(
+                {
+                  table,
+                  command: ESayCommand.MAZO,
+                  player,
+                  play: turn.play,
+                },
+                true
+              )
+            }
 
             server.chat.rooms
               .getOrThrow(table.matchSessionId)
               .system(`${player.name} ha abandonado la partida`, "mate")
 
-            turn.play.getHand().abandonPlayer(player)
+            turn?.play.getHand().abandonPlayer(player)
             table.playerDisconnected(player)
-            turn.resolve()
-            server.emitMatchUpdate(table).catch(log.error)
+            turn?.resolve()
+            server
+              .emitMatchUpdate(table)
+              .catch((e) =>
+                log.error({ message: e.message }, "Failed to emit match update after a player left")
+              )
           }
         }
       } catch (e) {

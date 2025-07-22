@@ -48,7 +48,11 @@ describe("Trucoshi Lib", () => {
 
       const randomPlayersQuantity = [0, 2, 4]
 
-      const promises = ["lucas", "guada", "juli", "day", "gaspar", "fran"].map((n, i) =>
+      const candidates = ["lucas", "guada", "juli", "day", "gaspar", "fran"]
+
+      candidates.splice(0, randomPlayersQuantity[Math.floor(Math.random() * 3)])
+
+      const promises = candidates.map((n, i) =>
         lobby.addPlayer({ key: n, name: n, session: n }).then((player) => {
           player.setReady(true)
           player.setIdx(i)
@@ -56,8 +60,6 @@ describe("Trucoshi Lib", () => {
       )
 
       lobby.setOptions({ flor: Math.random() > 0.5 })
-
-      promises.splice(0, randomPlayersQuantity[Math.floor(Math.random() * 3)])
 
       Promise.allSettled(promises).then(() => {
         const match = lobby.startMatch(15)
@@ -289,6 +291,8 @@ describe("Trucoshi Lib", () => {
     }
 
     ;(async () => {
+      await awaitGames()
+      await awaitGames()
       await awaitGames()
       done()
     })()

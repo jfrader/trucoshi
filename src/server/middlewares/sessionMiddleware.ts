@@ -58,16 +58,20 @@ export const sessionMiddleware = (server: ITrucoshi) => {
 
     const name = socket.handshake.auth.name
     const sessionID = socket.handshake.auth.sessionID
+    const handshakeID = socket.handshake.auth.identity
 
     if (sessionID) {
       const userSession = server.sessions.get(sessionID)
       if (userSession) {
         if (userSession.account) {
-          return next(new SocketError("INVALID_IDENTITY"))
+          if (!validateJwt(handshakeID, userSession.account)) {
+            return next(new SocketError("INVALID_IDENTITY"))
+          }
         }
         userSession.reconnect(userSession.session)
         userSession.setName(name)
         socket.data.user = userSession.getUserData()
+        socket.data.identity = handshakeID
 
         if (!socket.data.matches) {
           socket.data.matches = new TMap()
