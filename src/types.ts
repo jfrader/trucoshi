@@ -4,9 +4,10 @@ export { CARDS, CARDS_HUMAN_READABLE, BURNT_CARD } from "./lib/constants"
 
 import { RequestParams, User } from "lightning-accounts"
 import { Match, MatchPlayer, MatchHand, UserStats } from "@trucoshi/prisma"
-import { IHand } from "./truco"
-import { CARDS } from "./lib"
+import { IHand, IPlayInstance } from "./truco"
+import { CARDS, ITable } from "./lib"
 import { AxiosResponse } from "axios"
+import { ITrucoshi } from "./server"
 
 export enum EMatchState {
   UNREADY = "UNREADY",
@@ -19,7 +20,7 @@ export type IPlayerRanking = Omit<UserStats, "id" | "satsBet" | "satsWon" | "sat
   Pick<User, "name" | "avatarUrl">
 
 export interface IMatchDetails extends Match {
-  players: Array<Pick<MatchPlayer, "id" | "accountId" | "teamIdx" | "name" | "idx">>
+  players: Array<Pick<MatchPlayer, "id" | "accountId" | "teamIdx" | "name" | "idx" | "bot">>
   hands: Array<MatchHand>
 }
 export interface IAccountDetails {
@@ -286,6 +287,7 @@ export type IPublicPlayer = Pick<
   | "idx"
   | "key"
   | "name"
+  | "bot"
   | "abandonedTime"
   | "accountId"
   | "avatarUrl"
@@ -301,6 +303,9 @@ export type IPublicPlayer = Pick<
   | "turnExtensionExpiresAt"
   | "isEnvidoTurn"
   | "isOwner"
+  | "hasSaidFlor"
+  | "hasSaidEnvidoPoints"
+  | "hasSaidTruco"
 > &
   (
     | {
@@ -330,6 +335,7 @@ export interface IPlayer {
   avatarUrl: string | undefined | null
   name: string
   key: string
+  bot: boolean
   session: string
   payRequestId?: number
   abandonedTime: number
@@ -339,6 +345,7 @@ export interface IPlayer {
   envido: Array<{ value: number; cards: ICard[] }>
   _commands: Set<ECommand>
   get commands(): Array<ECommand>
+  get positiveCommands(): Array<ECommand>
   isTurn: boolean
   turnExpiresAt: number | null // Date.now()
   turnExtensionExpiresAt: number | null // Date.now()
@@ -352,6 +359,9 @@ export interface IPlayer {
   disabled: boolean
   abandoned: boolean
   ready: boolean
+  getRandomCard(): [number, ICard]
+  getHighestCard(): [number, ICard]
+  getHighestEnvido(): number
   saidEnvidoPoints(): void
   saidFlor(): void
   saidTruco(): void
@@ -363,7 +373,7 @@ export interface IPlayer {
   setTurn(turn: boolean): void
   setTurnExpiration(...args: [number, number | null] | [null, null]): void
   setEnvidoTurn(turn: boolean): void
-  getPublicPlayer(session?: string): IPublicPlayer
+  getPublicPlayer(session?: string | "log"): IPublicPlayer
   setSession(session: string): void
   setIsOwner(isOwner: boolean): void
   addDisconnectedTime(time: number): void
@@ -373,6 +383,12 @@ export interface IPlayer {
   setReady(ready: boolean): void
   setHand(hand: Array<ICard>): Array<ICard>
   useCard(idx: number, card: ICard): ICard | null
+  playBot(
+    table: ITable,
+    play: IPlayInstance,
+    playCard: ITrucoshi["playCard"],
+    sayCommand: ITrucoshi["sayCommand"]
+  ): Promise<void>
 }
 
 export interface ITeam {
@@ -406,3 +422,10 @@ export type IHandRoundLog = {
 }
 
 export type IPublicUser = Pick<User, "id" | "email" | "name" | "role">
+
+export const DANGEROUS_COMMANDS: ECommand[] = [
+  ESayCommand.MAZO,
+  EAnswerCommand.NO_QUIERO,
+  EEnvidoAnswerCommand.SON_BUENAS,
+  EFlorCommand.ACHICO,
+]

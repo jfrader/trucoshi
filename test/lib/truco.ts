@@ -292,8 +292,6 @@ describe("Trucoshi Lib", () => {
 
     ;(async () => {
       await awaitGames()
-      await awaitGames()
-      await awaitGames()
       done()
     })()
   })

@@ -103,10 +103,17 @@ export function Match(
     },
     async play() {
       log.trace(
-        { players: table.players.map((p) => p.getPublicPlayer()) },
+        {
+          rounds: match.currentHand?.roundsLog,
+          winner: match.winner,
+          options: match.options,
+          players: table.players.map((p) => p.getPublicPlayer("log")),
+        },
         "Attempting to get match next turn"
       )
+
       await match.getNextTurn()
+
       if (!match.currentHand) {
         return null
       }

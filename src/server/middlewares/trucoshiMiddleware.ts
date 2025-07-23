@@ -51,7 +51,6 @@ export const trucoshiMiddleware =
 
         server.chat.create(matchSessionId)
         socket.join(matchSessionId)
-        server.tables.set(matchSessionId, table)
 
         return callback({
           success: true,
@@ -141,6 +140,34 @@ export const trucoshiMiddleware =
         throw new SocketError("NOT_FOUND")
       } catch (e) {
         log.error(e, "Client event JOIN_MATCH error")
+        callback({ success: false, error: isSocketError(e) })
+      }
+    })
+
+    /**
+     * Add Bot Player
+     */
+    socket.on(EClientEvent.ADD_BOT, async (matchSessionId, teamIdx, callback) => {
+      try {
+        const userSession = server.sessions.getOrThrow(socket.data.user?.session)
+        const table = server.tables.get(matchSessionId)
+
+        log.trace(userSession.getPublicInfo(), "User joining match...")
+
+        if (table) {
+          await server.addBot(table, userSession, teamIdx)
+
+          socket.join(table.matchSessionId)
+
+          server.emitMatchUpdate(table).catch(console.error)
+          return callback({
+            success: true,
+            match: table.getPublicMatch(userSession.session),
+          })
+        }
+        throw new SocketError("NOT_FOUND")
+      } catch (e) {
+        log.error(e, "Client event ADD_BOT error")
         callback({ success: false, error: isSocketError(e) })
       }
     })

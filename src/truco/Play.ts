@@ -4,6 +4,7 @@ import { IEnvido } from "./Envido"
 import { IHand } from "./Hand"
 import { IRound } from "./Round"
 import { ITruco } from "./Truco"
+import { IFlor } from "./Flor"
 
 const log = logger.child({ class: "Play" })
 
@@ -12,11 +13,13 @@ type PlayReturn<TType> = (TType extends (...args: any[]) => infer U ? U : never)
 
 export interface IPlayInstance {
   teams: [ITeam, ITeam]
+  forehandIdx: number
   handIdx: number
   roundIdx: number
   state: EHandState
   truco: ITruco
   envido: IEnvido
+  flor: IFlor
   player: IPlayer | null
   rounds: Array<IRound> | null
   freshHand: boolean
@@ -29,7 +32,7 @@ export interface IPlayInstance {
   say(command: ECommand | number, player: IPlayer, force?: boolean): typeof command | null
 }
 
-export function PlayInstance(hand: IHand, teams: [ITeam, ITeam]) {
+export function PlayInstance(hand: IHand, teams: [ITeam, ITeam], forehandIdx: number) {
   function play<TFnType extends ((...args: any[]) => any) | undefined>(
     fn?: TFnType,
     ...args: PlayArgs<TFnType>
@@ -50,9 +53,11 @@ export function PlayInstance(hand: IHand, teams: [ITeam, ITeam]) {
   const instance: IPlayInstance = {
     state: hand.state,
     teams,
+    forehandIdx,
     waitingPlay: Boolean(hand.currentPlayer),
     truco: hand.truco,
     envido: hand.envido,
+    flor: hand.flor,
     handIdx: hand.idx,
     roundIdx: hand.rounds.length,
     player: hand.currentPlayer,

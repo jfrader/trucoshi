@@ -18,6 +18,7 @@ const log = logger.child({ class: "Gameloop" })
 export interface IGameLoop {
   _onTruco: ITrucoCallback
   _onTurn: ITurnCallback
+  _onBotTurn: ITurnCallback
   _onWinner: IWinnerCallback
   _onEnvido: IEnvidoCallback
   _onFlor: IFlorCallback
@@ -30,6 +31,7 @@ export interface IGameLoop {
   teams: Array<ITeam>
   winner: ITeam | null
   onTurn: (callback: ITurnCallback) => IGameLoop
+  onBotTurn: (callback: ITurnCallback) => IGameLoop
   onWinner: (callback: IWinnerCallback) => IGameLoop
   onTruco: (callback: ITrucoCallback) => IGameLoop
   onEnvido: (callback: IEnvidoCallback) => IGameLoop
@@ -46,6 +48,7 @@ export const GameLoop = (match: IMatch) => {
     _onFlorBattle: () => Promise.resolve(),
     _onTruco: () => Promise.resolve(),
     _onTurn: () => Promise.resolve(),
+    _onBotTurn: () => Promise.resolve(),
     _onWinner: () => Promise.resolve(),
     _onHandFinished: () => Promise.resolve(),
     teams: [],
@@ -66,6 +69,10 @@ export const GameLoop = (match: IMatch) => {
       gameloop._onTurn = callback
       return gameloop
     },
+    onBotTurn(callback) {
+      gameloop._onBotTurn = callback
+      return gameloop
+    },
     onWinner: (callback) => {
       gameloop._onWinner = callback
       return gameloop
@@ -78,7 +85,6 @@ export const GameLoop = (match: IMatch) => {
       gameloop._onFlor = callback
       return gameloop
     },
-
     onFlorBattle: (callback) => {
       gameloop._onFlorBattle = callback
       return gameloop
@@ -131,9 +137,17 @@ export const GameLoop = (match: IMatch) => {
               matchId: match.id,
               state: play.state,
               player: play.player.name,
+              rounds: play.getHand()?.roundsLog,
             },
             "Game new turn started"
           )
+
+          if (play.player.bot) {
+            play.player.setTurn(true)
+            await gameloop._onBotTurn(play)
+            play.player.setTurn(false)
+            continue
+          }
 
           if (play.state === EHandState.WAITING_ENVIDO_ANSWER) {
             play.player.setTurn(true)

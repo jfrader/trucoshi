@@ -51,6 +51,7 @@ export interface IPrivateLobby {
     session: string
     teamIdx?: 0 | 1
     isOwner?: boolean
+    bot?: boolean
   }): Promise<IPlayer>
   removePlayer(session: string): Promise<ILobby>
   calculateReady(): boolean
@@ -122,7 +123,7 @@ export function Lobby(matchId: string, options: Partial<ILobbyOptions> = {}): IL
     calculateFull() {
       return calculateLobbyFullness(lobby)
     },
-    async addPlayer({ accountId, key, name, session, teamIdx, isOwner, avatarUrl }) {
+    async addPlayer({ accountId, key, name, session, teamIdx, isOwner, avatarUrl, bot }) {
       return lobby.queue.queue(async () => {
         return addPlayerToLobby({
           accountId,
@@ -134,6 +135,7 @@ export function Lobby(matchId: string, options: Partial<ILobbyOptions> = {}): IL
           avatarUrl: avatarUrl || undefined,
           teamIdx,
           teamSize: lobby.options.maxPlayers / 2,
+          bot,
         })
       })
     },
@@ -182,7 +184,7 @@ const startLobbyMatch = (matchId: string, lobby: IPrivateLobby) => {
     throw new Error(GAME_ERROR.UNEXPECTED_TEAM_SIZE)
   }
 
-  lobby.table = Table(lobby.players)
+  lobby.table = Table(matchId, lobby.players)
   lobby.gameLoop = GameLoop(Match(matchId, lobby.table, lobby.teams, lobby.options))
 
   lobby.started = true
@@ -237,6 +239,7 @@ const addPlayerToLobby = async ({
   teamIdx,
   isOwner,
   teamSize,
+  bot,
 }: {
   accountId: number | undefined
   avatarUrl: string | undefined
@@ -247,6 +250,7 @@ const addPlayerToLobby = async ({
   teamIdx?: 0 | 1
   isOwner?: boolean
   teamSize: number
+  bot?: boolean
 }): Promise<IPlayer> => {
   const playerParams = { accountId, avatarUrl, name, key, teamIdx, isOwner }
   log.trace(playerParams, "Adding player to match started")
@@ -292,6 +296,7 @@ const addPlayerToLobby = async ({
     isOwner: resolvedIsOwner,
     avatarUrl,
     teamIdx: resolvedTeamIdx,
+    bot,
   })
   player.setSession(session)
   lobby.lastTeamIdx = resolvedTeamIdx

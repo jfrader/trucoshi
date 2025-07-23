@@ -77,7 +77,7 @@ export interface IHand {
 }
 
 function checkTeamsDisabled(match: IMatch, winnerTeamIdx: 0 | 1 | null) {
-  const playerWithFlor = match.table.players.find((p) => !p.disabled && p.hasFlor && !p.hasSaidFlor)
+  const playerWithFlor = match.options.flor && match.table.players.find((p) => !p.disabled && p.hasFlor && !p.hasSaidFlor)
 
   if (playerWithFlor && !match.teams.some((t) => t.isTeamAbandoned())) {
     winnerTeamIdx = null
@@ -88,17 +88,6 @@ function checkTeamsDisabled(match: IMatch, winnerTeamIdx: 0 | 1 | null) {
     winnerTeamIdx = 1
   }
   if (match.teams[1].isTeamDisabled()) {
-    winnerTeamIdx = 0
-  }
-
-  return winnerTeamIdx
-}
-
-function checkTeamsAbandoned(match: IMatch, winnerTeamIdx: 0 | 1 | null) {
-  if (match.teams[0].isTeamAbandoned()) {
-    winnerTeamIdx = 1
-  }
-  if (match.teams[1].isTeamAbandoned()) {
     winnerTeamIdx = 0
   }
 
@@ -311,7 +300,7 @@ export function Hand(match: IMatch, idx: number) {
       hand.roundsLog[roundIdx].push(log)
     },
     play() {
-      return PlayInstance(hand, match.teams)
+      return PlayInstance(hand, match.teams, match.table.forehandIdx)
     },
     endEnvido() {
       if (hand.truco.waitingAnswer) {
@@ -376,27 +365,15 @@ export function Hand(match: IMatch, idx: number) {
       return null
     },
     nextTurn() {
-      let nextIdx = (hand.turn + 1) % match.table.players.length
-      let attempts = 0
-
-      // Find the next active player
-      while (match.table.players[nextIdx].disabled && attempts < match.table.players.length) {
-        nextIdx = (nextIdx + 1) % match.table.players.length
-        attempts++
+      if (hand.turn >= match.table.players.length - 1) {
+        hand.setTurn(0)
+      } else {
+        hand.setTurn(hand.turn + 1)
       }
 
-      // If no active players are found, end the hand
-      if (attempts >= match.table.players.length) {
-        log.error({ matchId: match.id }, "No active players for next turn")
-        hand.setState(EHandState.DISPLAY_PREVIOUS_HAND)
-        return
-      }
+      log.trace({ round: hand.roundsLog }, "Calling round next turn")
 
-      hand.setTurn(nextIdx)
-      // Only increment round.turn if the player is active
-      if (!match.table.players[nextIdx].disabled) {
-        hand.currentRound?.nextTurn()
-      }
+      hand.currentRound?.nextTurn()
     },
     setBitcoinBlock(hash, height) {
       hand.bitcoinHash = hash

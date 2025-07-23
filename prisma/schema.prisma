@@ -78,6 +78,7 @@ model MatchPlayer {
   satsPaid     Int      @default(0)
   satsReceived Int      @default(0)
   payRequestId Int?
+  bot          Boolean  @default(false)
   matchId      Int
   match        Match    @relation(fields: [matchId], references: [id])
 }

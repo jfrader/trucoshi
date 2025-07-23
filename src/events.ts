@@ -5,7 +5,6 @@ import {
   IChatMessage,
   ILobbyOptions,
   IMatchDetails,
-  IMatchPreviousHand,
   IPlayerRanking,
   IPublicChatRoom,
   IPublicMatch,
@@ -76,6 +75,7 @@ export enum EClientEvent {
   LIST_RANKING = "LIST_RANKING",
   JOIN_MATCH = "JOIN_MATCH",
   START_MATCH = "START_MATCH",
+  ADD_BOT = "ADD_BOT",
   SET_PLAYER_READY = "SET_PLAYER_READY",
   FETCH_MATCH = "FETCH_MATCH",
   FETCH_CHAT_ROOM = "FETCH_CHAT_ROOM",
@@ -107,6 +107,11 @@ export interface ClientToServerEvents {
     matchSessionId: string,
     teamIdx: 0 | 1 | undefined,
     callback: IEventCallback<{ match?: IPublicMatch; activeMatches?: IPublicMatchInfo[] }>
+  ) => void
+  [EClientEvent.ADD_BOT]: (
+    matchSessionId: string,
+    teamIdx: 0 | 1 | undefined,
+    callback: IEventCallback<{ match?: IPublicMatch }>
   ) => void
   [EClientEvent.START_MATCH]: (
     matchSessionId: string,

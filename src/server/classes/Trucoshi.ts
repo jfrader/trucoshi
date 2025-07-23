@@ -110,7 +110,7 @@ export interface ITrucoshi {
     play: IPlayInstance
     table: IMatchTable
     onlyThisSocket?: string
-  }): Promise<ECommand | number>
+  }): Promise<void>
   emitWaitingForPlay(input: {
     play: IPlayInstance
     table: IMatchTable
@@ -120,7 +120,7 @@ export interface ITrucoshi {
   emitFlorBattle(hand: IHand, table: IMatchTable): Promise<void>
   emitSocketMatch(socket: TrucoshiSocket, currentMatchId: string | null): IPublicMatch | null
   playCard(input: {
-    table: IMatchTable
+    table: IMatchTable | string
     play: IPlayInstance
     player: IPlayer
     cardIdx: number
@@ -128,13 +128,13 @@ export interface ITrucoshi {
   }): Promise<void>
   sayCommand(
     input: {
-      table: IMatchTable
+      table: IMatchTable | string
       play: IPlayInstance
       player: IPlayer
       command: ECommand | number
     },
     force?: boolean
-  ): Promise<ECommand | number>
+  ): Promise<void>
   createMatchTable(matchSessionId: string, userSession: IUserSession): Promise<IMatchTable>
   setMatchOptions(input: {
     identityJwt: string | null
@@ -158,6 +158,7 @@ export interface ITrucoshi {
     identityJwt: string | null,
     teamIdx?: 0 | 1
   ): Promise<IPlayer>
+  addBot(table: IMatchTable, userSession: IUserSession, teamIdx?: 0 | 1): Promise<IPlayer>
   cleanupUserTables(userSession: IUserSession): Promise<void>
   startMatch(input: {
     identityJwt: string | null
@@ -178,6 +179,7 @@ export interface ITrucoshi {
     cancel: () => void
   }): NodeJS.Timeout
   onHandFinished(table: IMatchTable, hand: IHand | null): Promise<void>
+  onBotTurn(table: IMatchTable, play: IPlayInstance): Promise<void>
   onTurn(table: IMatchTable, play: IPlayInstance): Promise<void>
   onTruco(table: IMatchTable, play: IPlayInstance): Promise<void>
   onEnvido(table: IMatchTable, play: IPlayInstance, isPointsRounds: boolean): Promise<void>
@@ -533,7 +535,7 @@ export const Trucoshi = ({
         { match: table.getPublicMatchInfo(), handIdx: play.handIdx },
         "Emitting match possible players say"
       )
-      return new Promise<ECommand | number>((resolve, reject) => {
+      return new Promise<void>((resolve, reject) => {
         return server
           .getTableSockets(table, async (playerSocket, player) => {
             if (onlyThisSocket && playerSocket.id !== onlyThisSocket) {
@@ -568,6 +570,10 @@ export const Trucoshi = ({
               return
             }
 
+            if (player.bot) {
+              return resolve()
+            }
+
             playerSocket.emit(
               EServerEvent.WAITING_POSSIBLE_SAY,
               table.getPublicMatch(player.session, play.freshHand || false),
@@ -590,8 +596,8 @@ export const Trucoshi = ({
                 const { command } = data
                 server
                   .sayCommand({ table, play, player, command })
-                  .then((command) => {
-                    resolve(command)
+                  .then(() => {
+                    resolve()
                     server.sessions.getOrThrow(player.session).reconnect(table.matchSessionId)
                   })
                   .catch(reject)
@@ -670,7 +676,8 @@ export const Trucoshi = ({
       })
     },
     sayCommand({ table, play, player, command }, force) {
-      return new Promise<ECommand | number>((resolve, reject) => {
+      const matchTable = typeof table === "string" ? server.tables.getOrThrow(table) : table
+      return new Promise<void>((resolve, reject) => {
         if (command || command === 0) {
           log.trace({ player, command }, "Attempt to say command")
 
@@ -682,7 +689,7 @@ export const Trucoshi = ({
           if (saidCommand || saidCommand === 0) {
             log.trace({ player, command }, "Say command success")
 
-            clearTimeout(server.turns.getOrThrow(table.matchSessionId).timeout)
+            clearTimeout(server.turns.getOrThrow(matchTable.matchSessionId).timeout)
 
             const sound =
               currentState === EHandState.WAITING_ENVIDO_ANSWER && saidCommand === EFlorCommand.FLOR
@@ -692,7 +699,7 @@ export const Trucoshi = ({
                 : "chat"
 
             server.chat.rooms
-              .getOrThrow(table.matchSessionId)
+              .getOrThrow(matchTable.matchSessionId)
               .command(player.teamIdx as 0 | 1, saidCommand, sound)
 
             if (
@@ -701,14 +708,11 @@ export const Trucoshi = ({
               hand.envido.winner
             ) {
               server.chat.rooms
-                .getOrThrow(table.matchSessionId)
+                .getOrThrow(matchTable.matchSessionId)
                 .system(`El envido se lo lleva ${hand.envido.winner.name}`, true)
             }
 
-            return server
-              .resetSocketsMatchState(table)
-              .then(() => resolve(saidCommand))
-              .catch(reject)
+            return server.resetSocketsMatchState(matchTable).then(resolve).catch(reject)
           }
           return reject(new Error("Invalid Command " + command))
         }
@@ -716,21 +720,22 @@ export const Trucoshi = ({
       })
     },
     playCard({ table, play, player, cardIdx, card }) {
+      const matchTable = typeof table === "string" ? server.tables.getOrThrow(table) : table
       return new Promise<void>((resolve, reject) => {
         if (cardIdx !== undefined && card) {
           log.trace({ player, card, cardIdx }, "Attempt to play card")
           const playedCard = play.use(cardIdx, card)
           if (playedCard) {
             log.trace({ player, card, cardIdx }, "Play card success")
-            clearTimeout(server.turns.getOrThrow(table.matchSessionId).timeout)
+            clearTimeout(server.turns.getOrThrow(matchTable.matchSessionId).timeout)
 
             const sound =
               card === "1e" && (play.roundIdx === 3 || play.rounds?.[play.roundIdx - 2]?.tie)
                 ? "espada"
                 : "play"
 
-            server.chat.rooms.getOrThrow(table.matchSessionId).card(player, playedCard, sound)
-            return server.resetSocketsMatchState(table).then(resolve).catch(reject)
+            server.chat.rooms.getOrThrow(matchTable.matchSessionId).card(player, playedCard, sound)
+            return server.resetSocketsMatchState(matchTable).then(resolve).catch(reject)
           }
           return reject(new Error("Invalid Card " + card))
         }
@@ -792,6 +797,23 @@ export const Trucoshi = ({
         table.getPublicMatchInfo(),
         "Flor battle timeout has finished, all players settled for next hand"
       )
+    },
+    async onBotTurn(table, play) {
+      await server.emitMatchUpdate(table)
+      await new Promise((res) =>
+        setTimeout(res, Math.max(PLAYER_TIMEOUT_GRACE * Math.random() * 4, PLAYER_TIMEOUT_GRACE))
+      )
+
+      return new Promise((resolve, reject) => {
+        const player = play.player
+        if (!player || !player.bot || !table.lobby.table) {
+          return reject()
+        }
+        return player
+          .playBot(table.lobby.table, play, server.playCard, server.sayCommand)
+          .then(resolve)
+          .catch(reject)
+      })
     },
     setTurnTimeout({ table, player, play, user, retry, cancel }) {
       log.trace({ player, options: table.lobby.options }, "Setting turn timeout")
@@ -1172,7 +1194,38 @@ export const Trucoshi = ({
         table.setMatchId(dbMatch.id)
       }
 
+      server.tables.set(matchSessionId, table)
+
       return table
+    },
+    async addBot(table, userSession, teamIdx) {
+      if (table.lobby.options.satsPerPlayer > 0) {
+        throw new Error("Can't add bots while betting sats")
+      }
+
+      if (table.ownerSession !== userSession.session) {
+        throw new Error("User is not the match owner, can't add a bot")
+      }
+
+      const bot = await table.lobby.addPlayer({
+        key: randomUUID(),
+        name: "Satoshi Bot " + (table.lobby.players.filter((p) => p.bot).length + 1),
+        session: randomUUID(),
+        isOwner: false,
+        bot: true,
+        teamIdx,
+      })
+
+      const botSession = UserSession(bot.key, bot.name, bot.session)
+      server.sessions.set(bot.session, botSession)
+
+      await server.setMatchPlayerReady({
+        matchSessionId: table.matchSessionId,
+        ready: true,
+        userSession: botSession,
+      })
+
+      return bot
     },
     async checkUserSufficientBalance({ identityJwt, account, satsPerPlayer }) {
       const payload = validateJwt(identityJwt, account)
@@ -1309,6 +1362,9 @@ export const Trucoshi = ({
       server.chat.rooms.getOrThrow(table.matchSessionId).system("Las reglas han cambiado", "chat")
 
       table.lobby.players.forEach((player) => {
+        if (player.bot) {
+          return
+        }
         player.setPayRequest(payRequests.find((pr) => pr.receiver?.id === player.accountId)?.id)
         player.setReady(false)
       })
@@ -1333,11 +1389,17 @@ export const Trucoshi = ({
         throw new SocketError("FORBIDDEN")
       }
 
-      if (!player.session) {
+      const kickedPlayer = table.lobby.players.find((p) => p.key === key)
+
+      if (!kickedPlayer?.session) {
         throw new SocketError("NOT_FOUND")
       }
 
-      await table.lobby.removePlayer(player.session)
+      await table.lobby.removePlayer(kickedPlayer.session)
+
+      if (kickedPlayer.bot) {
+        server.sessions.delete(kickedPlayer.session)
+      }
 
       server
         .emitMatchUpdate(table)
@@ -1345,7 +1407,10 @@ export const Trucoshi = ({
 
       server.chat.rooms
         .getOrThrow(table.matchSessionId)
-        .system(`${player.name} salió de ${table.lobby.teams[player.teamIdx].name}`, "mate")
+        .system(
+          `${kickedPlayer.name} salió de ${table.lobby.teams[kickedPlayer.teamIdx].name}`,
+          "mate"
+        )
     },
     async setMatchPlayerReady({ matchSessionId, userSession, ready }) {
       const table = server.tables.getOrThrow(matchSessionId)
@@ -1398,9 +1463,10 @@ export const Trucoshi = ({
           accountId: userSession.account?.id,
           name: userSession.name,
           teamIdx: player.teamIdx,
+          bot: player.bot,
         } as Pick<
           MatchPlayer,
-          "session" | "accountId" | "name" | "teamIdx" | "payRequestId" | "satsPaid"
+          "session" | "accountId" | "name" | "teamIdx" | "payRequestId" | "satsPaid" | "bot"
         >
 
         if (pr && pr.id) {
@@ -1627,6 +1693,7 @@ export const Trucoshi = ({
           return server.onHandFinished(table, hand)
         })
         .onTurn(server.onTurn.bind(null, table))
+        .onBotTurn(server.onBotTurn.bind(null, table))
         .onEnvido(server.onEnvido.bind(null, table))
         .onTruco(server.onTruco.bind(null, table))
         .onFlor(server.onFlor.bind(null, table))
@@ -2021,7 +2088,9 @@ export const Trucoshi = ({
         where: { id: matchId, state: EMatchState.FINISHED },
         include: {
           hands: true,
-          players: { select: { accountId: true, id: true, name: true, teamIdx: true, idx: true } },
+          players: {
+            select: { accountId: true, id: true, name: true, teamIdx: true, idx: true, bot: true },
+          },
         },
       })
 
@@ -2164,6 +2233,10 @@ export const Trucoshi = ({
         for (const player of table.lobby.players) {
           const userSession = server.sessions.getOrThrow(player.session)
           userSession.resolveWaitingPromises(matchSessionId)
+          if (player.bot) {
+            server.sessions.delete(player.session)
+            continue
+          }
           if (player.isOwner) {
             userSession.ownedMatches.delete(matchSessionId)
           }

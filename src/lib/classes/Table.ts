@@ -1,6 +1,7 @@
 import { IPlayer } from "../../types"
 
 export interface ITable<TPlayer extends { key: string } = IPlayer> {
+  sessionId: string
   forehandIdx: number
   players: Array<TPlayer>
   nextHand(): TPlayer
@@ -9,8 +10,9 @@ export interface ITable<TPlayer extends { key: string } = IPlayer> {
   getPlayersForehandFirst(forehandIdx?: number): Array<TPlayer>
 }
 
-export function Table<TPlayer extends { key: string } = IPlayer>(players: Array<TPlayer>) {
+export function Table<TPlayer extends { key: string } = IPlayer>(sessionId: string, players: Array<TPlayer>) {
   const table: ITable<TPlayer> = {
+    sessionId,
     players,
     forehandIdx: 0,
     nextHand() {

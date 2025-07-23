@@ -1,7 +1,9 @@
 import { randomUUID } from "crypto"
-import { ICard, IPlayer } from "../types"
+import { ICard, IPlayer, DANGEROUS_COMMANDS } from "../types"
 import { maxBy } from "../utils/array"
-import { BURNT_CARD } from "../lib/constants"
+import { BURNT_CARD, CARDS } from "../lib/constants"
+import { getMaxNumberIndex } from "../lib/utils"
+import { playBot } from "./Bot"
 
 export function Player({
   accountId,
@@ -9,6 +11,7 @@ export function Player({
   name,
   teamIdx,
   avatarUrl,
+  bot,
   isOwner = false,
 }: {
   accountId: number | undefined
@@ -17,11 +20,13 @@ export function Player({
   name: string
   teamIdx: 0 | 1
   isOwner?: boolean
+  bot?: boolean
 }) {
   const player: IPlayer = {
     idx: -1,
     key,
     secret: randomUUID(),
+    bot: bot || false,
     accountId,
     matchPlayerId: undefined,
     payRequestId: undefined,
@@ -50,6 +55,20 @@ export function Player({
     abandoned: false,
     get commands() {
       return Array.from(player._commands.values())
+    },
+    get positiveCommands() {
+      return player.commands.filter((c) => !DANGEROUS_COMMANDS.includes(c))
+    },
+    getRandomCard() {
+      const randomIdx = Math.floor(Math.random() * player.hand.length)
+      return [randomIdx, player.hand[randomIdx]]
+    },
+    getHighestCard() {
+      const highestIdx = getMaxNumberIndex(player.hand.map((c) => CARDS[c]))
+      return [highestIdx, player.hand[highestIdx]]
+    },
+    getHighestEnvido() {
+      return player.envido.reduce((p, c) => Math.max(p, c.value), 0)
     },
     saidEnvidoPoints() {
       player.hasSaidEnvidoPoints = true
@@ -149,6 +168,9 @@ export function Player({
       }
       return null
     },
+    playBot(table, play, playCard, sayCommand) {
+      return playBot(table, player, play, playCard, sayCommand)
+    },
   }
 
   return player
@@ -156,7 +178,7 @@ export function Player({
 
 const getPublicPlayer = (
   player: IPlayer,
-  userSession?: string
+  userSession?: string | "log"
 ): ReturnType<IPlayer["getPublicPlayer"]> => {
   const {
     name,
@@ -164,6 +186,7 @@ const getPublicPlayer = (
     accountId,
     abandonedTime,
     key,
+    bot,
     avatarUrl,
     abandoned,
     disabled,
@@ -176,12 +199,15 @@ const getPublicPlayer = (
     isTurn,
     isEnvidoTurn,
     isOwner,
+    hasSaidEnvidoPoints,
+    hasSaidFlor,
+    hasSaidTruco,
     ...privateProps
   } = player
 
   const { session, commands, hasFlor, envido, hand, payRequestId, flor } = privateProps
 
-  const isMe = Boolean(userSession && session === userSession)
+  const isMe = Boolean(userSession === "log" || session === userSession)
 
   const meProps = isMe
     ? { isMe, commands, hasFlor, envido, hand, flor, payRequestId }
@@ -193,6 +219,7 @@ const getPublicPlayer = (
     accountId,
     abandonedTime,
     key,
+    bot,
     avatarUrl,
     abandoned,
     teamIdx,
@@ -205,6 +232,9 @@ const getPublicPlayer = (
     isTurn,
     isEnvidoTurn,
     isOwner,
+    hasSaidEnvidoPoints,
+    hasSaidFlor,
+    hasSaidTruco,
     ...meProps,
   }
 }
