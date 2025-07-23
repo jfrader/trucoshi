@@ -491,7 +491,13 @@ const handleEnvido = (match: IMatch, hand: IHand, currentPlayer: IPlayer) => {
   }
 
   // Add Envido commands before cards are played
-  if (hand.rounds.length <= 1 && !envido.started && !hand.flor.started && !hand.truco.answer) {
+  if (
+    hand.rounds.length <= 1 &&
+    !envido.started &&
+    !hand.flor.started &&
+    !hand.truco.answer &&
+    hand.truco.teamIdx !== currentPlayer.teamIdx
+  ) {
     if (
       (!match.options.flor ||
         hand.flor.finished ||
