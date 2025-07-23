@@ -571,7 +571,7 @@ export const Trucoshi = ({
             }
 
             if (player.bot) {
-              return resolve()
+              return
             }
 
             playerSocket.emit(
@@ -799,12 +799,16 @@ export const Trucoshi = ({
       )
     },
     async onBotTurn(table, play) {
-      await server.emitMatchUpdate(table)
-      await new Promise((res) =>
-        setTimeout(res, Math.max(PLAYER_TIMEOUT_GRACE * Math.random() * 4, PLAYER_TIMEOUT_GRACE))
-      )
+      return new Promise(async (resolve, reject) => {
+        server
+          .emitWaitingPossibleSay({ play, table })
+          .then(() => resolve())
+          .catch((e) => log.error(e, "Error onBotTurn, rejected waitingPossibleSay"))
 
-      return new Promise((resolve, reject) => {
+        await new Promise((res) =>
+          setTimeout(res, Math.max(PLAYER_TIMEOUT_GRACE * Math.random() * 4, PLAYER_TIMEOUT_GRACE))
+        )
+
         const player = play.player
         if (!player || !player.bot || !table.lobby.table) {
           return reject()
@@ -2231,7 +2235,10 @@ export const Trucoshi = ({
         })
 
         for (const player of table.lobby.players) {
-          const userSession = server.sessions.getOrThrow(player.session)
+          const userSession = server.sessions.get(player.session)
+          if (!userSession) {
+            continue
+          }
           userSession.resolveWaitingPromises(matchSessionId)
           if (player.bot) {
             server.sessions.delete(player.session)

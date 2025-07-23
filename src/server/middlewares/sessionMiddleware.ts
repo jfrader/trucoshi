@@ -60,6 +60,10 @@ export const sessionMiddleware = (server: ITrucoshi) => {
     const sessionID = socket.handshake.auth.sessionID
     const handshakeID = socket.handshake.auth.identity
 
+    if (sessionID === "log") {
+      return next(new SocketError("INVALID_IDENTITY"))
+    }
+
     if (sessionID) {
       const userSession = server.sessions.get(sessionID)
       if (userSession) {
