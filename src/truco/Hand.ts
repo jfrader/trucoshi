@@ -496,7 +496,7 @@ const handleEnvido = (match: IMatch, hand: IHand, currentPlayer: IPlayer) => {
     !envido.started &&
     !hand.flor.started &&
     !hand.truco.answer &&
-    hand.truco.teamIdx !== currentPlayer.teamIdx
+    match.teams[currentPlayer.teamIdx].players.every((p) => !p.hasSaidTruco)
   ) {
     if (
       (!match.options.flor ||
