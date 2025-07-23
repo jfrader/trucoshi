@@ -376,9 +376,52 @@ export async function playBot(
 
   // **Truco Answer**
   if (play.state === EHandState.WAITING_FOR_TRUCO_ANSWER) {
-    const nextTrucoCommand = play.truco.getNextTrucoCommand()
     const teamStrength = botHandStrength + estimateTeammateStrength() * getTeammates().length
+    const teamEnvido = estimateTeamEnvido()
+    const pointsToWin = matchPoint - Math.max(teamScore.buenas, opponentScore.buenas)
+    const noEnvidoCalled = play.envido.stake === 0
 
+    // Envido response in first round
+    if (isFirstRound && noEnvidoCalled && bot._commands.has(EEnvidoCommand.ENVIDO)) {
+      // Strong Envido or strategic fishing
+      if (
+        teamEnvido >= 23 * profile.envidoConfidence ||
+        (teamEnvido >= 15 * profile.envidoConfidence &&
+          (shouldBluff() || Math.random() < profile.bluffing * 0.3))
+      ) {
+        // Escalate to FALTA_ENVIDO if close to winning and strong Envido
+        if (pointsToWin <= matchPoint * 0.3 && teamEnvido >= 30 * profile.envidoConfidence) {
+          return sayCommand({
+            command: EEnvidoCommand.FALTA_ENVIDO,
+            play,
+            player: bot,
+            table: table.sessionId,
+          })
+        }
+        // Escalate to REAL_ENVIDO with strong hand and aggression
+        if (
+          teamEnvido >= 33 * profile.envidoConfidence &&
+          Math.random() > 0.7 * (1 - profile.aggression) * (1 - profile.bluffing)
+        ) {
+          return sayCommand({
+            command: EEnvidoCommand.REAL_ENVIDO,
+            play,
+            player: bot,
+            table: table.sessionId,
+          })
+        }
+        // Default to ENVIDO
+        return sayCommand({
+          command: EEnvidoCommand.ENVIDO,
+          play,
+          player: bot,
+          table: table.sessionId,
+        })
+      }
+    }
+
+    // Truco escalation
+    const nextTrucoCommand = play.truco.getNextTrucoCommand()
     if (nextTrucoCommand && bot._commands.has(nextTrucoCommand)) {
       const trucoThresholds = {
         [ETrucoCommand.TRUCO]: 15,
@@ -396,6 +439,7 @@ export async function playBot(
       }
     }
 
+    // Accept or reject Truco
     const threshold = isCloseToWin ? 19 : 21
     if (
       shouldBluff() ||
