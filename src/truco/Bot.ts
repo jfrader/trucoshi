@@ -23,15 +23,16 @@ interface BotPersonality {
 export const BOT_NAMES = [
   "Botillo",
   "Hal",
-  "Satobot",
-  "Elliot",
-  "Wei",
+  "Sektor",
+  "Cyrax",
+  "Smoke",
   "Nick",
   "Adam",
   "Hodlbot",
   "Lambot",
   "Franbot",
   "Jack",
+  "Bender",
 ] as const
 
 export type BotProfile = (typeof BOT_NAMES)[number]
@@ -39,15 +40,16 @@ export type BotProfile = (typeof BOT_NAMES)[number]
 const PERSONALITY_PROFILES: Record<BotProfile, BotPersonality> = {
   Botillo: { aggression: 0.7, bluffing: 0.6, caution: 0.5, envidoConfidence: 0.5 },
   Hal: { aggression: 0.7, bluffing: 0.6, caution: 0.4, envidoConfidence: 0.6 },
-  Satobot: { aggression: 0.6, bluffing: 0.4, caution: 0.5, envidoConfidence: 0.7 },
-  Elliot: { aggression: 0.8, bluffing: 0.7, caution: 0.3, envidoConfidence: 0.6 },
-  Wei: { aggression: 0.5, bluffing: 0.5, caution: 0.6, envidoConfidence: 0.5 },
+  Sektor: { aggression: 0.6, bluffing: 0.4, caution: 0.5, envidoConfidence: 0.7 },
+  Cyrax: { aggression: 0.8, bluffing: 0.7, caution: 0.3, envidoConfidence: 0.6 },
+  Smoke: { aggression: 0.5, bluffing: 0.5, caution: 0.6, envidoConfidence: 0.5 },
   Nick: { aggression: 0.5, bluffing: 0.5, caution: 0.5, envidoConfidence: 0.5 },
   Adam: { aggression: 0.4, bluffing: 0.3, caution: 0.7, envidoConfidence: 0.4 },
   Hodlbot: { aggression: 0.3, bluffing: 0.2, caution: 0.8, envidoConfidence: 0.4 },
   Lambot: { aggression: 0.8, bluffing: 0.7, caution: 0.2, envidoConfidence: 0.6 },
-  Franbot: { aggression: 0.6, bluffing: 0.6, caution: 0.5, envidoConfidence: 0.5 },
+  Franbot: { aggression: 0.4, bluffing: 0.6, caution: 0.5, envidoConfidence: 0.5 },
   Jack: { aggression: 0.7, bluffing: 0.1, caution: 0.5, envidoConfidence: 0.7 },
+  Bender: { aggression: 0.9, bluffing: 0.8, caution: 0.5, envidoConfidence: 0.5 },
 }
 
 export async function playBot(

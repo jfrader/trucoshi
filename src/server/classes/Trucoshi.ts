@@ -1262,7 +1262,10 @@ export const Trucoshi = ({
       const satsPerPlayer = options.satsPerPlayer
       const currentOptions = structuredClone(table.lobby.options)
 
-      if (satsPerPlayer !== undefined && currentOptions.satsPerPlayer !== satsPerPlayer) {
+      const hasChangedBet =
+        satsPerPlayer !== undefined && currentOptions.satsPerPlayer !== satsPerPlayer
+
+      if (hasChangedBet) {
         if (satsPerPlayer > 0) {
           if (
             process.env.APP_MAX_BET &&
@@ -1370,7 +1373,9 @@ export const Trucoshi = ({
         table.lobby.setOptions(options)
       }
 
-      server.chat.rooms.getOrThrow(table.matchSessionId).system("Las reglas han cambiado", "chat")
+      server.chat.rooms
+        .getOrThrow(table.matchSessionId)
+        .system("Las reglas han cambiado", hasChangedBet ? "bot" : "chat")
 
       table.lobby.players.forEach((player) => {
         if (player.bot) {
@@ -1420,7 +1425,7 @@ export const Trucoshi = ({
         .getOrThrow(table.matchSessionId)
         .system(
           `${kickedPlayer.name} salió de ${table.lobby.teams[kickedPlayer.teamIdx].name}`,
-          "mate"
+          kickedPlayer.bot ? "bot" : "mate"
         )
     },
     async setMatchPlayerReady({ matchSessionId, userSession, ready }) {
@@ -1512,9 +1517,15 @@ export const Trucoshi = ({
 
       player.setReady(ready)
 
-      server.chat.rooms
-        .get(table.matchSessionId)
-        ?.system(`${player.name} ${ready ? "está" : "no está"} listo`, ready ? "join" : "leave")
+      if (player.bot) {
+        server.chat.rooms
+          .get(table.matchSessionId)
+          ?.system(`${player.name} ${ready ? "está" : "no está"} listo`, ready ? "botvoice" : "bot")
+      } else {
+        server.chat.rooms
+          .get(table.matchSessionId)
+          ?.system(`${player.name} ${ready ? "está" : "no está"} listo`, ready ? "join" : "leave")
+      }
 
       server.emitMatchUpdate(table).catch(log.error)
 
