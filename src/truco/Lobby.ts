@@ -13,6 +13,7 @@ import {
   PREVIOUS_HAND_ACK_TIMEOUT,
   TEAM_SIZE_VALUES,
 } from "../lib/constants"
+import { BotProfile } from "./Bot"
 
 const log = logger.child({ class: "Lobby" })
 
@@ -51,7 +52,7 @@ export interface IPrivateLobby {
     session: string
     teamIdx?: 0 | 1
     isOwner?: boolean
-    bot?: boolean
+    bot?: BotProfile
   }): Promise<IPlayer>
   removePlayer(session: string): Promise<ILobby>
   calculateReady(): boolean
@@ -250,7 +251,7 @@ const addPlayerToLobby = async ({
   teamIdx?: 0 | 1
   isOwner?: boolean
   teamSize: number
-  bot?: boolean
+  bot?: BotProfile
 }): Promise<IPlayer> => {
   const playerParams = { accountId, avatarUrl, name, key, teamIdx, isOwner }
   log.trace(playerParams, "Adding player to match started")

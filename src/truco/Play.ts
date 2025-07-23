@@ -1,5 +1,5 @@
 import logger from "../utils/logger"
-import { ECommand, EHandState, ESayCommand, GAME_ERROR, ICard, IPlayer, ITeam } from "../types"
+import { ECommand, EHandState, GAME_ERROR, ICard, ILobbyOptions, IPlayer, ITeam } from "../types"
 import { IEnvido } from "./Envido"
 import { IHand } from "./Hand"
 import { IRound } from "./Round"
@@ -26,13 +26,14 @@ export interface IPlayInstance {
   waitingPlay: boolean
   lastCommand: ECommand | number | null
   lastCard: ICard | null
+  matchOptions: ILobbyOptions
   getHand(): IHand
   setWaiting(waiting: boolean): void
   use(idx: number, card: ICard): ICard | null
   say(command: ECommand | number, player: IPlayer, force?: boolean): typeof command | null
 }
 
-export function PlayInstance(hand: IHand, teams: [ITeam, ITeam], forehandIdx: number) {
+export function PlayInstance(hand: IHand, teams: [ITeam, ITeam], forehandIdx: number, options: ILobbyOptions) {
   function play<TFnType extends ((...args: any[]) => any) | undefined>(
     fn?: TFnType,
     ...args: PlayArgs<TFnType>
@@ -65,6 +66,7 @@ export function PlayInstance(hand: IHand, teams: [ITeam, ITeam], forehandIdx: nu
     freshHand: !hand.started,
     lastCard: null,
     lastCommand: null,
+    matchOptions: options,
     setWaiting(waiting) {
       instance.waitingPlay = waiting
     },

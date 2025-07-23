@@ -77,7 +77,9 @@ export interface IHand {
 }
 
 function checkTeamsDisabled(match: IMatch, winnerTeamIdx: 0 | 1 | null) {
-  const playerWithFlor = match.options.flor && match.table.players.find((p) => !p.disabled && p.hasFlor && !p.hasSaidFlor)
+  const playerWithFlor =
+    match.options.flor &&
+    match.table.players.find((p) => !p.disabled && p.hasFlor && !p.hasSaidFlor)
 
   if (playerWithFlor && !match.teams.some((t) => t.isTeamAbandoned())) {
     winnerTeamIdx = null
@@ -300,7 +302,7 @@ export function Hand(match: IMatch, idx: number) {
       hand.roundsLog[roundIdx].push(log)
     },
     play() {
-      return PlayInstance(hand, match.teams, match.table.forehandIdx)
+      return PlayInstance(hand, match.teams, match.table.forehandIdx, match.options)
     },
     endEnvido() {
       if (hand.truco.waitingAnswer) {

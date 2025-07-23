@@ -5,9 +5,10 @@ export { CARDS, CARDS_HUMAN_READABLE, BURNT_CARD } from "./lib/constants"
 import { RequestParams, User } from "lightning-accounts"
 import { Match, MatchPlayer, MatchHand, UserStats } from "@trucoshi/prisma"
 import { IHand, IPlayInstance } from "./truco"
-import { CARDS, ITable } from "./lib"
+import { CARDS, IRng, ITable } from "./lib"
 import { AxiosResponse } from "axios"
 import { ITrucoshi } from "./server"
+import { BotProfile } from "./truco/Bot"
 
 export enum EMatchState {
   UNREADY = "UNREADY",
@@ -335,7 +336,7 @@ export interface IPlayer {
   avatarUrl: string | undefined | null
   name: string
   key: string
-  bot: boolean
+  bot: BotProfile | null
   session: string
   payRequestId?: number
   abandonedTime: number
@@ -361,6 +362,7 @@ export interface IPlayer {
   ready: boolean
   getRandomCard(): [number, ICard]
   getHighestCard(): [number, ICard]
+  getLowestCard(): [number, ICard]
   getHighestEnvido(): number
   saidEnvidoPoints(): void
   saidFlor(): void

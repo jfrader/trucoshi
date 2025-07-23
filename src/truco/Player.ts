@@ -2,8 +2,9 @@ import { randomUUID } from "crypto"
 import { ICard, IPlayer, DANGEROUS_COMMANDS } from "../types"
 import { maxBy } from "../utils/array"
 import { BURNT_CARD, CARDS } from "../lib/constants"
-import { getMaxNumberIndex } from "../lib/utils"
-import { playBot } from "./Bot"
+import { getMaxNumberIndex, getMinNumberIndex } from "../lib/utils"
+import { BotProfile, playBot } from "./Bot"
+import { rng } from "../lib"
 
 export function Player({
   accountId,
@@ -20,13 +21,13 @@ export function Player({
   name: string
   teamIdx: 0 | 1
   isOwner?: boolean
-  bot?: boolean
+  bot?: BotProfile
 }) {
   const player: IPlayer = {
     idx: -1,
     key,
-    secret: randomUUID(),
-    bot: bot || false,
+    secret: rng.generateServerSeed(),
+    bot: bot || null,
     accountId,
     matchPlayerId: undefined,
     payRequestId: undefined,
@@ -65,6 +66,10 @@ export function Player({
     },
     getHighestCard() {
       const highestIdx = getMaxNumberIndex(player.hand.map((c) => CARDS[c]))
+      return [highestIdx, player.hand[highestIdx]]
+    },
+    getLowestCard() {
+      const highestIdx = getMinNumberIndex(player.hand.map((c) => CARDS[c]))
       return [highestIdx, player.hand[highestIdx]]
     },
     getHighestEnvido() {

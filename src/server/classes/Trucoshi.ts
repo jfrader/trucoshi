@@ -38,6 +38,7 @@ import {
   PLAYER_LOBBY_TIMEOUT,
   PLAYER_TIMEOUT_GRACE,
 } from "../../constants"
+import { BOT_NAMES } from "../../truco/Bot"
 
 const log = logger.child({ class: "Trucoshi" })
 
@@ -1211,12 +1212,18 @@ export const Trucoshi = ({
         throw new Error("User is not the match owner, can't add a bot")
       }
 
+      let name = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)]
+
+      while (table.lobby.players.find((p) => p.bot && p.name === name)) {
+        name = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)]
+      }
+
       const bot = await table.lobby.addPlayer({
         key: randomUUID(),
-        name: "Satoshi Bot " + (table.lobby.players.filter((p) => p.bot).length + 1),
+        name,
         session: randomUUID(),
         isOwner: false,
-        bot: true,
+        bot: name,
         teamIdx,
       })
 
@@ -1467,7 +1474,7 @@ export const Trucoshi = ({
           accountId: userSession.account?.id,
           name: userSession.name,
           teamIdx: player.teamIdx,
-          bot: player.bot,
+          bot: !!player.bot,
         } as Pick<
           MatchPlayer,
           "session" | "accountId" | "name" | "teamIdx" | "payRequestId" | "satsPaid" | "bot"
@@ -1720,6 +1727,10 @@ export const Trucoshi = ({
                 },
                 include: { bet: true },
               })
+
+              if (table.lobby.players.some((player) => player.bot)) {
+                return
+              }
 
               for (const player of table.lobby.players) {
                 if (!player.accountId) {

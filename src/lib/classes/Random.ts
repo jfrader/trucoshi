@@ -3,22 +3,22 @@ import { IRandom } from "../../types"
 import forge from "node-forge"
 import { AxiosResponse } from "axios"
 
-const rnd = Rng()
+export const rng = Rng()
 
 export const Random = () => {
   const random: IRandom = {
-    secret: rnd.generateServerSeed(),
+    secret: rng.generateServerSeed(),
     clients: [],
     bitcoinHash: "",
     bitcoinHeight: 0,
     nonce: 0,
     async getLatestBitcoinBlock(fn) {
-      const { hash, height } = await rnd.getBitcoinLatestBlockHash(fn)
+      const { hash, height } = await rng.getBitcoinLatestBlockHash(fn)
       random.bitcoinHash = hash
       random.bitcoinHeight = height
     },
     pick(key, max) {
-      return rnd.generateInteger(
+      return rng.generateInteger(
         random.clients[key],
         random.secret,
         random.bitcoinHash,
@@ -171,12 +171,18 @@ function Rng(): IRng {
      * @param {number} max - The maximum value of the range.
      * @returns {number} A random integer between min and max (inclusive).
      */
-    generateInteger: function (clientSeed, serverSeed, bitcoinHash, nonce, min, max) {
-      const preHash = this.combine(clientSeed, serverSeed, bitcoinHash, nonce)
-      const hash = this.sha512(preHash)
-      const range = max - min + 1
-
-      return (parseInt(hash.slice(0, 16), 16) % range) + min
+    generateInteger(clientSeed, serverSeed, bitcoinHash, nonce, min, max) {
+      const range = BigInt(max - min + 1)
+      const maxHash = BigInt("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF") // 128-bit max (32 hex chars)
+      const threshold = maxHash - (maxHash % range) // Ensure divisibility
+      let localNonce = nonce
+      let hash
+      do {
+        const preHash = this.combine(clientSeed, serverSeed, bitcoinHash, localNonce)
+        hash = BigInt(`0x${this.sha512(preHash).slice(0, 32)}`) // Use 128 bits
+        localNonce++
+      } while (hash >= threshold)
+      return Number(hash % range) + min
     },
 
     /**
