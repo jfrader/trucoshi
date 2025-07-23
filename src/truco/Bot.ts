@@ -149,7 +149,6 @@ export async function playBot(
     )
   }
 
-  // **New Helper: Check if bot is the last team player in turn order**
   const isLastTeamPlayer = () => {
     const teamPlayers = table.players.filter((p) => p.teamIdx === bot.teamIdx)
     const positions = teamPlayers.map((p) => table.getPlayerPosition(p.key, true))
@@ -162,9 +161,7 @@ export async function playBot(
     const opponentStrength = estimateOpponentStrength()
     const teammateStrength = estimateTeammateStrength()
     const [highestIdx, highestCard] = bot.getHighestCard()
-    // Define lowest card inline since getLowestCard() is not provided
-    const [lowestIdx] = bot.getLowestCard()
-    const lowestCard = bot.hand[lowestIdx]
+    const [lowestIdx, lowestCard] = bot.getLowestCard()
 
     const teammates = getTeammates()
     const teamCards = [
@@ -187,6 +184,11 @@ export async function playBot(
     const opponentBest = opponentCards.length ? Math.max(...opponentCards.map((c) => CARDS[c])) : 0
     const teammateBest = teammateCards.length ? Math.max(...teammateCards.map((c) => CARDS[c])) : 0
 
+    const teammatesNotPlayed = teammates.filter(
+      (p) => !currentRound?.cards?.some((c) => c.player.idx === p.idx)
+    )
+
+    // Teammate has already won or high caution near win
     if (
       (teammateBest > opponentBest && teammateBest > 0) ||
       (isCloseToWin && profile.caution > 0.7)
@@ -194,25 +196,18 @@ export async function playBot(
       return [lowestIdx, lowestCard]
     }
 
-    const teammatesNotPlayed = teammates.filter(
-      (p) => !currentRound?.cards?.some((c) => c.player.idx === p.idx)
-    )
-    const teammateBestInHand = teammatesNotPlayed.reduce(
-      (max, p) => Math.max(max, ...p.hand.map((c) => CARDS[c])),
-      0
-    )
-    if (
-      opponentBest > 0 &&
-      CARDS[teamHighestCard] < opponentBest &&
-      (teammateBestInHand < opponentBest || teammatesNotPlayed.length === 0)
-    ) {
+    // Bot can't beat opponent's best card
+    if (opponentBest > 0 && CARDS[highestCard] < opponentBest) {
       return [lowestIdx, lowestCard]
     }
 
+    // First-round logic
     if (isFirstRound) {
-      const mediumIdx = bot.hand.findIndex((card) => CARDS[card] >= 5 && CARDS[card] <= 9)
-      if (mediumIdx !== -1 && (opponentStrength < 8 || teammateStrength > 10)) {
-        return [mediumIdx, bot.hand[mediumIdx]]
+      if (isRoundWinnable()) {
+        const mediumIdx = bot.hand.findIndex((card) => CARDS[card] >= 5 && CARDS[card] <= 9)
+        if (mediumIdx !== -1 && (opponentStrength < 8 || teammateStrength > 10)) {
+          return [mediumIdx, bot.hand[mediumIdx]]
+        }
       }
       if (profile.caution > 0.6 && CARDS[highestCard] > 10 && isCloseToWin) {
         return [lowestIdx, lowestCard]
@@ -220,6 +215,7 @@ export async function playBot(
       return selectWeightedCard()
     }
 
+    // Last round or tie logic
     if ((isLastRound || previousRoundTie) && isRoundWinnable()) {
       if (
         CARDS[highestCard] > opponentStrength * profile.aggression &&
@@ -230,9 +226,12 @@ export async function playBot(
       }
     }
 
+    // High caution, unwinnable or near win
     if (profile.caution > 0.7 && CARDS[highestCard] > 10 && (!isRoundWinnable() || isCloseToWin)) {
       return [lowestIdx, lowestCard]
     }
+
+    // Default case
     return teammateStrength > 10 ? selectWeightedCard() : [highestIdx, highestCard]
   }
 
@@ -289,34 +288,44 @@ export async function playBot(
 
   // **Play Phase**
   if (play.state === EHandState.WAITING_PLAY) {
+    // General Truco escalation check
+    const nextTrucoCommand = play.truco.getNextTrucoCommand()
+    if (nextTrucoCommand && bot._commands.has(nextTrucoCommand)) {
+      const trucoThresholds = {
+        [ETrucoCommand.TRUCO]: isFirstRound ? 25 : 15,
+        [ETrucoCommand.RE_TRUCO]: 20,
+        [ETrucoCommand.VALE_CUATRO]: 25,
+      }
+      let requiredStrength = trucoThresholds[nextTrucoCommand] * (1 - profile.caution)
+      if (isLastRound || previousRoundTie) {
+        requiredStrength *= 0.8
+      }
+      const teamStrength = botHandStrength + estimateTeammateStrength() * getTeammates().length
+      const bluffChance = isFirstRound ? profile.bluffing * 0.3 : profile.bluffing
+      const shouldEscalate =
+        (isLastTeamPlayer() || profile.aggression > 0.8) &&
+        ((teamStrength > requiredStrength && profile.aggression > 0.5 && botHandStrength >= 10) ||
+          Math.random() < bluffChance * (isCloseToWin ? 0.5 : 0.2) * (1 - teamStrength / 30 + 0.5))
+      if (shouldEscalate) {
+        return sayCommand({
+          command: nextTrucoCommand,
+          play,
+          player: bot,
+          table: table.sessionId,
+        })
+      }
+    }
+
+    // Envido logic (only in the first round)
     if (isFirstRound) {
       const teamEnvido = estimateTeamEnvido()
-      if (
-        isLastTeamPlayer() && // Only say ENVIDO if last player of the team
-        bot._commands.has(EEnvidoCommand.ENVIDO) &&
-        teamEnvido >= 20 * profile.envidoConfidence
-      ) {
-        const pointsToWin = matchPoint - Math.max(teamScore.buenas, opponentScore.buenas)
-        if (pointsToWin <= matchPoint * 0.3 && teamEnvido >= 30 * profile.envidoConfidence) {
-          return sayCommand({
-            command: EEnvidoCommand.FALTA_ENVIDO,
-            play,
-            player: bot,
-            table: table.sessionId,
-          })
-        }
-        if (
-          teamEnvido >= 30 * profile.envidoConfidence && // Higher threshold for REAL_ENVIDO
-          Math.random() > 0.5 * (1 - profile.aggression) // Stricter random condition
-        ) {
-          return sayCommand({
-            command: EEnvidoCommand.REAL_ENVIDO,
-            play,
-            player: bot,
-            table: table.sessionId,
-          })
-        }
-        if (teamEnvido >= 23 * profile.envidoConfidence) {
+      const pointsToWin = matchPoint - Math.max(teamScore.buenas, opponentScore.buenas)
+      const isLastTablePlayer = table.getPlayerPosition(bot.key, true) === table.players.length - 1
+      const noEnvidoCalled = play.envido.stake === 0
+
+      if (bot._commands.has(EEnvidoCommand.ENVIDO)) {
+        // Fishing logic for last table player
+        if (isLastTablePlayer && noEnvidoCalled && teamEnvido >= 15 * profile.envidoConfidence) {
           return sayCommand({
             command: EEnvidoCommand.ENVIDO,
             play,
@@ -324,54 +333,69 @@ export async function playBot(
             table: table.sessionId,
           })
         }
+        // Regular Envido logic for last team player
+        if (isLastTeamPlayer()) {
+          if (pointsToWin <= matchPoint * 0.3 && teamEnvido >= 30 * profile.envidoConfidence) {
+            return sayCommand({
+              command: EEnvidoCommand.FALTA_ENVIDO,
+              play,
+              player: bot,
+              table: table.sessionId,
+            })
+          }
+          if (
+            teamEnvido >= 18 * profile.envidoConfidence &&
+            (Math.random() > 0.5 * (1 - profile.aggression) || shouldBluff())
+          ) {
+            return sayCommand({
+              command: EEnvidoCommand.ENVIDO,
+              play,
+              player: bot,
+              table: table.sessionId,
+            })
+          }
+          if (
+            teamEnvido >= 33 * profile.envidoConfidence &&
+            Math.random() > 0.7 * (1 - profile.aggression) * (1 - profile.bluffing)
+          ) {
+            return sayCommand({
+              command: EEnvidoCommand.REAL_ENVIDO,
+              play,
+              player: bot,
+              table: table.sessionId,
+            })
+          }
+        }
       }
-
-      const teamStrength = botHandStrength + estimateTeammateStrength() * getTeammates().length
-      if (
-        bot._commands.has(ETrucoCommand.TRUCO) &&
-        (teamStrength > 25 * (getTeammates().length + 1) * profile.aggression || shouldBluff())
-      ) {
-        return sayCommand({
-          command: ETrucoCommand.TRUCO,
-          play,
-          player: bot,
-          table: table.sessionId,
-        })
-      }
-
-      const [cardIdx, card] = selectCard()
-      return playCard({ card, cardIdx, play, player: bot, table: table.sessionId })
     }
 
-    if (isLastRound || previousRoundTie) {
-      const [, highestCard] = bot.getHighestCard()
-      const teamStrength = estimateTeammateStrength()
-      if (
-        CARDS[highestCard] > 10 &&
-        play.truco.state < 4 &&
-        bot._commands.has(ETrucoCommand.TRUCO) &&
-        teamStrength < 8 &&
-        Math.random() < profile.aggression &&
-        !isCloseToWin
-      ) {
-        return sayCommand({
-          command: ETrucoCommand.TRUCO,
-          play,
-          player: bot,
-          table: table.sessionId,
-        })
-      }
-      const [cardIdx, card] = selectCard()
-      return playCard({ card, cardIdx, play, player: bot, table: table.sessionId })
-    }
-
+    // Play a card if no command is called
     const [cardIdx, card] = selectCard()
     return playCard({ card, cardIdx, play, player: bot, table: table.sessionId })
   }
 
   // **Truco Answer**
   if (play.state === EHandState.WAITING_FOR_TRUCO_ANSWER) {
+    const nextTrucoCommand = play.truco.getNextTrucoCommand()
     const teamStrength = botHandStrength + estimateTeammateStrength() * getTeammates().length
+
+    if (nextTrucoCommand && bot._commands.has(nextTrucoCommand)) {
+      const trucoThresholds = {
+        [ETrucoCommand.TRUCO]: 15,
+        [ETrucoCommand.RE_TRUCO]: 20,
+        [ETrucoCommand.VALE_CUATRO]: 25,
+      }
+      const requiredStrength = trucoThresholds[nextTrucoCommand] * (1 - profile.caution)
+      if ((teamStrength > requiredStrength && profile.aggression > 0.5) || shouldBluff()) {
+        return sayCommand({
+          command: nextTrucoCommand,
+          play,
+          player: bot,
+          table: table.sessionId,
+        })
+      }
+    }
+
     const threshold = isCloseToWin ? 19 : 21
     if (
       shouldBluff() ||
@@ -426,8 +450,8 @@ export async function playBot(
       }
       if (Object.values(EEnvidoCommand).includes(command as EEnvidoCommand)) {
         const stake = envidoStakes[command as EEnvidoCommand] || play.envido.stake
-        const envidoThreshold = 20 + stake * 3 * (1 - profile.envidoConfidence)
-        const bluffFactor = shouldBluff() ? 0.3 * profile.bluffing : 0
+        const envidoThreshold = 25 + stake * 3 * (1 - profile.envidoConfidence)
+        const bluffFactor = shouldBluff() ? 0.2 * profile.bluffing : 0
         const closeToWinFactor =
           isCloseToWin && stake >= matchPoint * 0.3 ? 0.2 * profile.aggression : 0
         return {
@@ -435,7 +459,7 @@ export async function playBot(
           score:
             teamEnvido >= envidoThreshold
               ? 0.7 * profile.aggression + bluffFactor + closeToWinFactor
-              : 0.3 * profile.aggression + bluffFactor,
+              : 0.2 * profile.aggression + bluffFactor,
         }
       }
       return { command, score: 0 }
