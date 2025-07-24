@@ -114,7 +114,7 @@ export const sessionMiddleware = (server: ITrucoshi) => {
   }
 }
 
-const NON_VALIDATED_EVENTS: string[] = [EClientEvent.LOGIN, EClientEvent.LOGOUT, EClientEvent.PING]
+const NON_VALIDATED_EVENTS: string[] = [EClientEvent.LOGOUT, EClientEvent.PING]
 
 const validateSession: (
   socket: TrucoshiSocket,

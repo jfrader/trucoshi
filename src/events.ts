@@ -13,7 +13,6 @@ import {
   IWaitingPlayData,
   IWaitingSayData,
 } from "./types"
-import { User } from "lightning-accounts"
 
 export type IEventCallback<T = {}> = (
   args: {
@@ -66,8 +65,6 @@ export interface ServerToClientEvents {
 }
 
 export enum EClientEvent {
-  VALIDATE_SESSION = "VALIDATE_SESSION",
-  LOGIN = "LOGIN",
   LOGOUT = "LOGOUT",
   LEAVE_MATCH = "LEAVE_MATCH",
   CREATE_MATCH = "CREATE_MATCH",
@@ -147,14 +144,5 @@ export interface ClientToServerEvents {
     callback: IEventCallback<{
       ranking: Array<IPlayerRanking>
     }>
-  ) => void
-  [EClientEvent.LOGIN]: (
-    user: User,
-    identityToken: string,
-    callback: IEventCallback<{ activeMatches?: IPublicMatchInfo[] }>
-  ) => void
-
-  [EClientEvent.VALIDATE_SESSION]: (
-    callback: IEventCallback<{ account?: User; session?: string }>
   ) => void
 }

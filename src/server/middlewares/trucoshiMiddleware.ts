@@ -223,22 +223,6 @@ export const trucoshiMiddleware =
     })
 
     /**
-     * Login
-     */
-    socket.on(EClientEvent.LOGIN, async (account, identityJwt, callback) => {
-      try {
-        await server.login({ socket, account, identityJwt })
-        callback({
-          success: true,
-          activeMatches: server.getSessionActiveMatches(socket.data.user?.session),
-        })
-      } catch (e) {
-        log.error(e, "Client event LOGIN error")
-        callback({ success: false, error: isSocketError(e) })
-      }
-    })
-
-    /**
      * Logout
      */
     socket.on(EClientEvent.LOGOUT, (callback) => {
