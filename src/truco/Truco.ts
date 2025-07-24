@@ -45,15 +45,6 @@ function* trucoTurnGeneratorSequence(truco: ITruco): Generator<ITruco, void, ITr
       truco.setTurn(truco.turn + 1)
     }
 
-    // const playerWithFlorIndex = truco.players.findIndex(
-    //   (p) => p.hasFlor && !p.hasSaidFlor && !p.disabled
-    // )
-
-    // if ((!player.hasFlor || player.hasSaidFlor) && playerWithFlorIndex > -1) {
-    //   truco.setTurn(playerWithFlorIndex)
-    //   player = truco.players[playerWithFlorIndex]
-    // }
-
     truco.setCurrentPlayer(player)
     if (player.disabled) {
       truco.setCurrentPlayer(null)

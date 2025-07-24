@@ -39,6 +39,7 @@ import {
   PLAYER_TIMEOUT_GRACE,
 } from "../../constants"
 import { BOT_NAMES } from "../../truco/Bot"
+import { getCommandSound } from "../sounds"
 
 const log = logger.child({ class: "Trucoshi" })
 
@@ -709,16 +710,13 @@ export const Trucoshi = ({
 
             clearTimeout(server.turns.getOrThrow(matchTable.matchSessionId).timeout)
 
-            const sound =
-              currentState === EHandState.WAITING_ENVIDO_ANSWER && saidCommand === EFlorCommand.FLOR
-                ? Math.random() < 0.34
-                  ? "toasty"
-                  : "kiss"
-                : "chat"
-
             server.chat.rooms
               .getOrThrow(matchTable.matchSessionId)
-              .command(player.teamIdx as 0 | 1, saidCommand, sound)
+              .command(
+                player.teamIdx as 0 | 1,
+                saidCommand,
+                getCommandSound({ command: saidCommand, state: currentState, player })
+              )
 
             if (
               currentState === EHandState.WAITING_ENVIDO_POINTS_ANSWER &&

@@ -494,19 +494,11 @@ const handleEnvido = (match: IMatch, hand: IHand, currentPlayer: IPlayer) => {
   if (
     hand.rounds.length <= 1 &&
     !envido.started &&
-    !hand.flor.started &&
+    (!match.options.flor || !hand.flor.started) &&
     !hand.truco.answer &&
     match.teams[currentPlayer.teamIdx].players.every((p) => !p.hasSaidTruco)
   ) {
-    if (
-      (!match.options.flor ||
-        hand.flor.finished ||
-        match.teams[currentPlayer.teamIdx].activePlayers.every(
-          (p) => !p.hasFlor || p.hasSaidFlor
-        )) &&
-      !currentPlayer.disabled &&
-      !currentPlayer.hasSaidTruco
-    ) {
+    if (!currentPlayer.disabled && !currentPlayer.hasSaidTruco) {
       const teamatesCanEnvido = match.teams[currentPlayer.teamIdx].activePlayers.filter(
         (p) => p.idx !== currentPlayer.idx && p.usedHand.length === 0
       )
