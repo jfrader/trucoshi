@@ -2128,7 +2128,11 @@ export const Trucoshi = ({
       const match = await server.store.match.findFirstOrThrow({
         where: { id: matchId, state: EMatchState.FINISHED },
         include: {
-          hands: true,
+          hands: {
+            orderBy: {
+              idx: "asc",
+            },
+          },
           players: {
             select: { accountId: true, id: true, name: true, teamIdx: true, idx: true, bot: true },
           },
