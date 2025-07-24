@@ -10,7 +10,11 @@ import { PLAYER_ABANDON_TIMEOUT } from "../../lib"
 
 export const sessionMiddleware = (server: ITrucoshi) => {
   server.io.on("connection", (socket) => {
-    logger.trace("New socket connection %s", socket.id)
+    logger.info(
+      `New connection on socket ${socket.id} with name ${socket.data.user?.name} ${
+        socket.data.user?.account?.id ? "(accountId: " + socket.data.user.account.id + ")" : ""
+      }`
+    )
     if (socket.data.user) {
       socket.join(socket.data.user.session)
       server.emitSocketSession(socket)
@@ -59,9 +63,22 @@ export const sessionMiddleware = (server: ITrucoshi) => {
     const name = socket.handshake.auth.name
     const sessionID = socket.handshake.auth.sessionID
     const handshakeID = socket.handshake.auth.identity
+    const user = socket.handshake.auth.user
 
     if (sessionID === "log") {
       return next(new SocketError("INVALID_IDENTITY"))
+    }
+
+    if (user && handshakeID) {
+      return server
+        .login({ account: user, identityJwt: handshakeID, socket })
+        .then(() => {
+          logger.debug("Socket %s connected to user session %s", socket.id, sessionID)
+          next()
+        })
+        .catch((e) => {
+          next(isSocketError(e))
+        })
     }
 
     if (sessionID) {
@@ -91,7 +108,7 @@ export const sessionMiddleware = (server: ITrucoshi) => {
     socket.data.user = userSession.getUserData()
     userSession.connect()
 
-    logger.debug("Socket %s connected to NEW guest session %s", socket.id, sessionID)
+    logger.debug("Socket %s connected to new guest session %s", socket.id, sessionID)
 
     next()
   }

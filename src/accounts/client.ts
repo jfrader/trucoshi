@@ -16,7 +16,7 @@ const api = new Api({
 
 const publicKey = getPublicKey()
 
-const validateJwt = (identityJwt: string, account: User): JwtPayload => {
+const validateJwt = (identityJwt: string, account: Pick<User, "id">): JwtPayload => {
   try {
     const payload = jwt.verify(identityJwt, publicKey) as JwtPayload
 

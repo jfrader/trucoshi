@@ -102,7 +102,7 @@ export interface ITrucoshi {
     table: IMatchTable,
     callback?: (playerSocket: TrucoshiSocket, player: IPlayer | null) => Promise<void>
   ): Promise<{ sockets: any[]; players: IPublicPlayer[]; spectators: any[] }>
-  getSessionActiveMatches(session?: string): IPublicMatchInfo[]
+  getSessionActiveMatches(session?: string, socket?: TrucoshiSocket): IPublicMatchInfo[]
   login(input: { socket: TrucoshiSocket; account: User; identityJwt: string }): Promise<void>
   logout(socket: TrucoshiSocket): void
   emitSocketSession(socket: TrucoshiSocket): Promise<void>
@@ -220,7 +220,8 @@ export const Trucoshi = ({
   const io = new Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>(
     httpServer,
     {
-      pingTimeout: 60000,
+      pingInterval: 10000, // Send ping every 10s
+      pingTimeout: 5000, // Disconnect if no pong in 5s
       cors: {
         credentials: true,
         origin,
@@ -387,7 +388,7 @@ export const Trucoshi = ({
       callback(io)
       return io
     },
-    getSessionActiveMatches(session) {
+    getSessionActiveMatches(session, socket) {
       if (!session) {
         return []
       }
@@ -398,28 +399,38 @@ export const Trucoshi = ({
           }
           return Boolean(table.isSessionPlaying(session))
         })
-        .map((match) => match.getPublicMatchInfo())
+        .map((match) => {
+          const info = match.getPublicMatchInfo()
+          if (socket) {
+            if (!socket.data.matches) {
+              socket.data.matches = new TMap()
+            }
+            socket.data.matches.set(match.matchSessionId, {
+              isWaitingForPlay: false,
+              isWaitingForSay: false,
+            })
+          }
+          return info
+        })
     },
     createUserSession(socket, id, token) {
       const session = token || randomUUID()
       const key = randomUUID()
       const userSession = UserSession(key, id || "Satoshi", session)
-      socket.data.user = userSession
+      socket.data.user = userSession.getUserData()
       socket.data.matches = new TMap()
       server.sessions.set(session, userSession)
 
       return userSession
     },
     async login({ socket, account, identityJwt }) {
-      if (!socket.data.user) {
-        throw new Error("Socket doesn't have user data")
-      }
-
       const payload = validateJwt(identityJwt, account)
 
       const res = await accountsApi.users.usersDetail(String(payload.sub))
 
-      socket.leave(socket.data.user.session)
+      if (socket.data.user) {
+        server.logout(socket)
+      }
 
       const userSession =
         server.sessions.find((s) => s.account?.id === payload.sub) ||
@@ -430,11 +441,15 @@ export const Trucoshi = ({
       userSession.reconnect(userSession.session)
       socket.data.user = userSession.getUserData()
       socket.data.identity = identityJwt
-      socket.join(userSession.session)
 
-      server.emitSocketSession(socket)
+      if (!socket.data.matches) {
+        socket.data.matches = new TMap()
+      }
 
-      log.debug({ ...userSession.getPublicInfo() }, "Socket has logged into account")
+      log.debug(
+        { ...userSession.getPublicInfo(), socket: socket.id },
+        "Socket has logged into account"
+      )
     },
     logout(socket) {
       if (!socket.data.user) {
@@ -449,6 +464,8 @@ export const Trucoshi = ({
       }
 
       socket.data = {}
+
+      socket.disconnect(true)
 
       log.debug(socket.data.user, "Socket has logged out off account")
     },
@@ -1204,7 +1221,7 @@ export const Trucoshi = ({
       return table
     },
     async addBot(table, userSession, teamIdx) {
-      if (table.lobby.options.satsPerPlayer > 0) {
+      if (table.busy || table.lobby.options.satsPerPlayer > 0) {
         throw new Error("Can't add bots while betting sats")
       }
 

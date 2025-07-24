@@ -70,7 +70,7 @@ export function UserSession(key: string, username: string, session: string) {
         userSession.resolveWaitingPromises(room, type)
         log.trace(
           userSession.getPublicInfo(),
-          `User disconnected or left, waiting for ${timeout}ms to reconnect`
+          `Session disconnected or left, waiting for ${timeout}ms to reconnect`
         )
         userSession.timeouts[type].set(room, {
           resolve,

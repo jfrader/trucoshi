@@ -34,10 +34,12 @@ export enum EServerEvent {
   UPDATE_ACTIVE_MATCHES = "UPDATE_ACTIVE_MATCHES",
   WAITING_POSSIBLE_SAY = "WAITING_POSSIBLE_SAY",
   UPDATE_CHAT = "UPDAET_CHAT",
+  ERROR = "ERROR",
 }
 
 export interface ServerToClientEvents {
   [EServerEvent.PONG]: (serverTime: number, clientTime: number) => void
+  [EServerEvent.ERROR]: (error: { code: string; message: string; action: string }) => void
   [EServerEvent.UPDATE_CHAT]: (room: IPublicChatRoom) => void
   [EServerEvent.NEW_MESSAGE]: (roomId: string, message?: IChatMessage) => void
   [EServerEvent.UPDATE_ACTIVE_MATCHES]: (activeMatches: IPublicMatchInfo[]) => void
@@ -64,6 +66,7 @@ export interface ServerToClientEvents {
 }
 
 export enum EClientEvent {
+  VALIDATE_SESSION = "VALIDATE_SESSION",
   LOGIN = "LOGIN",
   LOGOUT = "LOGOUT",
   LEAVE_MATCH = "LEAVE_MATCH",
@@ -149,5 +152,9 @@ export interface ClientToServerEvents {
     user: User,
     identityToken: string,
     callback: IEventCallback<{ activeMatches?: IPublicMatchInfo[] }>
+  ) => void
+
+  [EClientEvent.VALIDATE_SESSION]: (
+    callback: IEventCallback<{ account?: User; session?: string }>
   ) => void
 }

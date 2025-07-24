@@ -30,15 +30,18 @@ export const BOT_NAMES = [
   "Adam",
   "Hodlbot",
   "Lambot",
-  "Franbot",
+  "Morpheus",
   "Jack",
   "Bender",
+  "Smith",
+  "Neo",
+  "Trinity",
 ] as const
 
 export type BotProfile = (typeof BOT_NAMES)[number]
 
 const PERSONALITY_PROFILES: Record<BotProfile, BotPersonality> = {
-  Botillo: { aggression: 0.7, bluffing: 0.6, caution: 0.5, envidoConfidence: 0.5 },
+  Botillo: { aggression: 0.7, bluffing: 0.3, caution: 0.3, envidoConfidence: 0.7 },
   Hal: { aggression: 0.7, bluffing: 0.6, caution: 0.4, envidoConfidence: 0.6 },
   Sektor: { aggression: 0.6, bluffing: 0.4, caution: 0.5, envidoConfidence: 0.7 },
   Cyrax: { aggression: 0.8, bluffing: 0.7, caution: 0.3, envidoConfidence: 0.6 },
@@ -47,9 +50,12 @@ const PERSONALITY_PROFILES: Record<BotProfile, BotPersonality> = {
   Adam: { aggression: 0.4, bluffing: 0.3, caution: 0.7, envidoConfidence: 0.4 },
   Hodlbot: { aggression: 0.3, bluffing: 0.2, caution: 0.8, envidoConfidence: 0.4 },
   Lambot: { aggression: 0.8, bluffing: 0.7, caution: 0.2, envidoConfidence: 0.6 },
-  Franbot: { aggression: 0.4, bluffing: 0.6, caution: 0.5, envidoConfidence: 0.5 },
+  Morpheus: { aggression: 0.4, bluffing: 0.6, caution: 0.5, envidoConfidence: 0.5 },
   Jack: { aggression: 0.7, bluffing: 0.1, caution: 0.5, envidoConfidence: 0.7 },
   Bender: { aggression: 0.9, bluffing: 0.8, caution: 0.5, envidoConfidence: 0.5 },
+  Smith: { aggression: 0.7, bluffing: 0.7, caution: 0.7, envidoConfidence: 0.7 },
+  Neo: { aggression: 0.7, bluffing: 0.6, caution: 0.5, envidoConfidence: 0.5 },
+  Trinity: { aggression: 0.4, bluffing: 0.4, caution: 0.4, envidoConfidence: 0.4 },
 }
 
 export async function playBot(
