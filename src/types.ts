@@ -55,7 +55,7 @@ export interface ISaidCommand {
 
 export interface IMatchFlorBattle {
   matchSessionId: string
-  playersWithFlor: { idx: number; cards?: ICard[]; points: number }[]
+  playersWithFlor: { team: 0 | 1; idx: number; cards?: ICard[]; points: number }[]
   winnerTeamIdx: 0 | 1 | null
   winner: IPublicPlayer | null
 }
@@ -380,6 +380,7 @@ export interface IPlayer {
   setSession(session: string): void
   setIsOwner(isOwner: boolean): void
   addDisconnectedTime(time: number): void
+  rename(name: string): void
   enable(): void
   disable(): void
   abandon(): void

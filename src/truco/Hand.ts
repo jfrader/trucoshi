@@ -55,6 +55,7 @@ export interface IHand {
   setFlorWinner(teamIdx: 0 | 1): void
   say(command: ECommand, player: IPlayer): ECommand | null
   sayEnvidoPoints(player: IPlayer, points: number, log?: boolean): number
+  sayFlorPoints(player: IPlayer, points: number, log?: boolean): number
   use(idx: number, card: ICard, burn?: boolean): ICard | null
   finished: () => boolean
   displayingFlorBattle: () => boolean
@@ -150,6 +151,10 @@ function* handTurnGeneratorSequence(match: IMatch, hand: IHand) {
           hand.setCurrentPlayer(null)
         } else {
           hand.endEnvido()
+          match.table.players
+            .filter((player) => player.hasSaidFlor)
+            .sort((a, b) => (a.flor?.value || 0) - (b.flor?.value || 0))
+            .forEach((player) => player.flor && hand.sayFlorPoints(player, player.flor.value))
           continue
         }
         yield hand
@@ -341,6 +346,12 @@ export function Hand(match: IMatch, idx: number) {
       }
       return points
     },
+    sayFlorPoints(player, points, log = true) {
+      if (log) {
+        hand.addLog(hand.rounds.length - 1, { player: player.idx, command: points })
+      }
+      return points
+    },
     use(idx, card, burn) {
       const player = hand.currentPlayer
 
@@ -496,22 +507,22 @@ const handleEnvido = (match: IMatch, hand: IHand, currentPlayer: IPlayer) => {
     !envido.started &&
     (!match.options.flor || !hand.flor.started) &&
     !hand.truco.answer &&
-    match.teams[currentPlayer.teamIdx].players.every((p) => !p.hasSaidTruco)
+    match.teams[currentPlayer.teamIdx].players.every(
+      (p) => !p.hasSaidTruco && (!match.options.flor || !p.hasFlor)
+    )
   ) {
-    if (!currentPlayer.disabled && !currentPlayer.hasSaidTruco) {
-      const teamatesCanEnvido = match.teams[currentPlayer.teamIdx].activePlayers.filter(
-        (p) => p.idx !== currentPlayer.idx && p.usedHand.length === 0
-      )
+    const teamatesCanEnvido = match.teams[currentPlayer.teamIdx].activePlayers.filter(
+      (p) => p.idx !== currentPlayer.idx && p.usedHand.length === 0
+    )
 
-      if (teamatesCanEnvido.length) {
-        for (const cmd in EEnvidoCommand) {
-          currentPlayer._commands.add(cmd as ECommand)
-          teamatesCanEnvido.forEach((p) => p._commands.add(cmd as ECommand))
-        }
-      } else if (currentPlayer.usedHand.length === 0) {
-        for (const cmd in EEnvidoCommand) {
-          currentPlayer._commands.add(cmd as ECommand)
-        }
+    if (teamatesCanEnvido.length) {
+      for (const cmd in EEnvidoCommand) {
+        currentPlayer._commands.add(cmd as ECommand)
+        teamatesCanEnvido.forEach((p) => p._commands.add(cmd as ECommand))
+      }
+    } else if (currentPlayer.usedHand.length === 0) {
+      for (const cmd in EEnvidoCommand) {
+        currentPlayer._commands.add(cmd as ECommand)
       }
     }
   }

@@ -132,6 +132,10 @@ export function Player({
     setSession(session: string) {
       player.session = session
     },
+    rename(name) {
+      if (!name) return
+      player.name = name
+    },
     enable() {
       player.disabled = false
     },

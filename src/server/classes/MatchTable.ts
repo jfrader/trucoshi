@@ -114,6 +114,7 @@ export function MatchTable(
           playersThatSaidFlor.length > 1
             ? playersThatSaidFlor.map((p) => ({
                 idx: p.idx,
+                team: p.teamIdx,
                 cards: hand.flor.state === 5 ? p.flor?.cards : undefined,
                 points: p.flor?.value || 0,
               }))

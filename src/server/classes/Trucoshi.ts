@@ -493,6 +493,7 @@ export const Trucoshi = ({
             if (table.state() === EMatchState.STARTED) {
               server.emitSocketMatch(socket, matchSessionId)
             } else {
+              player.rename(socket.data.user.name)
               socket.emit(
                 EServerEvent.UPDATE_MATCH,
                 table.getPublicMatch(player ? (userSession.session as string) : undefined)
@@ -774,7 +775,17 @@ export const Trucoshi = ({
 
       clearTimeout(server.turns.getOrThrow(table.matchSessionId).timeout)
 
-      await server.emitMatchUpdate(table)
+      const match = await server.emitMatchUpdate(table)
+
+      const chat = server.chat.rooms.getOrThrow(table.matchSessionId)
+
+      if (hand.flor.accepted) {
+        match.florBattle?.playersWithFlor
+          .sort((a, b) => a.points - b.points)
+          .forEach((player) => {
+            chat.command(player.team, player.points)
+          })
+      }
 
       const promises: Array<PromiseLike<void>> = []
       await server.getTableSockets(table, async (_playerSocket, player) => {
@@ -787,10 +798,6 @@ export const Trucoshi = ({
             const florPlayer = hand.flor.candidates.find((c) => c.idx === player.idx)
 
             if (florPlayer?.flor && hand.flor.accepted) {
-              server.chat.rooms
-                .getOrThrow(table.matchSessionId)
-                .command(florPlayer.teamIdx as 0 | 1, florPlayer.flor.value)
-
               return setTimeout(resolvePlayer, table.lobby.ackTime * 0.75)
             }
 
@@ -800,9 +807,7 @@ export const Trucoshi = ({
       })
 
       if (hand.flor.winner) {
-        server.chat.rooms
-          .getOrThrow(table.matchSessionId)
-          .system(`La flor se la lleva ${hand.flor.winner.name}`)
+        chat.system(`La flor se la lleva ${hand.flor.winner.name}`)
       }
 
       log.trace(table.getPublicMatchInfo(), "Awaiting all flor battle promises")
