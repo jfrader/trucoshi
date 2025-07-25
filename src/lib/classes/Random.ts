@@ -18,14 +18,16 @@ export const Random = () => {
       random.bitcoinHeight = height
     },
     pick(key, max) {
-      return rng.generateInteger(
+      const result = rng.generateInteger(
         random.clients[key],
         random.secret,
         random.bitcoinHash,
         random.nonce,
         0,
-        max
+        max - 1
       )
+      random.next()
+      return result
     },
     next() {
       random.nonce++

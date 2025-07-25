@@ -28,7 +28,7 @@ export function Deck(): IDeck {
     shuffle(dealer) {
       deck.cards = getAllCards()
       deck.usedCards = []
-      deck.cards = shuffleArray(deck.cards, (max) => deck.random.pick(dealer, max - 1))
+      deck.cards = shuffleArray(deck.cards, (max) => deck.random.pick(dealer, max))
       if (deck.cards.length !== 40) {
         throw new Error("This is not good")
       }
