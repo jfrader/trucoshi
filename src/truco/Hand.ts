@@ -277,8 +277,6 @@ export function Hand(match: IMatch, idx: number) {
       return player
     },
     async init() {
-      match.deck.random.next()
-
       for (const team of match.teams) {
         for (const player of team.players) {
           if (player.abandoned) {
