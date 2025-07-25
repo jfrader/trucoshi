@@ -2897,10 +2897,10 @@ libnpmversion@^7.0.0:
     proc-log "^5.0.0"
     semver "^7.3.7"
 
-lightning-accounts@4.3.0:
-  version "4.3.0"
-  resolved "https://registry.yarnpkg.com/lightning-accounts/-/lightning-accounts-4.3.0.tgz#face72c5c4b6e1c717958286b03ffcb427f665f6"
-  integrity sha512-8XzVbeNTj3TO9q5TTkfwdXsyOT8bVQnlJYtov4pKFJmemtvkfmaQ7q4O5XVMvklVX9LKBOI88C/wFyCCYF1wdw==
+lightning-accounts@4.3.1:
+  version "4.3.1"
+  resolved "https://registry.yarnpkg.com/lightning-accounts/-/lightning-accounts-4.3.1.tgz#085c8b921408c366ede05430e3fe1d06c97d8f71"
+  integrity sha512-GR7Iffc3bKUc6hvBdW7xLr7tgCC2XL0wv1Mkmy4GJjUsRTNPXBHCj8QHS/eHVSC1XG9btgm0Q7Vi8/snYF8RYQ==
   dependencies:
     "@openapi-contrib/json-schema-to-openapi-schema" "^3.0.2"
     "@prisma/client" "^5.7.1"
