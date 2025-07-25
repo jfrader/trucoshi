@@ -151,9 +151,9 @@ function* handTurnGeneratorSequence(match: IMatch, hand: IHand) {
           hand.setCurrentPlayer(null)
         } else {
           hand.endEnvido()
-          match.table.players
+          match.table
+            .getPlayersForehandFirst()
             .filter((player) => player.hasSaidFlor)
-            .sort((a, b) => (a.flor?.value || 0) - (b.flor?.value || 0))
             .forEach((player) => player.flor && hand.sayFlorPoints(player, player.flor.value))
           continue
         }

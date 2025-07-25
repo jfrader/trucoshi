@@ -5,54 +5,9 @@ import { TMap } from "../classes/TMap"
 import { EClientEvent, EServerEvent } from "../../types"
 import { validateJwt } from "../../accounts/client"
 import { Event } from "socket.io"
-import { PLAYER_LOBBY_TIMEOUT } from "../../constants"
-import { PLAYER_ABANDON_TIMEOUT } from "../../lib"
 
 export const sessionMiddleware = (server: ITrucoshi) => {
-  server.io.on("connection", (socket) => {
-    logger.info(
-      `New connection on socket ${socket.id} with name ${socket.data.user?.name} ${
-        socket.data.user?.account?.id ? "(accountId: " + socket.data.user.account.id + ")" : ""
-      }`
-    )
-    if (socket.data.user) {
-      socket.join(socket.data.user.session)
-      server.emitSocketSession(socket)
-    }
-  })
-
   return (socket: TrucoshiSocket, next: (err?: ExtendedError) => void) => {
-    socket.on("disconnect", async (reason) => {
-      logger.debug("Socket disconnected, reason?: %s", reason)
-      if (socket.data.user) {
-        const matchingSockets = await server.io.in(socket.data.user?.session).fetchSockets()
-        const isDisconnected = matchingSockets.length === 0
-        if (isDisconnected) {
-          const userSession = server.sessions.get(socket.data.user.session)
-          if (userSession) {
-            userSession.disconnect()
-            userSession
-              .waitReconnection(userSession.session, PLAYER_LOBBY_TIMEOUT, "disconnection")
-              .catch(() => {
-                server
-                  .cleanupUserTables(userSession)
-                  .catch((e) =>
-                    logger.error(
-                      { message: e.message },
-                      "Failed to cleanup user tables after user disconnected and timed out"
-                    )
-                  )
-                  .finally(() => {
-                    setTimeout(() => {
-                      server.sessions.delete(userSession.session)
-                    }, PLAYER_ABANDON_TIMEOUT)
-                  })
-              })
-          }
-        }
-      }
-    })
-
     socket.use(validateSession(socket))
 
     socket.on("error", (err) => {
@@ -60,7 +15,7 @@ export const sessionMiddleware = (server: ITrucoshi) => {
       socket.disconnect()
     })
 
-    const name = socket.handshake.auth.name
+    const name = `${socket.handshake.auth.name}`.slice(0, 16)
     const sessionID = socket.handshake.auth.sessionID
     const handshakeID = socket.handshake.auth.identity
     const user = socket.handshake.auth.user

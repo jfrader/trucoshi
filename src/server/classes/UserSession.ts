@@ -1,3 +1,4 @@
+import { EventEmitter } from "events" // Import Node.js events module
 import { User } from "lightning-accounts"
 import logger from "../../utils/logger"
 import { PLAYER_TIMEOUT_GRACE } from "../../constants"
@@ -10,13 +11,15 @@ export type IPublicUserSession = Pick<IUserSession, "key" | "online" | "name" | 
   accountId?: number
 }
 
+export type UserSessionEvent = "connect" | "disconnect"
+
 export interface IUserSession extends IUserData {
   name: string
   online: boolean
   ownedMatches: Set<string>
   timeouts: {
-    disconnection: TMap<string, UserTimeout> // room (matchId), resolver promise
-    turn: TMap<string, UserTimeout> // room (matchId), resolver promise
+    disconnection: TMap<string, UserTimeout>
+    turn: TMap<string, UserTimeout>
   }
   setAccount(user: User | null): void
   getPublicInfo(): IPublicUserSession
@@ -27,6 +30,8 @@ export interface IUserSession extends IUserData {
   reconnect(room: string, type?: "disconnection" | "turn"): void
   setName(id: string): void
   getUserData(): IUserData
+  on(event: UserSessionEvent, listener: () => void): void // Add event listener method
+  off(event: UserSessionEvent, listener: () => void): void // Add event removal method
 }
 
 interface UserTimeout {
@@ -43,12 +48,14 @@ export interface ISocketMatchState {
 }
 
 export function UserSession(key: string, username: string, session: string) {
+  const emitter = new EventEmitter()
+
   const userSession: IUserSession = {
     name: username,
     key,
     account: null,
     session,
-    online: true,
+    online: false,
     ownedMatches: new Set(),
     timeouts: {
       disconnection: new TMap<string, UserTimeout>(),
@@ -113,14 +120,25 @@ export function UserSession(key: string, username: string, session: string) {
       userSession.connect()
     },
     connect() {
-      userSession.online = true
+      if (!userSession.online) {
+        userSession.online = true
+        emitter.emit("connect")
+      }
     },
     disconnect() {
-      log.trace(userSession.getPublicInfo(), "Session disconnected")
-      userSession.online = false
+      if (userSession.online) {
+        userSession.online = false
+        emitter.emit("disconnect")
+      }
     },
     setName(id) {
       userSession.name = id
+    },
+    on(event: UserSessionEvent, listener: () => void) {
+      emitter.on(event, listener)
+    },
+    off(event: UserSessionEvent, listener: () => void) {
+      emitter.removeListener(event, listener)
     },
   }
 

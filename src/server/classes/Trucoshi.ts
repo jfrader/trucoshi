@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto"
+import debounce from "lodash.debounce"
 import { createServer, Server as HttpServer } from "http"
 import { Server, Socket } from "socket.io"
 import {
@@ -17,6 +18,7 @@ import {
   IPublicMatchInfo,
   IPublicPlayer,
   ITeam,
+  ITrucoshiStats,
   IUserData,
   IWaitingPlayData,
 } from "../../types"
@@ -98,6 +100,8 @@ export interface ITrucoshi {
   tables: MatchTableMap // sessionId, table
   sessions: TMap<string, IUserSession> // sessionId, user
   turns: TMap<string, ITrucoshiTurn> // sessionId, play instance
+  stats: ITrucoshiStats
+  emitStats(): void
   createUserSession(socket: TrucoshiSocket, username?: string, token?: string): IUserSession
   getTableSockets(
     table: IMatchTable,
@@ -244,6 +248,9 @@ export const Trucoshi = ({
     io,
     chat: Chat(),
     httpServer,
+    stats: {
+      onlinePlayers: [],
+    },
     async listen(
       callback,
       { redis = true, lightningAccounts = true, store = true } = {
@@ -414,6 +421,14 @@ export const Trucoshi = ({
           return info
         })
     },
+    emitStats: debounce(() => {
+      server.stats = {
+        onlinePlayers: server.sessions
+          .findAll((s) => s.online)
+          .map<number>((s) => s.account?.id || -1),
+      }
+      server.io.to("stats").emit(EServerEvent.UPDATE_STATS, server.stats)
+    }, 1800),
     createUserSession(socket, id, token) {
       const session = token || randomUUID()
       const key = randomUUID()
@@ -421,6 +436,16 @@ export const Trucoshi = ({
       socket.data.user = userSession.getUserData()
       socket.data.matches = new TMap()
       server.sessions.set(session, userSession)
+
+      userSession.on("connect", () => {
+        server.emitStats()
+      })
+
+      userSession.on("disconnect", () => {
+        server.emitStats()
+      })
+
+      userSession.connect()
 
       return userSession
     },
@@ -464,9 +489,7 @@ export const Trucoshi = ({
         socket.leave(key)
       }
 
-      socket.data = {}
-
-      socket.disconnect(true)
+      socket.disconnect()
 
       log.debug(socket.data.user, "Socket has logged out off account")
     },

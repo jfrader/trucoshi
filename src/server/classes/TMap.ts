@@ -1,6 +1,6 @@
 export class TMap<K, V extends { [x: string]: any }> extends Map<K, V> {
-  find(finder: (value: V) => boolean): V | void {
-    let result: void | V = undefined
+  find(finder: (value: V) => boolean): V | undefined {
+    let result: undefined | V = undefined
 
     for (let value of this.values()) {
       const find = finder(value)

@@ -3,16 +3,39 @@ import { ITrucoshi, SocketError, TrucoshiSocket, isSocketError } from "../classe
 import logger from "../../utils/logger"
 import { getWordsId } from "../../utils/string/getRandomWord"
 import { EClientEvent, EServerEvent } from "../../events"
+import { PLAYER_LOBBY_TIMEOUT } from "../../constants"
+import { PLAYER_ABANDON_TIMEOUT } from "../../lib"
 
 const log = logger.child({ middleware: "trucoshiMiddleware" })
 
-export const trucoshiMiddleware =
-  (server: ITrucoshi) => (socket: TrucoshiSocket, next: (err?: ExtendedError) => void) => {
+export const trucoshiMiddleware = (server: ITrucoshi) => {
+  server.io.of("/").adapter.on("join-room", (room, socketId) => {
+    const socket = server.io.sockets.sockets.get(socketId)
+
+    if (room === "stats" && socket) {
+      socket.emit(EServerEvent.UPDATE_STATS, server.stats)
+    }
+  })
+
+  server.io.on("connection", (socket) => {
+    logger.info(
+      `Socket ${socket.id} connected with name ${socket.data.user?.name}${
+        socket.data.user?.account?.id ? ", account: " + socket.data.user.account.id : ""
+      }`
+    )
+    if (socket.data.user) {
+      socket.join(socket.data.user.session)
+      server.emitSocketSession(socket)
+    }
+  })
+
+  return (socket: TrucoshiSocket, next: (err?: ExtendedError) => void) => {
     socket.on(EClientEvent.PING, (clientTime) => {
       socket.emit(EServerEvent.PONG, Date.now(), clientTime)
     })
 
-    socket.on("disconnect", async () => {
+    socket.on("disconnect", async (reason) => {
+      logger.debug(`Socket ${socket.id} disconnected, reason?: %s`, reason)
       if (socket.data.user) {
         const matchingSockets = await server.io.in(socket.data.user?.session).fetchSockets()
         const isDisconnected = matchingSockets.length === 0
@@ -22,8 +45,43 @@ export const trucoshiMiddleware =
           const tables = server.tables.findAll((table) => !!table.isSessionPlaying(user.session))
 
           tables.forEach((table) => server.leaveMatch(table.matchSessionId, socket))
+
+          const userSession = server.sessions.get(socket.data.user.session)
+          if (userSession) {
+            userSession.disconnect()
+            userSession
+              .waitReconnection(userSession.session, PLAYER_LOBBY_TIMEOUT, "disconnection")
+              .catch(() => {
+                userSession.disconnect()
+                server
+                  .cleanupUserTables(userSession)
+                  .catch((e) =>
+                    logger.error(
+                      { message: e.message },
+                      "Failed to cleanup user tables after user disconnected and timed out"
+                    )
+                  )
+                  .finally(() => {
+                    setTimeout(() => {
+                      server.sessions.delete(userSession.session)
+                    }, PLAYER_ABANDON_TIMEOUT)
+                  })
+              })
+          }
         }
       }
+
+      socket.data = {}
+    })
+
+    socket.on(EClientEvent.JOIN_ROOM, async (room) => {
+      log.debug("Joining room %s", room)
+      socket.join(room)
+    })
+
+    socket.on(EClientEvent.LEAVE_ROOM, async (room) => {
+      log.debug("Leaving room %s", room)
+      socket.leave(room)
     })
 
     /**
@@ -314,3 +372,4 @@ export const trucoshiMiddleware =
 
     next()
   }
+}

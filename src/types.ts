@@ -5,7 +5,7 @@ export { CARDS, CARDS_HUMAN_READABLE, BURNT_CARD } from "./lib/constants"
 import { RequestParams, User } from "lightning-accounts"
 import { Match, MatchPlayer, MatchHand, UserStats } from "@trucoshi/prisma"
 import { IHand, IPlayInstance } from "./truco"
-import { CARDS, IRng, ITable } from "./lib"
+import { CARDS, ITable } from "./lib"
 import { AxiosResponse } from "axios"
 import { ITrucoshi } from "./server"
 import { BotProfile } from "./truco/Bot"
@@ -433,3 +433,7 @@ export const DANGEROUS_COMMANDS: ECommand[] = [
   EEnvidoAnswerCommand.SON_BUENAS,
   EFlorCommand.ACHICO,
 ]
+
+export type ITrucoshiStats = {
+  onlinePlayers: number[]
+}

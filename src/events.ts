@@ -9,6 +9,7 @@ import {
   IPublicChatRoom,
   IPublicMatch,
   IPublicMatchInfo,
+  ITrucoshiStats,
   IUserData,
   IWaitingPlayData,
   IWaitingSayData,
@@ -33,13 +34,13 @@ export enum EServerEvent {
   UPDATE_ACTIVE_MATCHES = "UPDATE_ACTIVE_MATCHES",
   WAITING_POSSIBLE_SAY = "WAITING_POSSIBLE_SAY",
   UPDATE_CHAT = "UPDAET_CHAT",
-  ERROR = "ERROR",
+  UPDATE_STATS = "UPDATE_STATS",
 }
 
 export interface ServerToClientEvents {
   [EServerEvent.PONG]: (serverTime: number, clientTime: number) => void
-  [EServerEvent.ERROR]: (error: { code: string; message: string; action: string }) => void
   [EServerEvent.UPDATE_CHAT]: (room: IPublicChatRoom) => void
+  [EServerEvent.UPDATE_STATS]: (room: ITrucoshiStats) => void
   [EServerEvent.NEW_MESSAGE]: (roomId: string, message?: IChatMessage) => void
   [EServerEvent.UPDATE_ACTIVE_MATCHES]: (activeMatches: IPublicMatchInfo[]) => void
   [EServerEvent.UPDATE_MATCH]: (match: IPublicMatch, callback?: () => void) => void
@@ -83,6 +84,8 @@ export enum EClientEvent {
   CHAT = "CHAT",
   PING = "PING",
   SAY = "SAY",
+  JOIN_ROOM = "JOIN_ROOM",
+  LEAVE_ROOM = "LEAVE_ROOM",
 }
 
 export interface ClientToServerEvents {
@@ -108,6 +111,8 @@ export interface ClientToServerEvents {
     teamIdx: 0 | 1 | undefined,
     callback: IEventCallback<{ match?: IPublicMatch; activeMatches?: IPublicMatchInfo[] }>
   ) => void
+  [EClientEvent.JOIN_ROOM]: (roomId: string) => void
+  [EClientEvent.LEAVE_ROOM]: (roomId: string) => void
   [EClientEvent.ADD_BOT]: (
     matchSessionId: string,
     teamIdx: 0 | 1 | undefined,
