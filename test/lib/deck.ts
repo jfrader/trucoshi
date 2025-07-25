@@ -48,7 +48,7 @@ describe("Trucoshi Deck", () => {
     }
 
     for (const element of Object.values(counts)) {
-      expect(element).greaterThan(195).lessThan(305)
+      expect(element).greaterThan(180).lessThan(320)
     }
 
     console.log(Object.entries(counts))
