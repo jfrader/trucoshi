@@ -47,7 +47,7 @@ const log = logger.child({ class: "Trucoshi" })
 
 interface ITrucoshiTurn {
   play: IPlayInstance
-  timeout: NodeJS.Timeout
+  timeout: NodeJS.Timeout | null
   resolve(): void
 }
 
@@ -184,6 +184,7 @@ export interface ITrucoshi {
     retry: () => void
     cancel: () => void
   }): NodeJS.Timeout
+  clearTurnTimeout(matchSessionId: string): void
   onHandFinished(table: IMatchTable, hand: IHand | null): Promise<void>
   onBotTurn(table: IMatchTable, play: IPlayInstance): Promise<void>
   onTurn(table: IMatchTable, play: IPlayInstance): Promise<void>
@@ -732,7 +733,7 @@ export const Trucoshi = ({
           if (saidCommand || saidCommand === 0) {
             log.trace({ player, command }, "Say command success")
 
-            clearTimeout(server.turns.getOrThrow(matchTable.matchSessionId).timeout)
+            server.clearTurnTimeout(matchTable.matchSessionId)
 
             server.chat.rooms
               .getOrThrow(matchTable.matchSessionId)
@@ -767,7 +768,7 @@ export const Trucoshi = ({
           const playedCard = play.use(cardIdx, card)
           if (playedCard) {
             log.trace({ player, card, cardIdx }, "Play card success")
-            clearTimeout(server.turns.getOrThrow(matchTable.matchSessionId).timeout)
+            server.clearTurnTimeout(matchTable.matchSessionId)
 
             const sound =
               card === "1e" && (play.roundIdx === 3 || play.rounds?.[play.roundIdx - 2]?.tie)
@@ -796,7 +797,7 @@ export const Trucoshi = ({
     async emitFlorBattle(hand, table) {
       log.trace(table.getPublicMatchInfo(), "Emitting flor battle to players")
 
-      clearTimeout(server.turns.getOrThrow(table.matchSessionId).timeout)
+      server.clearTurnTimeout(table.matchSessionId)
 
       const match = await server.emitMatchUpdate(table)
 
@@ -844,6 +845,12 @@ export const Trucoshi = ({
     },
     async onBotTurn(table, play) {
       return new Promise(async (resolve, reject) => {
+        server.turns.set(table.matchSessionId, {
+          play,
+          resolve,
+          timeout: null,
+        })
+
         server
           .emitWaitingPossibleSay({ play, table })
           .then(() => resolve())
@@ -862,6 +869,12 @@ export const Trucoshi = ({
           .then(resolve)
           .catch(reject)
       })
+    },
+    clearTurnTimeout(matchSessionId) {
+      const turn = server.turns.getOrThrow(matchSessionId)
+      if (turn.timeout) {
+        clearTimeout(turn.timeout)
+      }
     },
     setTurnTimeout({ table, player, play, user, retry, cancel }) {
       log.trace({ player, options: table.lobby.options }, "Setting turn timeout")
