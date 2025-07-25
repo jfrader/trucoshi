@@ -98,10 +98,9 @@ const validateSession: (
             socket.data.user.account.id,
             (identity) => {
               try {
-                if (!identity) {
-                  throw new SocketError("INVALID_IDENTITY", "Failed to refresh identity")
+                if (identity) {
+                  socket.data.identity = identity
                 }
-                socket.data.identity = identity
                 return validateSession(socket, retry + 1)(event, next)
               } catch (e) {
                 return next(isSocketError(e, "INVALID_IDENTITY"))
