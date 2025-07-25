@@ -14,7 +14,7 @@ function sayPlay(play: IPlayInstance, ...args: Parameters<typeof play.say>) {
 
 describe("Trucoshi Lib", () => {
   it("should play an entire match of 6", (done) => {
-    const trucoshi = Lobby("testmatch1")
+    const trucoshi = Lobby("testmatch1", "lucas")
 
     const promises = ["lucas", "guada", "juli", "day", "gaspar", "fran"].map((n, i) =>
       trucoshi.addPlayer({ key: n, name: n, session: n }).then((player) => {
@@ -44,7 +44,7 @@ describe("Trucoshi Lib", () => {
 
   it("should play 100 random matches of 2, 4 or 6 players in parallel", (done) => {
     const playGame = (finished) => {
-      const lobby = Lobby(randomUUID())
+      const lobby = Lobby(randomUUID(), "lucas")
 
       const randomPlayersQuantity = [0, 2, 4]
 

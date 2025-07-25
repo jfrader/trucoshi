@@ -1,11 +1,5 @@
 import { expect } from "chai"
-import {
-  EAnswerCommand,
-  ECommand,
-  EEnvidoAnswerCommand,
-  ICard,
-  IPublicMatch,
-} from "../../src/types"
+import { ICard, IPublicMatch } from "../../src/types"
 import { Socket } from "socket.io-client"
 import logger from "../../src/utils/logger"
 import {
@@ -53,38 +47,6 @@ export const playRandomMatch = async (
 
       callback(data)
     })
-
-    c.on(EServerEvent.WAITING_POSSIBLE_SAY, (match, callback) => {
-      if (!checkMatch(i, match)) {
-        return
-      }
-      matches[i] = match
-
-      if (match.me?.isEnvidoTurn && match.me.envido) {
-        if (!match.me?.isTurn) {
-          return
-        }
-
-        if (match.me.commands.includes(EEnvidoAnswerCommand.SON_BUENAS) && Math.random() > 0.52) {
-          return callback({ command: EEnvidoAnswerCommand.SON_BUENAS })
-        }
-
-        const rndIdx = Math.floor(Math.random() * match.me.envido.length)
-        const command = match.me.envido[rndIdx].value
-
-        return callback({ command })
-      }
-
-      if (
-        (Math.random() > 0.49 || match.me?.commands?.includes(EAnswerCommand.QUIERO)) &&
-        match.me?.commands?.length
-      ) {
-        const rndIdx = Math.floor(Math.random() * match.me.commands.length)
-        const command = match.me.commands[rndIdx] as ECommand
-
-        return callback({ command })
-      }
-    })
   })
 
   await new Promise<void>((res, rej) => {
@@ -100,6 +62,20 @@ export const playRandomMatch = async (
       matches[0] = match
       res()
     })
+  })
+
+  await new Promise<void>((resolve, reject) => {
+    clients[0].emit(
+      EClientEvent.SET_MATCH_OPTIONS,
+      matchId as string,
+      { flor: false },
+      ({ success }) => {
+        if (success) {
+          return resolve()
+        }
+        reject(new Error("Failed to set match bet"))
+      }
+    )
   })
 
   const joinPromises = clients.map((c, i) => {
@@ -168,20 +144,6 @@ export const playRandomMatch = async (
       }
     })
   )
-
-  await new Promise<void>((resolve, reject) => {
-    clients[0].emit(
-      EClientEvent.SET_MATCH_OPTIONS,
-      matchId as string,
-      { flor: false },
-      ({ success }) => {
-        if (success) {
-          return resolve()
-        }
-        reject(new Error("Failed to set match bet"))
-      }
-    )
-  })
 
   await new Promise<void>((res) => {
     clients[0].emit(EClientEvent.START_MATCH, matchId as string, ({ success, matchSessionId }) => {

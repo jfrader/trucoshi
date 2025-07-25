@@ -226,6 +226,7 @@ export const GameLoop = (match: IMatch) => {
           )
         )
       } catch (e) {
+        console.error(e)
         log.fatal(e, "Gameloop onWinner callback error!!!")
       }
     },

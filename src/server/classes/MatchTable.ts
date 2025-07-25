@@ -34,14 +34,14 @@ export interface IMatchTable {
 
 export function MatchTable(
   matchSessionId: string,
-  ownerSession: string,
+  ownerSession: IUserSession,
   options: Partial<ILobbyOptions> = {}
 ) {
   const table: IMatchTable = {
-    ownerSession,
+    ownerSession: ownerSession.session,
     matchSessionId,
     busy: false,
-    lobby: Lobby(matchSessionId, options),
+    lobby: Lobby(matchSessionId, ownerSession.name, options),
     awardedSatsPerPlayer: 0,
     setAwardedPerPlayer(award) {
       table.awardedSatsPerPlayer = award
@@ -66,10 +66,7 @@ export function MatchTable(
       return EMatchState.UNREADY
     },
     isSessionPlaying(session) {
-      const {
-        lobby: { players },
-      } = table
-      return players.find((player) => player && player.session === session) || null
+      return table.lobby.players.find((player) => player && player.session === session) || null
     },
     playerDisconnected(player) {
       player.setReady(false)
@@ -91,13 +88,13 @@ export function MatchTable(
       const {
         matchSessionId,
         state,
-        lobby: { players, options },
+        lobby: { playerCount, options, hostName },
       } = table
       return {
-        ownerId: players.find((player) => player.isOwner)?.name as string,
+        ownerId: hostName,
         matchSessionId,
         options,
-        players: players.length,
+        players: playerCount,
         state: state(),
       }
     },

@@ -1,4 +1,4 @@
-import { EventEmitter } from "events" // Import Node.js events module
+import { EventEmitter } from "events"
 import { User } from "lightning-accounts"
 import logger from "../../utils/logger"
 import { PLAYER_TIMEOUT_GRACE } from "../../constants"

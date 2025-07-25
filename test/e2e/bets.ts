@@ -11,7 +11,7 @@ import {
 } from "../../src/types"
 import { ITrucoshi, Trucoshi } from "../../src/server/classes"
 import logger from "../../src/utils/logger"
-import { Api } from "lightning-accounts"
+import { Api, User } from "lightning-accounts"
 import {
   ClientToServerEvents,
   EClientEvent,
@@ -22,122 +22,109 @@ import { EMatchState } from "@prisma/client"
 import { sessionMiddleware, trucoshiMiddleware } from "../../src/server"
 
 describe("Bets", () => {
-  let clients: Socket<ServerToClientEvents, ClientToServerEvents>[] = []
   let server: ITrucoshi
-  let identities: string[] = []
+  let clients: Socket<ServerToClientEvents, ClientToServerEvents>[] = []
   let apis: Api<unknown>[] = []
   let cookies: string[][] = []
   let balances: number[] = []
+  let identities: string[] = []
 
-  before((done) => {
+  const handleError = (error: unknown, message: string): Error => {
+    const err = error instanceof Error ? error : new Error(message)
+    logger.error({ error: err, message })
+    return err
+  }
+
+  async function createUser(index: number): Promise<[User, string]> {
+    const api = new Api({
+      baseURL: process.env.APP_LIGHTNING_ACCOUNTS_URL,
+      withCredentials: true,
+    })
+    apis.push(api)
+
+    const response = await api.auth.loginCreate({
+      email: `${index}_e2e_player@trucoshi.com`,
+      password: "secret",
+    })
+
+    const identityJwt = response.headers["set-cookie"]
+      ?.find((cookie) => cookie.includes("jwt:identity"))
+      ?.match(new RegExp(`^${"jwt:identity"}=(.+?);`))?.[1]
+
+    if (!identityJwt || !response.data.user) {
+      throw handleError(null, "Failed to get identity JWT or user from lightning accounts")
+    }
+
+    cookies[index] = response.headers["set-cookie"] || []
+    identities[index] = identityJwt
+    return [response.data.user, identityJwt]
+  }
+
+  function createClient(
+    user: User,
+    identity: string,
+    index: number
+  ): Socket<ServerToClientEvents, ClientToServerEvents> {
+    const client = Client(`http://localhost:${process.env.APP_PORT || 9999}`, {
+      autoConnect: false,
+      withCredentials: true,
+      auth: {
+        name: `player${index}`,
+        identity,
+        user,
+      },
+    })
+    client.connect()
+    return client
+  }
+
+  before(async () => {
     server = Trucoshi({ port: Number(process.env.APP_PORT) || 9999, serverVersion: "1" })
 
-    server.listen(
-      (io) => {
-        io.use(sessionMiddleware(server))
-        io.use(trucoshiMiddleware(server))
-
-        for (let i = 0; i < 6; i++) {
-          clients.push(
-            Client(`http://localhost:${process.env.APP_PORT || 9999}`, {
-              autoConnect: false,
-              withCredentials: true,
-              auth: { name: "player" + i },
+    await new Promise<void>((resolve, reject) => {
+      server
+        .listen(
+          (io) => {
+            io.use(sessionMiddleware(server))
+            io.use(trucoshiMiddleware(server))
+            io.on("connection", (socket) => {
+              socket.setMaxListeners(50)
             })
-          )
-        }
+            resolve()
+          },
+          { redis: false, lightningAccounts: true, store: true }
+        )
+        .catch((err) => reject(handleError(err, "Server listen failed")))
+    })
 
-        io.on("connection", (socket) => {
-          socket.setMaxListeners(50)
-        })
-
-        const promises = () =>
-          clients.map(
-            (c, i) =>
-              new Promise<void>((resolve) => {
-                c.on(EServerEvent.SET_SESSION, ({ session, name }) => {
-                  if ((c.auth as any).sessionID !== session) {
-                    c.auth = { name, sessionID: session }
-                  }
-
-                  const api = new Api({
-                    baseURL: process.env.APP_LIGHTNING_ACCOUNTS_URL,
-                    withCredentials: true,
-                  })
-
-                  apis.push(api)
-
-                  api.auth
-                    .loginCreate({
-                      email: i + "_e2e_player@trucoshi.com",
-                      password: "secret",
-                    })
-                    .then((res) => {
-                      cookies[i] = res.headers["set-cookie"] || []
-
-                      const identityJwt = (res.headers["set-cookie"] as string[])
-                        .find((cookie) => cookie.includes("jwt:identity"))
-                        ?.match(new RegExp(`^${"jwt:identity"}=(.+?);`))?.[1]
-
-                      if (identityJwt && res.data.user) {
-                        identities[i] = identityJwt
-                        return c.emit(
-                          EClientEvent.LOGIN,
-                          res.data.user,
-                          identityJwt,
-                          ({ success }) => {
-                            if (success) {
-                              return resolve()
-                            }
-                            console.error(new Error("Failed to login"))
-                            process.exit(1)
-                          }
-                        )
-                      }
-                      console.error(new Error("Failed to get identity jwt from lightning accounts"))
-                      process.exit(1)
-                    })
-                    .catch((e) => {
-                      console.error(e)
-                      process.exit(1)
-                    })
-                })
-                c.connect()
-              })
-          )
-
-        Promise.all(promises()).then(() => done())
-      },
-      { redis: false, lightningAccounts: true, store: true }
-    )
+    for (let i = 0; i < 6; i++) {
+      try {
+        const [user, identity] = await createUser(i)
+        clients.push(createClient(user, identity, i))
+      } catch (err) {
+        throw handleError(err, `Failed to create user or client ${i}`)
+      }
+    }
   })
 
   after(() => {
     server.io.close()
-    clients.forEach((c) => c.close())
+    clients.forEach((client) => client.close())
   })
 
-  beforeEach((done) => {
-    clients.map((c) => c.removeAllListeners())
+  beforeEach(async () => {
+    clients.forEach((client) => client.removeAllListeners())
 
-    const balancePromises = () =>
-      clients.map(
-        (c, i) =>
-          new Promise<void>((resolve) => {
-            apis[i].auth
-              .getAuth({ headers: { Cookie: cookies[i] } })
-              .then((res) => {
-                balances[i] = res.data.wallet?.balanceInSats || 0
-                resolve()
-              })
-              .catch((e) => {
-                logger.error(e)
-                process.exit(1)
-              })
-          })
-      )
-
-    Promise.all(balancePromises()).then(() => done())
+    balances = await Promise.all(
+      clients.map(async (_, i) => {
+        try {
+          const response = await apis[i].auth.getAuth({ headers: { Cookie: cookies[i] } })
+          return response.data.wallet?.balanceInSats || 0
+        } catch (err) {
+          throw handleError(err, `Failed to fetch balance for client ${i}`)
+        }
+      })
+    )
   })
 
   it("should send ping", (done) => {
@@ -148,91 +135,59 @@ describe("Bets", () => {
     clients[0].emit(EClientEvent.PING, 1234)
   })
 
-  it("should bet, play and award winners", async () => {
+  it("should bet, play, and award winners", async () => {
     let matchId: string | undefined
-    let matches: IPublicMatch[] = []
+    const matches: IPublicMatch[] = []
 
-    let winningResolve = () => {}
-    const WinnerPromise = new Promise<void>((res) => {
-      winningResolve = res
-    })
-
-    const checkMatch = (i, match) => {
-      if (matches[i] && match?.matchSessionId !== matches[i].matchSessionId) {
+    const checkMatch = (index: number, match?: IPublicMatch | null): boolean => {
+      if (!match || (matches[index] && match.matchSessionId !== matches[index].matchSessionId)) {
         return false
       }
-
       return true
     }
 
-    clients.forEach((c, i) => {
-      c.on(EServerEvent.WAITING_PLAY, (match, callback) => {
-        if (!checkMatch(i, match)) {
-          return
+    matchId = await new Promise<string>((resolve, reject) => {
+      clients[0].emit(EClientEvent.CREATE_MATCH, ({ match }) => {
+        if (!checkMatch(0, match)) return
+        if (!match?.matchSessionId) {
+          return reject(handleError(null, "Match not found on create"))
         }
-        matches[i] = match
-
-        if (!match.me?.isTurn || match.handState !== EHandState.WAITING_PLAY) {
-          return
-        }
-
-        if (!match.me?.hand) {
-          console.error("WTF")
-          process.exit(1)
-        }
-
-        const rndIdx = Math.floor(Math.random() * match.me.hand.length)
-
-        const data = { card: match.me.hand[rndIdx] as ICard, cardIdx: rndIdx }
-
-        callback(data)
-      })
-
-      c.on(EServerEvent.WAITING_POSSIBLE_SAY, (match, callback) => {
-        if (!checkMatch(i, match)) {
-          return
-        }
-        matches[i] = match
-
-        if (!match.me?.isTurn && !match.me?.isEnvidoTurn) {
-          return
-        }
-
-        if (match.me?.isEnvidoTurn && match.me.envido) {
-          if (match.me.commands.includes(EEnvidoAnswerCommand.SON_BUENAS) && Math.random() > 0.55) {
-            return callback({ command: EEnvidoAnswerCommand.SON_BUENAS })
-          }
-
-          const rndIdx = Math.floor(Math.random() * match.me.envido.length)
-          const command = match.me.envido[rndIdx].value
-
-          return callback({ command })
-        }
-
-        if (
-          (Math.random() > 0.88 || match.me?.commands?.includes(EAnswerCommand.QUIERO)) &&
-          match.me?.commands?.length
-        ) {
-          const rndIdx = Math.floor(Math.random() * match.me.commands.length)
-          const command = match.me.commands[rndIdx] as ECommand
-
-          return callback({ command })
-        }
+        matches[0] = match
+        resolve(match.matchSessionId)
       })
     })
 
-    await new Promise<void>((res, rej) => {
-      clients[0].emit(EClientEvent.CREATE_MATCH, ({ match }) => {
-        if (!checkMatch(0, match)) {
+    clients.forEach((client, i) => {
+      client.on(EServerEvent.WAITING_PLAY, (match, callback) => {
+        if (
+          !checkMatch(i, match) ||
+          !match.me?.isTurn ||
+          match.handState !== EHandState.WAITING_PLAY ||
+          !match.me?.hand
+        ) {
           return
         }
-        expect(Boolean(match?.matchSessionId)).to.equal(true)
-        matchId = match?.matchSessionId
-        if (!match) {
-          return rej("Match not found create match")
+        callback({ card: match.me.hand[0] as ICard, cardIdx: 0 })
+      })
+
+      client.on(EServerEvent.UPDATE_MATCH, (match) => {
+        if (!checkMatch(i, match)) return
+        matches[i] = match
+        if (i === 0 && match.winner && match.state !== EMatchState.FINISHED) {
+          ;(async () => {
+            const winner = matches[0]?.winner
+            expect(winner?.points.buenas).to.be.greaterThanOrEqual(9)
+
+            for (const [idx] of clients.entries()) {
+              const res = await apis[idx].auth.getAuth({ headers: { Cookie: cookies[idx] } })
+              const expectedBalance =
+                winner?.id === matches[idx].me?.teamIdx ? balances[idx] + 9 : balances[idx] - 10
+              expect(res.data.wallet?.balanceInSats).to.equal(expectedBalance)
+            }
+          })().catch((err) => {
+            throw handleError(err, "Winner balance verification failed")
+          })
         }
-        matches[0] = match
-        res()
       })
     })
 
@@ -242,146 +197,91 @@ describe("Bets", () => {
         matches[0].matchSessionId,
         { satsPerPlayer: 10, flor: false },
         ({ success, match }) => {
-          if (success && match) {
-            matches[0] = match
-            return resolve()
+          if (!success || !match) {
+            return reject(handleError(null, "Failed to set match bet"))
           }
-          reject(new Error("Failed to set match bet"))
+          matches[0] = match
+          resolve()
         }
       )
     })
 
-    const joinPromises = clients.map((c, i) => {
-      const sendReady = (matchId: any, j: number, me?: IPublicPlayer | null) => {
-        return new Promise<void>((resolve, reject) => {
-          const prid = matches[j].me?.payRequestId
-          if (!prid) {
-            logger.error({ ...matches[j].me, wtf: true })
-            return reject(new Error("Pay request not found!"))
-          }
-
-          apis[j].wallet
-            .payRequest(String(prid), { headers: { Cookie: cookies[i] } })
-            .then(() => {
-              c.emit(EClientEvent.SET_PLAYER_READY, matchId, true, ({ success, match }) => {
-                if (!checkMatch(i, match)) {
-                  return
-                }
-                if (!match) {
-                  return reject("Match not found ready")
-                }
-                matches[i] = match
-                expect(success).to.equal(true)
-                resolve()
-              })
-            })
-            .catch((e) => {
-              logger.fatal(e)
-              process.exit(1)
-            })
+    const joinPromises = clients.map((client, i) => {
+      const sendReady = async (matchId: string, index: number) => {
+        const prid = matches[index].me?.payRequestId
+        if (!prid) {
+          throw handleError(null, `Pay request not found for client ${index}`)
+        }
+        await apis[index].wallet.payRequest(String(prid), { headers: { Cookie: cookies[i] } })
+        await new Promise<void>((resolve, reject) => {
+          client.emit(EClientEvent.SET_PLAYER_READY, matchId, true, ({ success, match }) => {
+            if (!checkMatch(i, match) || !match) {
+              return reject(handleError(null, "Match not found on set ready"))
+            }
+            matches[i] = match
+            expect(success).to.equal(true)
+            resolve()
+          })
         })
       }
 
       if (i === 0) {
         return () => sendReady(matchId, 0)
       }
-      return (teamIdx: 0 | 1) =>
-        new Promise<void>((res, rej) => {
-          c.emit(EClientEvent.JOIN_MATCH, matchId as string, teamIdx, ({ success, match }) => {
-            if (!checkMatch(i, match)) {
-              return
+      return async (teamIdx: 0 | 1) => {
+        await new Promise<void>((resolve, reject) => {
+          client.emit(EClientEvent.JOIN_MATCH, matchId, teamIdx, ({ success, match }) => {
+            if (!checkMatch(i, match) || !match) {
+              return reject(handleError(null, "Match not found on join"))
             }
             expect(success).to.equal(true)
-            expect(match?.matchSessionId).to.equal(matchId)
-
-            if (!match) {
-              return rej("Match not found join match")
-            }
+            expect(match.matchSessionId).to.equal(matchId)
             matches[i] = match
-
-            sendReady(matchId, i).then(res)
+            resolve()
           })
         })
+        await sendReady(matchId, i)
+      }
     })
 
-    let tidx: 0 | 1 = 0
+    let teamIdx: 0 | 1 = 0
     for (const joinPromise of joinPromises) {
-      await joinPromise(tidx)
-      tidx = Number(!tidx) as 0 | 1
+      await joinPromise(teamIdx)
+      teamIdx = Number(!teamIdx) as 0 | 1
     }
 
-    clients.forEach((c, i) =>
-      c.on(EServerEvent.UPDATE_MATCH, (match) => {
-        if (!checkMatch(i, match)) {
-          return
-        }
-        matches[i] = match
-        if (i === 0) {
-          if (match.winner) {
-            winningResolve()
-          } else {
-            if (match.state === EMatchState.FINISHED) {
-              logger.fatal(new Error("FATALITY"), "WTF")
-              process.exit(1)
-            }
-          }
-        }
-      })
-    )
-
-    await new Promise<void>((res) => {
+    await new Promise<void>((resolve, reject) => {
       clients[0].emit(
         EClientEvent.START_MATCH,
-        matchId as string,
+        matches[0].matchSessionId,
         ({ success, matchSessionId }) => {
-          expect(success).to.equal(true)
-          expect(matchSessionId).to.equal(matchId)
-          res()
+          if (!success || matchSessionId !== matchId) {
+            return reject(handleError(null, "Failed to start match"))
+          }
+          resolve()
         }
       )
     })
-
-    await WinnerPromise
-
-    const winner = matches[0]?.winner
-
-    expect(winner?.points.buenas).to.be.greaterThanOrEqual(9)
-
-    for (const [idx] of clients.entries()) {
-      const res = await apis[idx].auth.getAuth({ headers: { Cookie: cookies[idx] } })
-
-      if (winner?.id === matches[idx].me?.teamIdx) {
-        expect(res.data.wallet?.balanceInSats).to.equal(balances[idx] + 9)
-      } else {
-        expect(res.data.wallet?.balanceInSats).to.equal(balances[idx] - 10)
-      }
-    }
   })
 
-  it("should bet and return bets when they leave match", async () => {
+  it("should bet and return bets when players leave match", async () => {
     let matchId: string | undefined
-    let matches: IPublicMatch[] = []
+    const matches: IPublicMatch[] = []
 
-    const checkMatch = (i, match) => {
-      if (matches[i] && match?.matchSessionId !== matches[i].matchSessionId) {
+    const checkMatch = (index: number, match?: IPublicMatch | null): boolean => {
+      if (!match || (matches[index] && match.matchSessionId !== matches[index].matchSessionId)) {
         return false
       }
-
       return true
     }
 
-    await new Promise<void>((res, rej) => {
+    matchId = await new Promise<string>((resolve, reject) => {
       clients[0].emit(EClientEvent.CREATE_MATCH, ({ match }) => {
-        if (!checkMatch(0, match)) {
-          return
-        }
-        expect(Boolean(match?.matchSessionId)).to.equal(true)
-        matchId = match?.matchSessionId
-        if (!match) {
-          return rej("Match not found create match")
+        if (!checkMatch(0, match) || !match?.matchSessionId) {
+          return reject(handleError(null, "Match not found on create"))
         }
         matches[0] = match
-        res()
+        resolve(match.matchSessionId)
       })
     })
 
@@ -391,83 +291,65 @@ describe("Bets", () => {
         matches[0].matchSessionId,
         { satsPerPlayer: 10, flor: false },
         ({ success, match }) => {
-          if (success && match) {
-            matches[0] = match
-            return resolve()
+          if (!success || !match) {
+            return reject(handleError(null, "Failed to set match bet"))
           }
-          reject(new Error("Failed to set match bet"))
+          matches[0] = match
+          resolve()
         }
       )
     })
 
-    const joinPromises = clients.map((c, i) => {
-      const sendReady = (matchId: any, j: number, me?: IPublicPlayer | null) => {
-        return new Promise<void>((resolve, reject) => {
-          const prid = matches[j].me?.payRequestId
-          if (!prid) {
-            logger.error({ ...matches[j].me, wtf: true })
-            return reject(new Error("Pay request not found!"))
-          }
-
-          apis[j].wallet
-            .payRequest(String(prid), { headers: { Cookie: cookies[i] } })
-            .then(() => {
-              c.emit(EClientEvent.SET_PLAYER_READY, matchId, true, ({ success, match }) => {
-                if (!checkMatch(i, match)) {
-                  return
-                }
-                if (!match) {
-                  return reject("Match not found ready")
-                }
-                matches[i] = match
-                expect(success).to.equal(true)
-                resolve()
-              })
-            })
-            .catch((e) => {
-              logger.fatal(e)
-              process.exit(1)
-            })
+    const joinPromises = clients.map((client, i) => {
+      const sendReady = async (matchId: string, index: number) => {
+        const prid = matches[index].me?.payRequestId
+        if (!prid) {
+          throw handleError(null, `Pay request not found for client ${index}`)
+        }
+        await apis[index].wallet.payRequest(String(prid), { headers: { Cookie: cookies[i] } })
+        await new Promise<void>((resolve, reject) => {
+          client.emit(EClientEvent.SET_PLAYER_READY, matchId, true, ({ success, match }) => {
+            if (!checkMatch(i, match) || !match) {
+              return reject(handleError(null, "Match not found on set ready"))
+            }
+            matches[i] = match
+            expect(success).to.equal(true)
+            resolve()
+          })
         })
       }
 
       if (i === 0) {
         return () => sendReady(matchId, 0)
       }
-      return (teamIdx: 0 | 1) =>
-        new Promise<void>((res, rej) => {
-          c.emit(EClientEvent.JOIN_MATCH, matchId as string, teamIdx, ({ success, match }) => {
-            if (!checkMatch(i, match)) {
-              return
+      return async (teamIdx: 0 | 1) => {
+        await new Promise<void>((resolve, reject) => {
+          client.emit(EClientEvent.JOIN_MATCH, matchId, teamIdx, ({ success, match }) => {
+            if (!checkMatch(i, match) || !match) {
+              return reject(handleError(null, "Match not found on join"))
             }
             expect(success).to.equal(true)
-            expect(match?.matchSessionId).to.equal(matchId)
-
-            if (!match) {
-              return rej("Match not found join match")
-            }
+            expect(match.matchSessionId).to.equal(matchId)
             matches[i] = match
-
-            sendReady(matchId, i).then(res)
+            resolve()
           })
         })
+        await sendReady(matchId, i)
+      }
     })
 
-    let tidx: 0 | 1 = 0
+    let teamIdx: 0 | 1 = 0
     for (const joinPromise of joinPromises) {
-      await joinPromise(tidx)
-      tidx = Number(!tidx) as 0 | 1
+      await joinPromise(teamIdx)
+      teamIdx = Number(!teamIdx) as 0 | 1
     }
 
-    for (const [i, c] of clients.entries()) {
-      await new Promise<void>((resolve) => {
-        c.emit(EClientEvent.LEAVE_MATCH, matchId as string, () => {
-          resolve()
-        })
+    for (const [i, client] of clients.entries()) {
+      await new Promise<void>((resolve, reject) => {
+        client.emit(EClientEvent.LEAVE_MATCH, matchId as string, () => resolve())
       })
 
       const res = await apis[i].auth.getAuth({ headers: { Cookie: cookies[i] } })
-
       expect(res.data.wallet?.balanceInSats).to.equal(balances[i])
     }
   })

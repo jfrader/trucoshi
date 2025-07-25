@@ -108,7 +108,7 @@ const sayPoints = (play: IPlayInstance, isFlor: boolean = false) =>
 const sayFlor = (play: IPlayInstance) => sayPoints(play, true)
 
 ;(async () => {
-  const trucoshi = Lobby("testmatch2")
+  const trucoshi = Lobby("testmatch2", "lucas")
 
   // Enable flor in the match options
   trucoshi.setOptions({ flor: true })

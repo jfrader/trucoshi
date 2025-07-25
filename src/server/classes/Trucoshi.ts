@@ -65,7 +65,7 @@ class MatchTableMap extends TMap<string, IMatchTable> {
       }
     }
 
-    return results
+    return results.reverse()
   }
 }
 
@@ -820,7 +820,7 @@ export const Trucoshi = ({
 
             const florPlayer = hand.flor.candidates.find((c) => c.idx === player.idx)
 
-            if (florPlayer?.flor && hand.flor.accepted) {
+            if (process.env.APP_DISABLE_TIMERS !== "1" && florPlayer?.flor && hand.flor.accepted) {
               return setTimeout(resolvePlayer, table.lobby.ackTime * 0.75)
             }
 
@@ -1067,11 +1067,11 @@ export const Trucoshi = ({
         "Flor battle turn started"
       )
 
-      const previousHandAckTime = process.env.APP_PREVIOUS_HAND_ACK_TIMEOUT
+      const previousHandAckTime = Number(process.env.APP_PREVIOUS_HAND_ACK_TIMEOUT || 0) || 2200
 
-      await new Promise<void>((resolve) =>
-        setTimeout(resolve, previousHandAckTime ? Number(previousHandAckTime) : 2200)
-      )
+      if (process.env.APP_DISABLE_TIMERS !== "1") {
+        await new Promise<void>((resolve) => setTimeout(resolve, previousHandAckTime))
+      }
 
       if (!hand) {
         log.error(
@@ -1153,9 +1153,11 @@ export const Trucoshi = ({
           .system(`${team.name}: +${publicMatch.previousHand?.points[team.id]}`, false)
       })
 
-      await new Promise<void>((resolve) => {
-        setTimeout(resolve, table.lobby.ackTime)
-      })
+      if (process.env.APP_DISABLE_TIMERS !== "1") {
+        await new Promise<void>((resolve) => {
+          setTimeout(resolve, table.lobby.ackTime)
+        })
+      }
 
       log.trace(
         table.getPublicMatchInfo(),
@@ -1186,6 +1188,8 @@ export const Trucoshi = ({
             resolve()
           })
 
+        server.io.to("searching").emit(EServerEvent.UPDATE_PUBLIC_MATCHES, server.tables.getAll())
+
         function cleanup() {
           const buffer = 5000
           const lastMessageDate = chat.messages.at(-1)?.date
@@ -1211,7 +1215,7 @@ export const Trucoshi = ({
       })
     },
     async createMatchTable(matchSessionId, userSession) {
-      const table = MatchTable(matchSessionId, userSession.session)
+      const table = MatchTable(matchSessionId, userSession)
 
       log.trace(userSession.getPublicInfo(), "User has created a new match table", table)
 
@@ -1243,6 +1247,8 @@ export const Trucoshi = ({
       }
 
       server.tables.set(matchSessionId, table)
+
+      server.io.to("searching").emit(EServerEvent.UPDATE_PUBLIC_MATCHES, server.tables.getAll())
 
       return table
     },
@@ -1278,6 +1284,8 @@ export const Trucoshi = ({
         ready: true,
         userSession: botSession,
       })
+
+      server.io.to("searching").emit(EServerEvent.UPDATE_PUBLIC_MATCHES, server.tables.getAll())
 
       return bot
     },
@@ -1342,11 +1350,11 @@ export const Trucoshi = ({
             .filter((player) => !player.accountId)
             .map((u) => u.session)
 
-          guestSessions.forEach((session) => {
-            table.lobby.removePlayer(session)
-          })
+          for (const session of guestSessions) {
+            await table.lobby.removePlayer(session)
+          }
 
-          server.getTableSockets(table, async (playerSocket) => {
+          await server.getTableSockets(table, async (playerSocket) => {
             if (playerSocket.data.user && guestSessions.includes(playerSocket.data.user?.session)) {
               playerSocket.emit(
                 EServerEvent.KICK_PLAYER,
@@ -1570,7 +1578,11 @@ export const Trucoshi = ({
           ?.system(`${player.name} ${ready ? "está" : "no está"} listo`, ready ? "join" : "leave")
       }
 
-      server.emitMatchUpdate(table).catch(log.error)
+      server
+        .emitMatchUpdate(table)
+        .catch((e) =>
+          log.error({ message: e.message }, "Failed to emit match update after player set ready")
+        )
 
       return table
     },
@@ -1629,6 +1641,8 @@ export const Trucoshi = ({
           "notification"
         )
 
+      server.io.to("searching").emit(EServerEvent.UPDATE_PUBLIC_MATCHES, server.tables.getAll())
+
       return player
     },
     async cleanupUserTables(userSession) {
@@ -1641,8 +1655,6 @@ export const Trucoshi = ({
       }
     },
     async startMatch({ identityJwt, matchSessionId, userSession }) {
-      await server.cleanupUserTables(userSession)
-
       const table = server.tables.getOrThrow(matchSessionId)
 
       if (!table) {
@@ -1728,6 +1740,8 @@ export const Trucoshi = ({
       }
 
       log.info(table.getPublicMatchInfo(), "Match started")
+
+      await server.cleanupUserTables(userSession)
 
       table.lobby
         .startMatch()
@@ -1896,6 +1910,8 @@ export const Trucoshi = ({
           }
         })
         .catch(log.error)
+
+      server.io.to("searching").emit(EServerEvent.UPDATE_PUBLIC_MATCHES, server.tables.getAll())
     },
     emitSocketMatch(socket, matchId) {
       if (!matchId) {
@@ -2325,6 +2341,9 @@ export const Trucoshi = ({
         server.tables.delete(matchSessionId)
         server.chat.delete(matchSessionId)
         server.turns.delete(matchSessionId)
+
+        server.io.to("searching").emit(EServerEvent.UPDATE_PUBLIC_MATCHES, server.tables.getAll())
+
         log.trace({ matchSessionId }, "Deleted Match Table")
       } catch (e) {
         log.error(e, "Error cleaning up MatchTable")

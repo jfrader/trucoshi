@@ -32,6 +32,7 @@ export enum EServerEvent {
   WAITING_PLAY = "WAITING_PLAY",
   KICK_PLAYER = "PLAYER_KICKED",
   UPDATE_ACTIVE_MATCHES = "UPDATE_ACTIVE_MATCHES",
+  UPDATE_PUBLIC_MATCHES = "UPDATE_PUBLIC_MATCHES",
   WAITING_POSSIBLE_SAY = "WAITING_POSSIBLE_SAY",
   UPDATE_CHAT = "UPDAET_CHAT",
   UPDATE_STATS = "UPDATE_STATS",
@@ -43,6 +44,7 @@ export interface ServerToClientEvents {
   [EServerEvent.UPDATE_STATS]: (room: ITrucoshiStats) => void
   [EServerEvent.NEW_MESSAGE]: (roomId: string, message?: IChatMessage) => void
   [EServerEvent.UPDATE_ACTIVE_MATCHES]: (activeMatches: IPublicMatchInfo[]) => void
+  [EServerEvent.UPDATE_PUBLIC_MATCHES]: (publicMatches: IPublicMatchInfo[]) => void
   [EServerEvent.UPDATE_MATCH]: (match: IPublicMatch, callback?: () => void) => void
   [EServerEvent.KICK_PLAYER]: (match: IPublicMatch, session: string, reason?: string) => void
   [EServerEvent.MATCH_DELETED]: (matchSessionId: string) => void

@@ -20,18 +20,24 @@ describe("Socket Server", () => {
     server = Trucoshi({ port: Number(process.env.APP_PORT) || 9999, serverVersion: "1" })
 
     server.listen(
-      (io) => {
+      async (io) => {
         io.use(sessionMiddleware(server))
         io.use(trucoshiMiddleware(server))
 
         for (let i = 0; i < 6; i++) {
-          clients.push(
-            Client(`http://localhost:${process.env.APP_PORT || 9999}`, {
-              autoConnect: false,
-              withCredentials: true,
-              auth: { name: "player" + i },
-            })
-          )
+          const client = Client(`http://localhost:${process.env.APP_PORT || 9999}`, {
+            autoConnect: false,
+            withCredentials: true,
+            auth: { name: "player" + i, session: "player" + i },
+          })
+          clients.push(client)
+
+          client.on("connect_error", (e) => {
+            console.log("CONNECT ERROR")
+            console.error(e)
+          })
+
+          client.connect()
         }
 
         io.on("connection", (socket) => {
@@ -39,26 +45,7 @@ describe("Socket Server", () => {
           socket.setMaxListeners(50)
         })
 
-        const promises = clients.map(
-          (c) =>
-            new Promise<void>((res) => {
-              c.on(EServerEvent.SET_SESSION, ({ session, name }) => {
-                if ((c.auth as any).sessionID !== session) {
-                  c.auth = { name, sessionID: session }
-                }
-                res()
-              })
-
-              c.on("connect_error", (e) => {
-                console.log("CONNECT ERROR")
-                console.error(e)
-              })
-
-              c.connect()
-            })
-        )
-
-        Promise.all(promises).then(() => done())
+        done()
       },
       { redis: false, lightningAccounts: false, store: false }
     )
@@ -177,7 +164,7 @@ describe("Socket Server", () => {
     await new Promise<void>((res) => {
       clients[0].emit(
         EClientEvent.START_MATCH,
-        matchId as string,
+        match0?.matchSessionId as string,
         ({ success, matchSessionId }) => {
           expect(success).to.equal(true)
           expect(matchSessionId).to.equal(matchId)

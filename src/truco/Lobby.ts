@@ -32,12 +32,15 @@ export const DEFAULT_LOBBY_OPTIONS: ILobbyOptions = {
 }
 
 export interface IPrivateLobby {
+  hostName: string
+  playersAtStart: number
   options: ILobbyOptions
   gameLoop?: IGameLoop
   lastTeamIdx: 0 | 1
   _players: Array<IPlayer | { name?: undefined; session?: undefined; teamIdx?: 0 | 1 }>
   get players(): Array<IPlayer>
   get ackTime(): number
+  get playerCount(): number
   teams: Array<ITeam>
   table: ITable | null
   queue: IQueue
@@ -80,12 +83,20 @@ export interface ILobby
     | "gameLoop"
     | "table"
     | "calculateReady"
+    | "hostName"
+    | "playerCount"
   > {}
 
-export function Lobby(matchId: string, options: Partial<ILobbyOptions> = {}): ILobby {
+export function Lobby(
+  matchId: string,
+  hostName: string,
+  options: Partial<ILobbyOptions> = {}
+): ILobby {
   const lobby: IPrivateLobby = {
     options: Object.assign(structuredClone(DEFAULT_LOBBY_OPTIONS), options),
+    hostName,
     lastTeamIdx: 1,
+    playersAtStart: 0,
     _players: [],
     teams: [],
     queue: Queue(),
@@ -94,6 +105,13 @@ export function Lobby(matchId: string, options: Partial<ILobbyOptions> = {}): IL
     ready: false,
     started: false,
     gameLoop: undefined,
+    get playerCount() {
+      if (lobby.started) {
+        return lobby.playersAtStart
+      }
+
+      return lobby.players.length
+    },
     get players() {
       return lobby._players.filter((player) => Boolean(player && player.name)) as IPlayer[]
     },
@@ -146,6 +164,7 @@ export function Lobby(matchId: string, options: Partial<ILobbyOptions> = {}): IL
       })
     },
     startMatch() {
+      lobby.playersAtStart = lobby.players.length
       return startLobbyMatch(matchId, lobby)
     },
   }

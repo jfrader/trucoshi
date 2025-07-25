@@ -1,7 +1,7 @@
 import { CARDS_HUMAN_READABLE } from "../../lib/constants"
 import { IRound, Lobby } from "../../truco"
 ;(async () => {
-  const trucoshi = Lobby("testmatch1")
+  const trucoshi = Lobby("testmatch1", "lucas")
 
   const promises = ["lucas", "guada", "juli", "day", "gaspar", "fran"].map((n, i) =>
     trucoshi.addPlayer({ key: n, name: n, session: n }).then((player) => {
