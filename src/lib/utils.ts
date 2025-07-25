@@ -1,6 +1,18 @@
-import { IHand, IRound, IRoundPoints } from "../truco"
+import { IHand, IRoundPoints } from "../truco"
 import { ICard } from "../types"
 import { CARDS } from "./constants"
+import memoize from "lodash.memoize"
+import partialRight from "lodash.partialright"
+
+export const memoizeMinute = partialRight(memoize, function memoResolver(...args: any[]) {
+  const time = new Date().getMinutes()
+
+  args.push({ time })
+
+  const cacheKey = JSON.stringify(args)
+
+  return cacheKey
+}) as typeof memoize
 
 export function getMaxNumberIndex<T = number>(array: Array<T>) {
   return array.reduce((accumulator, current, index) => {

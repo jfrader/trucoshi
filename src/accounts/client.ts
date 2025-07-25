@@ -2,6 +2,7 @@ import { Api, User } from "lightning-accounts"
 import jwt, { JwtPayload } from "jsonwebtoken"
 import { getPublicKey } from "../utils/config/lightningAccounts"
 import { SocketError } from "../server"
+import { memoizeMinute } from "../lib/utils"
 
 const token = `${process.env.APP_LIGHTNING_ACCOUNTS_EMAIL}:${process.env.APP_LIGHTNING_ACCOUNTS_PASSWORD}`
 
@@ -30,4 +31,6 @@ const validateJwt = (identityJwt: string, account: Pick<User, "id">): JwtPayload
   }
 }
 
-export { api as accountsApi, validateJwt }
+const getMemoLatestBitcoinBlock = memoizeMinute(api.wallet.getLatestBitcoinBlock)
+
+export { api as accountsApi, getMemoLatestBitcoinBlock, validateJwt }
