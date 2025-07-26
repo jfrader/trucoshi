@@ -1,10 +1,11 @@
 import { randomUUID } from "crypto"
 import { IChatMessage, IChatRoom } from "../../types"
 import { TrucoshiServer } from "./Trucoshi"
-import logger from "../../utils/logger"
 import { TMap } from "./TMap"
 import { EClientEvent, EServerEvent } from "../../events"
 import { IMatchTable } from "./MatchTable"
+import logger from "../../utils/logger"
+import throttle from "lodash.throttle"
 
 const log = logger.child({ class: "Chat" })
 
@@ -30,6 +31,7 @@ const ChatMessage = ({
   command,
   content,
   card,
+  hidden,
   sound,
 }: Partial<IChatMessage> & Pick<IChatMessage, "user">): IChatMessage => {
   return {
@@ -41,6 +43,7 @@ const ChatMessage = ({
     command: command ?? false,
     card: card ?? false,
     sound: sound ?? false,
+    hidden,
   }
 }
 
@@ -62,6 +65,16 @@ const ChatRoom = (io: TrucoshiServer, id: string) => {
       })
       room.messages.push(message)
       room.emit(message)
+    },
+    sound(sound, toTeamIdx, fromUser = ChatUser(SYSTEM_ID)) {
+      const message = ChatMessage({
+        user: fromUser,
+        content: "",
+        system: true,
+        hidden: true,
+        sound,
+      })
+      room.emit(message, toTeamIdx)
     },
     system(content, sound) {
       const message = ChatMessage({
@@ -93,8 +106,12 @@ const ChatRoom = (io: TrucoshiServer, id: string) => {
       room.messages.push(message)
       room.emit(message)
     },
-    emit(message) {
-      io.to(room.id).emit(EServerEvent.NEW_MESSAGE, room.id, message)
+    emit(message, teamIdx) {
+      if (teamIdx) {
+        io.to(room.id + teamIdx).emit(EServerEvent.NEW_MESSAGE, room.id, message)
+      } else {
+        io.to(room.id).emit(EServerEvent.NEW_MESSAGE, room.id, message)
+      }
     },
   }
 
@@ -147,14 +164,16 @@ export const Chat = (io?: TrucoshiServer, tables?: TMap<string, IMatchTable>) =>
           }
         })
 
-      userSocket.emit(EServerEvent.UPDATE_CHAT, { id: chatroom.id, messages: chatroom.messages })
+      userSocket.emit(EServerEvent.UPDATE_CHAT, {
+        id: chatroom.id,
+        messages: chatroom.messages,
+      })
     }
 
     userSocket.on(EClientEvent.CHAT, (matchId, message, callback) => {
       if (matchId !== room || !userSocket.data.user) {
-        return
+        return callback?.({ success: false })
       }
-      const chatroom = chat.rooms.get(matchId)
 
       const player = tables
         .get(matchId)
@@ -163,7 +182,34 @@ export const Chat = (io?: TrucoshiServer, tables?: TMap<string, IMatchTable>) =>
       if (chatroom) {
         chatroom.send({ name, key, teamIdx: player?.teamIdx }, message, true)
       }
-      callback()
+      callback?.({ success: true })
+    })
+
+    const sayHandler = () =>
+      throttle((message, toTeamIdx, fromUser) => {
+        chatroom?.sound(message, toTeamIdx, fromUser)
+      }, 4000)
+
+    userSocket.on(EClientEvent.SAY, (matchId, message, callback) => {
+      if (matchId !== room || !userSocket.data.user) {
+        return callback?.({ success: false })
+      }
+
+      const player = tables
+        .get(matchId)
+        ?.lobby.players.find((p) => p.key === userSocket.data.user?.key)
+
+      if (!player) {
+        return callback?.({ success: false })
+      }
+
+      if (!userSocket.data.throttler) {
+        userSocket.data.throttler = sayHandler()
+      }
+
+      userSocket.data.throttler(message, undefined, userSocket.data.user)
+
+      callback?.({ success: true })
     })
   })
 

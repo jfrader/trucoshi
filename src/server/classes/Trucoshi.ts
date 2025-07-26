@@ -75,6 +75,7 @@ interface SocketData {
   user?: IUserData
   identity?: string
   matches: TMap<string, ISocketMatchState>
+  throttler?: (...any: any[]) => any
 }
 
 export type TrucoshiServer = Server<
@@ -488,6 +489,8 @@ export const Trucoshi = ({
 
       for (const key in socket.data.matches?.keys()) {
         socket.leave(key)
+        socket.leave(key + 0)
+        socket.leave(key + 1)
       }
 
       socket.disconnect()
@@ -513,6 +516,7 @@ export const Trucoshi = ({
           if (player) {
             userSession.reconnect(matchSessionId, "disconnection")
             socket.join(matchSessionId)
+            socket.join(matchSessionId + player.teamIdx)
 
             if (table.state() === EMatchState.STARTED) {
               server.emitSocketMatch(socket, matchSessionId)
@@ -1185,6 +1189,13 @@ export const Trucoshi = ({
         const chat = server.chat.rooms.getOrThrow(table.matchSessionId)
         chat.system(`${winner.name} es el equipo ganador!`)
 
+        const winnerIdx = winner.id.toString() as "0" | "1"
+        const loserIdx = Number(!winner.id).toString() as "0" | "1"
+
+        chat.sound("winner", winnerIdx)
+        chat.sound("deal", loserIdx)
+        chat.sound("ceba_toma_mate", loserIdx)
+
         server
           .emitMatchUpdate(table)
           .then(() =>
@@ -1489,7 +1500,7 @@ export const Trucoshi = ({
         .getOrThrow(table.matchSessionId)
         .system(
           `${kickedPlayer.name} salió de ${table.lobby.teams[kickedPlayer.teamIdx].name}`,
-          kickedPlayer.bot ? "bot" : "mate"
+          kickedPlayer.bot ? "bot" : "miss"
         )
     },
     async setMatchPlayerReady({ matchSessionId, userSession, ready }) {
@@ -1957,7 +1968,10 @@ export const Trucoshi = ({
         userSession.reconnect(table.matchSessionId, "disconnection")
 
         const { play, resolve } = server.turns.get(table.matchSessionId) || {}
-        if (play && play.player && table.isSessionPlaying(socket.data.user.session)) {
+        const player = table.isSessionPlaying(socket.data.user.session)
+        if (play && play.player && player) {
+          socket.join(table.matchSessionId + player.teamIdx)
+
           if (
             play.state === EHandState.WAITING_PLAY &&
             socket.data.user.session === play.player.session
@@ -2328,8 +2342,11 @@ export const Trucoshi = ({
           })
         }
 
-        await server.getTableSockets(table, async (playerSocket) => {
+        await server.getTableSockets(table, async (playerSocket, player) => {
           playerSocket.leave(table.matchSessionId)
+          if (player) {
+            playerSocket.leave(table.matchSessionId + player.teamIdx)
+          }
         })
 
         for (const player of table.lobby.players) {

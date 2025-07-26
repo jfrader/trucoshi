@@ -107,6 +107,7 @@ export interface IChatMessage {
   date: number
   user: { name: string; key: string; teamIdx?: 0 | 1 }
   system?: boolean
+  hidden?: boolean
   command?: boolean
   card?: boolean
   content: string
@@ -123,7 +124,8 @@ export interface IChatRoom {
   card(user: IChatMessage["user"], card: ICard, sound?: string | boolean): void
   command(team: 0 | 1, command: ECommand | number, sound?: string | boolean): void
   system(message: string, sound?: string | boolean): void
-  emit(message?: IChatMessage): void
+  sound(sound: string, toTeamIdx?: "0" | "1", fromUser?: IChatMessage['user']): void
+  emit(message?: IChatMessage, teamIdxs?: string): void
 }
 
 export enum EChatSystem {

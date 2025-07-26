@@ -68,6 +68,9 @@ export const trucoshiMiddleware = (server: ITrucoshi) => {
                   )
                   .finally(() => {
                     setTimeout(() => {
+                      if (server.tables.find((t) => !!t.isSessionPlaying(userSession.session))) {
+                        return
+                      }
                       server.sessions.delete(userSession.session)
                     }, PLAYER_ABANDON_TIMEOUT)
                   })
@@ -189,9 +192,16 @@ export const trucoshiMiddleware = (server: ITrucoshi) => {
         log.trace(userSession.getPublicInfo(), "User joining match...")
 
         if (table) {
-          await server.joinMatch(table, userSession, socket.data.identity || null, teamIdx)
+          const player = await server.joinMatch(
+            table,
+            userSession,
+            socket.data.identity || null,
+            teamIdx
+          )
 
           socket.join(table.matchSessionId)
+          socket.join(table.matchSessionId + player.teamIdx)
+          socket.leave(table.matchSessionId + Number(!player.teamIdx))
 
           server.emitMatchUpdate(table).catch(console.error)
           return callback({

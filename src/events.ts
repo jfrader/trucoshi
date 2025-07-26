@@ -90,10 +90,13 @@ export enum EClientEvent {
   LEAVE_ROOM = "LEAVE_ROOM",
 }
 
+export type SayType = "mate" | "ceba_toma_mate"
+
 export interface ClientToServerEvents {
   [EClientEvent.LOGOUT]: (callback: IEventCallback<{}>) => void
   [EClientEvent.PING]: (clientTime: number) => void
-  [EClientEvent.CHAT]: (matchId: string, msg: string, callback: () => void) => void
+  [EClientEvent.CHAT]: (matchId: string, msg: string, callback?: IEventCallback<{}>) => void
+  [EClientEvent.SAY]: (matchId: string, msg: SayType, callback?: IEventCallback<{}>) => void
   [EClientEvent.LEAVE_MATCH]: (matchId: string, callback?: IEventCallback<{}>) => void
   [EClientEvent.CREATE_MATCH]: (
     callback: IEventCallback<{ match?: IPublicMatch; activeMatches?: IPublicMatchInfo[] }>
