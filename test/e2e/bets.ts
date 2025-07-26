@@ -20,6 +20,7 @@ import {
 } from "../../src/events"
 import { EMatchState } from "@prisma/client"
 import { sessionMiddleware, trucoshiMiddleware } from "../../src/server"
+import { getCookieName } from "../../src/accounts/client"
 
 describe("Bets", () => {
   let server: ITrucoshi
@@ -48,8 +49,8 @@ describe("Bets", () => {
     })
 
     const identityJwt = response.headers["set-cookie"]
-      ?.find((cookie) => cookie.includes("identity"))
-      ?.match(new RegExp(`^${"identity"}=(.+?);`))?.[1]
+      ?.find((cookie) => cookie.includes(getCookieName("identity")))
+      ?.match(new RegExp(`^${getCookieName("identity")}=(.+?);`))?.[1]
 
     if (!identityJwt || !response.data.user) {
       throw handleError(null, "Failed to get identity JWT or user from lightning accounts")
