@@ -48,8 +48,8 @@ describe("Bets", () => {
     })
 
     const identityJwt = response.headers["set-cookie"]
-      ?.find((cookie) => cookie.includes("jwt:identity"))
-      ?.match(new RegExp(`^${"jwt:identity"}=(.+?);`))?.[1]
+      ?.find((cookie) => cookie.includes("identity"))
+      ?.match(new RegExp(`^${"identity"}=(.+?);`))?.[1]
 
     if (!identityJwt || !response.data.user) {
       throw handleError(null, "Failed to get identity JWT or user from lightning accounts")
