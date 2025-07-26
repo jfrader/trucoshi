@@ -861,7 +861,14 @@ export const Trucoshi = ({
           .catch((e) => log.error(e, "Error onBotTurn, rejected waitingPossibleSay"))
 
         await new Promise((res) =>
-          setTimeout(res, Math.max(PLAYER_TIMEOUT_GRACE * Math.random() * 4, PLAYER_TIMEOUT_GRACE))
+          setTimeout(
+            res,
+            Math.max(
+              PLAYER_TIMEOUT_GRACE,
+              PLAYER_TIMEOUT_GRACE * Math.random() * 4,
+              play.handIdx === 1 && play.roundIdx === 1 ? PLAYER_TIMEOUT_GRACE * 6 : 0
+            )
+          )
         )
 
         const player = play.player
