@@ -7,7 +7,7 @@ import { memoizeMinute } from "../lib/utils"
 const token = `${process.env.APP_LIGHTNING_ACCOUNTS_EMAIL}:${process.env.APP_LIGHTNING_ACCOUNTS_PASSWORD}`
 
 function getCookieName(name: string) {
-  return name + (process.env.APP_LIGHTNING_ACCOUNTS_COOKIE_PREFIX || "")
+  return (process.env.APP_LIGHTNING_ACCOUNTS_COOKIE_PREFIX || "") + name
 }
 
 const api = new Api({
