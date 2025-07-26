@@ -21,7 +21,7 @@ export type IPlayerRanking = Omit<UserStats, "id" | "satsBet" | "satsWon" | "sat
   Pick<User, "name" | "avatarUrl">
 
 export interface IMatchDetails extends Match {
-  players: Array<Pick<MatchPlayer, "id" | "accountId" | "teamIdx" | "name" | "idx" | "bot">>
+  players: Array<Pick<MatchPlayer, "accountId" | "teamIdx" | "name" | "idx" | "bot">>
   hands: Array<MatchHand>
 }
 export interface IAccountDetails {
@@ -124,7 +124,7 @@ export interface IChatRoom {
   card(user: IChatMessage["user"], card: ICard, sound?: string | boolean): void
   command(team: 0 | 1, command: ECommand | number, sound?: string | boolean): void
   system(message: string, sound?: string | boolean): void
-  sound(sound: string, toTeamIdx?: "0" | "1", fromUser?: IChatMessage['user']): void
+  sound(sound: string, toTeamIdx?: "0" | "1", fromUser?: IChatMessage["user"]): void
   emit(message?: IChatMessage, teamIdxs?: string): void
 }
 

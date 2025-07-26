@@ -2212,7 +2212,7 @@ export const Trucoshi = ({
             },
           },
           players: {
-            select: { accountId: true, id: true, name: true, teamIdx: true, idx: true, bot: true },
+            select: { accountId: true, name: true, teamIdx: true, idx: true, bot: true },
           },
         },
       })
