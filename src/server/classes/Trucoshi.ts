@@ -266,7 +266,7 @@ export const Trucoshi = ({
           "Logging in to lightning-accounts at " + process.env.APP_LIGHTNING_ACCOUNTS_URL
         )
         try {
-          await accountsApi.auth.getAuth()
+          await accountsApi.auth.getUserProfile()
           logger.info("Logged in to lightning-accounts")
         } catch (e) {
           logger.error(e, "Failed to login to lightning-accounts")
