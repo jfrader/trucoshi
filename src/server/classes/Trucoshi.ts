@@ -1533,7 +1533,7 @@ export const Trucoshi = ({
             )
           }
 
-          const res = await accountsApi.wallet.payRequestDetail(String(player.payRequestId))
+          const res = await accountsApi.wallet.getPayRequest(String(player.payRequestId))
           pr = res.data
 
           log.debug({ pr }, "Found PR for setting player ready")
