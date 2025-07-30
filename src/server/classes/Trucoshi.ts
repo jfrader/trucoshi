@@ -344,7 +344,7 @@ export const Trucoshi = ({
                   "Looking for paid pay request"
                 )
 
-                const pr = await accountsApi.wallet.payRequestDetail(String(player.payRequestId))
+                const pr = await accountsApi.wallet.getPayRequest(String(player.payRequestId))
 
                 matchLog.trace(
                   {
@@ -1322,7 +1322,7 @@ export const Trucoshi = ({
     },
     async checkUserSufficientBalance({ identityJwt, account, satsPerPlayer }) {
       const payload = validateJwt(identityJwt, account)
-      const wallet = await accountsApi.users.walletDetail(String(payload.sub))
+      const wallet = await accountsApi.users.getUserWallet(String(payload.sub))
 
       if (wallet.data.balanceInSats < satsPerPlayer) {
         throw new Error(GAME_ERROR.INSUFFICIENT_BALANCE)
@@ -2045,7 +2045,7 @@ export const Trucoshi = ({
             )
             return
           }
-          const pr = await accountsApi.wallet.payRequestDetail(String(player.payRequestId))
+          const pr = await accountsApi.wallet.getPayRequest(String(player.payRequestId))
 
           log.trace(
             { pr: pr.data, player },
