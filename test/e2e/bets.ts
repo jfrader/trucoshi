@@ -43,7 +43,7 @@ describe("Bets", () => {
     })
     apis.push(api)
 
-    const response = await api.auth.loginCreate({
+    const response = await api.auth.loginUser({
       email: `${index}_e2e_player@trucoshi.com`,
       password: "secret",
     })
