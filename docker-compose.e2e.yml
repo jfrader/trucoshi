@@ -5,14 +5,20 @@ include:
 
 services:
   postgres_test_trucoshi:
+    restart: "no"
     extends:
       file: docker-compose.base.yml
       service: postgres
   redis_test:
+    restart: "no"
     extends:
       file: docker-compose.base.yml
       service: redis
   server:
+    restart: "no"
+    extends:
+      file: docker-compose.base.yml
+      service: server
     volumes:
       - ./src:/opt/app/src
     depends_on:
@@ -28,7 +34,4 @@ services:
     environment:
       APP_REDIS_URL: "redis://redis:6379"
       DATABASE_URL: "postgresql://${APP_DB_USER}:${APP_DB_PASSWORD}@postgres_test_trucoshi:5432/${APP_DB_NAME}?schema=public"
-      APP_LIGHTNING_ACCOUNTS_URL: "http://host.docker.internal:3999/v1"
-    extends:
-      file: docker-compose.base.yml
-      service: server
+      APP_LIGHTNING_ACCOUNTS_URL: "http://lightning-accounts-${NODE_ENV:-test}-server-1:3999/v1"

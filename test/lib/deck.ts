@@ -39,7 +39,7 @@ describe("Trucoshi Deck", () => {
     deck.random.bitcoinHash = "test-bitcoin-hash"
     deck.random.clients[0] = rng.generateServerSeed()
 
-    const counts: Record<ICard, number> = {}
+    const counts: Record<ICard, number> = {} as any
     for (let i = 0; i < 10000; i++) {
       deck.shuffle(0)
       const card = deck.cards[0]

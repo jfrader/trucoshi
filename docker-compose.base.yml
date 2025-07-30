@@ -11,10 +11,19 @@ services:
       POSTGRES_DB: ${APP_DB_NAME}
       POSTGRES_USER: ${APP_DB_USER}
       POSTGRES_PASSWORD: ${APP_DB_PASSWORD}
+    networks:
+      lightningaccountsnet:
+        ipv4_address: 10.29.0.31
   redis:
     image: redis:latest
     command: redis-server
+    networks:
+      lightningaccountsnet:
+        ipv4_address: 10.29.0.32
   server:
+    networks:
+      lightningaccountsnet:
+        ipv4_address: 10.29.0.30
     build:
       context: .
       args:
@@ -28,3 +37,8 @@ services:
       - "host.docker.internal:host-gateway"
     env_file:
       - path: ./.env
+
+networks:
+  default: null
+  lightningaccountsnet:
+    name: lightningaccountsnet

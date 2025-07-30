@@ -1,4 +1,5 @@
 networks:
+  default: null
   lightningaccountsnet:
     name: lightningaccountsnet
     external: true

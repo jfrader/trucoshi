@@ -17,8 +17,7 @@ export const trucoshiMiddleware = (server: ITrucoshi) => {
     }
 
     if (room === "searching" && socket) {
-      const publicMatches = server.tables.getAll()
-      socket.emit(EServerEvent.UPDATE_PUBLIC_MATCHES, publicMatches)
+      socket.emit(EServerEvent.UPDATE_PUBLIC_MATCHES, server.tables.getAll())
     }
   })
 

@@ -454,7 +454,7 @@ export const Trucoshi = ({
     async login({ socket, account, identityJwt }) {
       const payload = validateJwt(identityJwt, account)
 
-      const res = await accountsApi.users.usersDetail(String(payload.sub))
+      const res = await accountsApi.users.getUser(String(payload.sub))
 
       if (socket.data.user) {
         server.logout(socket)
@@ -1429,7 +1429,7 @@ export const Trucoshi = ({
             table.lobby.setOptions(options)
 
             try {
-              const prs = await accountsApi.wallet.payRequestsCreate({
+              const prs = await accountsApi.wallet.createPayRequests({
                 amountInSats: satsPerPlayer,
                 description: `Request to enter match ${matchSessionId} - Match ID: ${table.matchId}`,
                 meta: {
@@ -1637,7 +1637,7 @@ export const Trucoshi = ({
           matchPlayerId = currentPlayer.matchPlayerId
           prId = currentPlayer.payRequestId
         } else {
-          const res = await accountsApi.wallet.payRequestCreate({
+          const res = await accountsApi.wallet.createPayRequest({
             amountInSats: table.lobby.options.satsPerPlayer,
             receiverId: userSession.account.id,
             description: `Request to enter match ${table.matchSessionId} - Match ID: ${table.matchId}`,
@@ -1714,7 +1714,7 @@ export const Trucoshi = ({
           return player.payRequestId
         })
 
-        const prs = await accountsApi.wallet.payRequestsList({
+        const prs = await accountsApi.wallet.getPayRequests({
           payRequestIds,
         })
 
@@ -2236,7 +2236,7 @@ export const Trucoshi = ({
         throw new SocketError("UNEXPECTED_ERROR", "Missing account id")
       }
 
-      const account = await accountsApi.users.usersDetail(String(accountId))
+      const account = await accountsApi.users.getUser(String(accountId))
 
       const isPlayer = socket.data.user?.account?.id === accountId
 
@@ -2305,7 +2305,7 @@ export const Trucoshi = ({
 
       for (const stats of userstats) {
         try {
-          const account = await accountsApi.users.usersDetail(String(stats.accountId))
+          const account = await accountsApi.users.getUser(String(stats.accountId))
 
           if (account.data) {
             const rank = {

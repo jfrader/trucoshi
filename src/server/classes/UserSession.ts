@@ -16,6 +16,7 @@ export type UserSessionEvent = "connect" | "disconnect"
 export interface IUserSession extends IUserData {
   name: string
   online: boolean
+  role: User["role"]
   ownedMatches: Set<string>
   timeouts: {
     disconnection: TMap<string, UserTimeout>
@@ -54,6 +55,7 @@ export function UserSession(key: string, username: string, session: string) {
     name: username,
     key,
     account: null,
+    role: "USER",
     session,
     online: false,
     ownedMatches: new Set(),
@@ -66,7 +68,9 @@ export function UserSession(key: string, username: string, session: string) {
       return { key, accountId: account?.id, online, name, ownedMatches }
     },
     setAccount(user) {
+      if (!user) return
       userSession.account = user
+      userSession.account.role = user.role
     },
     getUserData() {
       const { key, name, session, account } = userSession
