@@ -1,6 +1,6 @@
 {
   "name": "trucoshi",
-  "version": "8.6.4",
+  "version": "8.6.5",
   "description": "Lightning Truco Server",
   "main": "dist/types.js",
   "license": "GPL-3.0",
@@ -80,7 +80,7 @@
     "dotenv-cli": "^7.3.0",
     "form-data": "^4.0.0",
     "jsonwebtoken": "^9.0.2",
-    "lightning-accounts": "5.0.0",
+    "lightning-accounts": "5.0.2",
     "lodash.debounce": "^4.0.8",
     "lodash.memoize": "^4.1.2",
     "lodash.partialright": "^4.2.1",
