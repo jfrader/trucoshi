@@ -872,7 +872,7 @@ export const Trucoshi = ({
               PLAYER_TIMEOUT_GRACE,
               PLAYER_TIMEOUT_GRACE * Math.random() * 4,
               play.handIdx === 1 && play.roundIdx === 1 && !play.player?.didSomething
-                ? PLAYER_TIMEOUT_GRACE * (6 - play.player!.idx)
+                ? PLAYER_TIMEOUT_GRACE * (5 - play.player!.idx)
                 : 0
             )
           )

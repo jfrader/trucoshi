@@ -54,11 +54,9 @@ export function Player({
     disabled: false,
     ready: false,
     abandoned: false,
+    opponentProfiles: {},
     get commands() {
       return Array.from(player._commands.values())
-    },
-    get positiveCommands() {
-      return player.commands.filter((c) => !DANGEROUS_COMMANDS.includes(c))
     },
     getRandomCard() {
       const randomIdx = Math.floor(Math.random() * player.hand.length)
@@ -284,7 +282,7 @@ function splitCardvalues(card: ICard): ISplittedCard {
   return { value: Number(value), palo, card, envidoValue: Number(value.at(-1)) }
 }
 
-const calculateEnvidoPointsArray = (player: IPlayer): IPlayer["envido"] => {
+export const calculateEnvidoPointsArray = (player: IPlayer): IPlayer["envido"] => {
   const cards = [...player.hand, ...player.usedHand]
   const hand = cards.map(splitCardvalues)
 

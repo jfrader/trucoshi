@@ -329,6 +329,12 @@ export type IPublicPlayer = Pick<
 
 export type IPublicTeam = Pick<ITeam, "points" | "id" | "name"> & { players: Array<IPublicPlayer> }
 
+export interface OpponentProfile {
+  bluffCount: number
+  foldCount: number
+  aggression: number
+}
+
 export interface IPlayer {
   idx: number
   secret: string
@@ -348,10 +354,9 @@ export interface IPlayer {
   envido: Array<{ value: number; cards: ICard[] }>
   _commands: Set<ECommand>
   get commands(): Array<ECommand>
-  get positiveCommands(): Array<ECommand>
   isTurn: boolean
-  turnExpiresAt: number | null // Date.now()
-  turnExtensionExpiresAt: number | null // Date.now()
+  turnExpiresAt: number | null
+  turnExtensionExpiresAt: number | null
   hasFlor: boolean
   flor: { value: number; cards: ICard[] } | null
   didSomething: boolean
@@ -363,6 +368,7 @@ export interface IPlayer {
   disabled: boolean
   abandoned: boolean
   ready: boolean
+  opponentProfiles: Record<string, OpponentProfile>
   getRandomCard(): [number, ICard]
   getHighestCard(): [number, ICard]
   getLowestCard(): [number, ICard]
