@@ -8,21 +8,21 @@ services:
     hostname: postgres_trucoshi_staging
     networks:
       lightningaccountsnet:
-        ipv4_address: 10.29.0.41
+        ipv4_address: 10.29.0.61
     extends:
       file: docker-compose.prod.yml
       service: postgres
   redis:
     networks:
       lightningaccountsnet:
-        ipv4_address: 10.29.0.42
+        ipv4_address: 10.29.0.62
     extends:
       file: docker-compose.prod.yml
       service: redis
   server:
     networks:
       lightningaccountsnet:
-        ipv4_address: 10.29.0.40
+        ipv4_address: 10.29.0.60
     extends:
       file: docker-compose.prod.yml
       service: server
