@@ -1,6 +1,6 @@
 export * from "./events"
 
-export { CARDS, CARDS_HUMAN_READABLE, BURNT_CARD } from "./lib/constants"
+export { CARDS, CARDS_HUMAN_READABLE, SUITS_HUMAN_READABLE, BURNT_CARD } from "./lib/constants"
 
 import { RequestParams, User } from "lightning-accounts"
 import { Match, MatchPlayer, MatchHand, UserStats } from "@trucoshi/prisma"
