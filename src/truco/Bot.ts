@@ -669,7 +669,7 @@ export async function playBot(
 
   // Calculate delay based on personality, game momentum, and player count
   const totalPlayers = context.table.players.filter((p) => !p.disabled).length
-  const playerMultiplier = totalPlayers === 2 ? 0.5 : totalPlayers === 4 ? 0.6 : 0.75 // Scale delay by player count
+  const playerMultiplier = totalPlayers === 2 ? 0.55 : totalPlayers === 4 ? 0.7 : 0.8 // Scale delay by player count
   let baseDelay = PLAYER_TIMEOUT_GRACE * playerMultiplier * (1 + context.profile.patience)
   let momentumFactor = 1
 

@@ -1,6 +1,6 @@
 {
   "name": "trucoshi",
-  "version": "8.8.1",
+  "version": "8.8.2",
   "description": "Lightning Truco Server",
   "main": "dist/types.js",
   "license": "GPL-3.0",
