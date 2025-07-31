@@ -1,6 +1,6 @@
 {
   "name": "trucoshi",
-  "version": "8.6.5",
+  "version": "8.7.0",
   "description": "Lightning Truco Server",
   "main": "dist/types.js",
   "license": "GPL-3.0",
@@ -24,7 +24,7 @@
     "start:migrate": "prisma db push && yarn start",
     "start:prod": "node bin/trucoshi-server",
     "start:prod:migrate": "prisma migrate deploy && yarn start:prod",
-    "docker": "docker compose -f docker-compose.yml --env-file .env up --build --abort-on-container-exit",
+    "docker": "NODE_ENV=development ./init-dev.sh",
     "docker:exec": "docker compose exec -i server yarn",
     "docker:prod": "NODE_ENV=production && docker compose -f docker-compose.prod.yml down && docker compose -f docker-compose.prod.yml --env-file .env up --build",
     "docker:staging": "docker compose -f docker-compose.staging.yml down && docker compose -f docker-compose.staging.yml --env-file .env up --build",

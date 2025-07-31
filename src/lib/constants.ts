@@ -92,4 +92,11 @@ export const CARDS_HUMAN_READABLE = {
   "4c": "4🍷",
 }
 
+export const SUITS_HUMAN_READABLE = {
+  e: "🗡️",
+  b: "🌵",
+  o: "💰",
+  c: "🍷",
+}
+
 export const TEAM_SIZE_VALUES = [1, 2, 3]
