@@ -1,5 +1,4 @@
-import { randomUUID } from "crypto"
-import { ICard, IPlayer, DANGEROUS_COMMANDS } from "../types"
+import { ICard, IPlayer, DANGEROUS_COMMANDS, ECommand } from "../types"
 import { maxBy } from "../utils/array"
 import { BURNT_CARD, CARDS } from "../lib/constants"
 import { getMaxNumberIndex, getMinNumberIndex } from "../lib/utils"
@@ -48,6 +47,7 @@ export function Player({
     turnExtensionExpiresAt: null,
     hasFlor: false,
     isEnvidoTurn: false,
+    didSomething: false,
     hasSaidEnvidoPoints: false,
     hasSaidFlor: false,
     hasSaidTruco: false,
@@ -156,6 +156,7 @@ export function Player({
       player.abandoned = true
     },
     setHand(hand) {
+      player.didSomething = false
       player.hasFlor = false
       player.hasSaidFlor = false
       player.hasSaidEnvidoPoints = false
@@ -168,11 +169,29 @@ export function Player({
       player.calculateEnvido()
       return hand
     },
+    sayCommand(command, force) {
+      if (typeof command === "number") {
+        if (command !== 0 && !player.envido.map((e) => e.value).includes(command as number)) {
+          return false
+        }
+
+        player.didSomething = true
+        return command
+      }
+
+      if (!player.commands.includes(command as ECommand) && !force) {
+        return false
+      }
+
+      player.didSomething = true
+      return command
+    },
     useCard(idx, card) {
       if (player.hand[idx] && player.hand[idx] === card) {
         const playedCard = player.hand.splice(idx, 1)[0]
         player.usedHand.push(playedCard)
         player.hasFlor = false
+        player.didSomething = true
         return playedCard
       }
       return null

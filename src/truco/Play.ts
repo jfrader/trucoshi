@@ -33,7 +33,12 @@ export interface IPlayInstance {
   say(command: ECommand | number, player: IPlayer, force?: boolean): typeof command | null
 }
 
-export function PlayInstance(hand: IHand, teams: [ITeam, ITeam], forehandIdx: number, options: ILobbyOptions) {
+export function PlayInstance(
+  hand: IHand,
+  teams: [ITeam, ITeam],
+  forehandIdx: number,
+  options: ILobbyOptions
+) {
   function play<TFnType extends ((...args: any[]) => any) | undefined>(
     fn?: TFnType,
     ...args: PlayArgs<TFnType>
@@ -106,11 +111,11 @@ export function PlayInstance(hand: IHand, teams: [ITeam, ITeam], forehandIdx: nu
           return play()
         }
 
-        if (typeof command === "number") {
-          if (command !== 0 && !player.envido.map((e) => e.value).includes(command as number)) {
-            throw new Error(GAME_ERROR.INVALID_ENVIDO_POINTS)
-          }
+        if (player.sayCommand(command, force) === false) {
+          throw new Error(GAME_ERROR.INVALID_COMAND)
+        }
 
+        if (typeof command === "number") {
           const result = play(hand.sayEnvidoPoints, player, command)
           if (result) {
             instance.lastCommand = result
@@ -118,9 +123,6 @@ export function PlayInstance(hand: IHand, teams: [ITeam, ITeam], forehandIdx: nu
           return result
         }
 
-        if (!player.commands.includes(command as ECommand) && !force) {
-          throw new Error(GAME_ERROR.INVALID_COMAND)
-        }
         const result = play(hand.say, command, player)
         if (result) {
           instance.lastCommand = result

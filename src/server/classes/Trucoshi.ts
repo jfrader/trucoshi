@@ -860,21 +860,24 @@ export const Trucoshi = ({
           .then(() => resolve())
           .catch((e) => log.error(e, "Error onBotTurn, rejected waitingPossibleSay"))
 
+        const player = play.player
+        if (!player || !player.bot || !table.lobby.table) {
+          return reject()
+        }
+
         await new Promise((res) =>
           setTimeout(
             res,
             Math.max(
               PLAYER_TIMEOUT_GRACE,
               PLAYER_TIMEOUT_GRACE * Math.random() * 4,
-              play.handIdx === 1 && play.roundIdx === 1 ? PLAYER_TIMEOUT_GRACE * 6 : 0
+              play.handIdx === 1 && play.roundIdx === 1 && !play.player?.didSomething
+                ? PLAYER_TIMEOUT_GRACE * (6 - play.player!.idx)
+                : 0
             )
           )
         )
 
-        const player = play.player
-        if (!player || !player.bot || !table.lobby.table) {
-          return reject()
-        }
         return player
           .playBot(table.lobby.table, play, server.playCard, server.sayCommand)
           .then(resolve)

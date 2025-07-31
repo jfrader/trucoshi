@@ -205,7 +205,6 @@ export enum GAME_ERROR {
   UNEXPECTED_TEAM_SIZE = "UNEXPECTED_TEAM_SIZE",
   TEAM_NOT_READY = "TEAM_NOT_READY",
   TEAM_IS_FULL = "TEAM_IS_FULL",
-  INVALID_ENVIDO_POINTS = "INVALID_ENVIDO_POINTS",
   ENVIDO_NOT_ACCEPTED = "ENVIDO_NOT_ACCEPTED",
   INVALID_COMAND = "INVALID_COMAND",
   INSUFFICIENT_BALANCE = "INSUFFICIENT_BALANCE",
@@ -355,6 +354,7 @@ export interface IPlayer {
   turnExtensionExpiresAt: number | null // Date.now()
   hasFlor: boolean
   flor: { value: number; cards: ICard[] } | null
+  didSomething: boolean
   hasSaidFlor: boolean
   hasSaidEnvidoPoints: boolean
   hasSaidTruco: boolean
@@ -389,6 +389,7 @@ export interface IPlayer {
   setReady(ready: boolean): void
   setHand(hand: Array<ICard>): Array<ICard>
   useCard(idx: number, card: ICard): ICard | null
+  sayCommand(command: ECommand | number, force?: boolean): false | ECommand | number
   playBot(
     table: ITable,
     play: IPlayInstance,
