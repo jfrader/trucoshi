@@ -12,7 +12,6 @@
  *
  * Context and Progress:
  * - The bot operates within the playBot function, using inputs like table (game state), bot (player data), play (current play instance), playCard, and sayCommand.
- * - Fixed initial TypeScript errors (e.g., TS18047 for null play.rounds) with safe fallbacks like play.rounds?.[play.roundIdx - 2]?.tie ?? false.
  * - Resolved an issue where the bot called "truco" on the first round every hand, misjudging hand wins. Now, it usually escalates after a round win with a guaranteed hand, with rare first-round "truco" calls for very strong hands or bluffs, tightened to occur 1-2 times per match.
  * - Addressed a game hanging issue (repeating turns) by ensuring playBot always returns a valid action (playCard or sayCommand) when it’s the bot’s turn, handling edge cases like null play.rounds or unexpected states.
  *
@@ -44,7 +43,7 @@ import {
   ITeamPoints,
   IPlayedCard,
 } from ".."
-import { ITrucoshi } from "../server"
+import { ITrucoshi, PLAYER_TIMEOUT_GRACE } from "../server"
 import { IPlayInstance } from "./Play"
 import { calculateEnvidoPointsArray } from "./Player"
 
@@ -80,11 +79,11 @@ export type BotProfile = (typeof BOT_NAMES)[number]
 const PERSONALITY_PROFILES: Record<BotProfile, BotPersonality> = {
   Botillo: {
     aggression: 0.7,
-    bluffing: 0.3,
+    bluffing: 0.2,
     caution: 0.3,
     envidoConfidence: 0.7,
     riskTolerance: 0.8,
-    patience: 0.3,
+    patience: 0.2,
   },
   Hal: {
     aggression: 0.7,
@@ -283,7 +282,7 @@ function shouldBluff(context: BotContext): boolean {
   const bluffFactor =
     context.profile.bluffing *
     pressure *
-    (1 - teamStrength / 30 + 0.5) *
+    (1 - teamStrength / 40 + 0.7) *
     (1 - opponentAggression * 0.5) *
     patienceFactor
   return Math.random() < bluffFactor
@@ -371,6 +370,11 @@ function selectCard(context: BotContext): [number, ICard] {
       .map((p) => p.card) || []
   const opponentBest = opponentCards.length ? Math.max(...opponentCards.map((c) => CARDS[c])) : 0
   const teammateBest = teammateCards.length ? Math.max(...teammateCards.map((c) => CARDS[c])) : 0
+
+  // Force highest card after a tie to secure the round
+  if (context.previousRoundTie) {
+    return [highestIdx, highestCard]
+  }
 
   if (
     (teammateBest > opponentBest && teammateBest > 0) ||
@@ -663,6 +667,39 @@ export async function playBot(
     }
   })
 
+  // Calculate delay based on personality, game momentum, and player count
+  const totalPlayers = context.table.players.filter((p) => !p.disabled).length
+  const playerMultiplier = totalPlayers === 2 ? 0.5 : totalPlayers === 4 ? 0.6 : 0.75 // Scale delay by player count
+  let baseDelay = PLAYER_TIMEOUT_GRACE * playerMultiplier * (1 + context.profile.patience)
+  let momentumFactor = 1
+
+  // Adjust delay based on game momentum
+  if (context.isCloseToWin || Math.abs(context.scoreDifference) < 3) {
+    momentumFactor += 0.3 // Close game, think longer
+  }
+  if (context.isFirstRound || context.previousRoundTie) {
+    momentumFactor += 0.2 // Critical round, add hesitation
+  }
+  if (
+    context.play.state === EHandState.WAITING_FOR_TRUCO_ANSWER ||
+    context.play.state === EHandState.WAITING_ENVIDO_ANSWER
+  ) {
+    momentumFactor += 0.3 // High-stakes decision, simulate tension
+  }
+  if (isLastTeamPlayer(context)) {
+    momentumFactor += 0.1 // Last team player, strategic weight
+  }
+  if (context.play.handIdx === 1 && context.isFirstRound && !context.play.player?.didSomething) {
+    baseDelay += PLAYER_TIMEOUT_GRACE * (3 - context.bot.idx) // First-hand delay, reduced multiplier
+  }
+
+  // Apply momentum and add randomness for variability
+  const delay = Math.max(
+    PLAYER_TIMEOUT_GRACE * 0.5, // Minimum 450ms
+    baseDelay * momentumFactor * (0.8 + Math.random() * 0.4) // 20% randomness
+  )
+  await new Promise((resolve) => setTimeout(resolve, delay))
+
   // **Flor Phase**
   if (context.play.state === EHandState.WAITING_FLOR_ANSWER && context.bot.flor) {
     if (context.play.flor.stake > 3) {
@@ -737,6 +774,9 @@ export async function playBot(
       context.matchPoint - Math.max(context.teamScore.buenas, context.opponentScore.buenas)
     const noEnvidoCalled = context.play.envido.stake === 0
     const opponentAggression = estimateOpponentAggression(context)
+    const hasFrequentFolder = context.activeOpponents.some(
+      (op) => context.bot.opponentProfiles[op.key]?.foldCount > 1
+    )
 
     if (
       context.isFirstRound &&
@@ -804,9 +844,13 @@ export async function playBot(
 
     const threshold = context.isCloseToWin ? 24 : 26
     if (
-      (shouldBluff(context) && opponentAggression < 0.5 && Math.random() > 0.7) ||
+      (shouldBluff(context) &&
+        opponentAggression < 0.6 &&
+        (Math.random() > 0.8 || hasFrequentFolder)) ||
       teamStrength >
-        threshold * (getTeammates(context).length + 1) * (1 - context.profile.riskTolerance)
+        threshold *
+          Math.sqrt(getTeammates(context).length + 1) *
+          (1 - context.profile.riskTolerance)
     ) {
       return sayCommand({
         command: EAnswerCommand.QUIERO,

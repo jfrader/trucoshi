@@ -865,19 +865,6 @@ export const Trucoshi = ({
           return reject()
         }
 
-        await new Promise((res) =>
-          setTimeout(
-            res,
-            Math.max(
-              PLAYER_TIMEOUT_GRACE,
-              PLAYER_TIMEOUT_GRACE * Math.random() * 4,
-              play.handIdx === 1 && play.roundIdx === 1 && !play.player?.didSomething
-                ? PLAYER_TIMEOUT_GRACE * (5 - play.player!.idx)
-                : 0
-            )
-          )
-        )
-
         return player
           .playBot(table.lobby.table, play, server.playCard, server.sayCommand)
           .then(resolve)
