@@ -228,6 +228,14 @@ export const Trucoshi = ({
   const pubClient = createClient({ url: process.env.APP_REDIS_URL })
   const subClient = pubClient.duplicate()
 
+  pubClient.on("error", (e) => {
+    log.error(e, "Redis Pub Client Error")
+  })
+
+  subClient.on("error", (e) => {
+    log.error(e, "Redis Sub Client Error")
+  })
+
   const io = new Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>(
     httpServer,
     {
@@ -577,7 +585,9 @@ export const Trucoshi = ({
         }
         playerSocket.emit(
           EServerEvent.UPDATE_MATCH,
-          player ? table.getPublicMatch(playerSocket.data.user.session, false, skipPreviousHand) : publicMatch
+          player
+            ? table.getPublicMatch(playerSocket.data.user.session, false, skipPreviousHand)
+            : publicMatch
         )
       })
       return publicMatch
