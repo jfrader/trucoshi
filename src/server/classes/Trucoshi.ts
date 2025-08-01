@@ -123,7 +123,11 @@ export interface ITrucoshi {
     table: IMatchTable
     onlyThisSocket?: string
   }): Promise<"say" | "play">
-  emitMatchUpdate(table: IMatchTable, skipSocketIds?: Array<string>): Promise<IPublicMatch>
+  emitMatchUpdate(
+    table: IMatchTable,
+    skipSocketIds?: Array<string>,
+    skipPreviousHand?: boolean
+  ): Promise<IPublicMatch>
   emitFlorBattle(hand: IHand, table: IMatchTable): Promise<void>
   emitSocketMatch(socket: TrucoshiSocket, currentMatchId: string | null): IPublicMatch | null
   playCard(input: {
@@ -564,7 +568,7 @@ export const Trucoshi = ({
 
       return { sockets: playerSockets, spectators: spectatorSockets, players }
     },
-    async emitMatchUpdate(table, skipSocketIds = []) {
+    async emitMatchUpdate(table, skipSocketIds = [], skipPreviousHand = false) {
       log.trace(table.getPublicMatchInfo(), "Emitting match update to all sockets")
       const publicMatch = table.getPublicMatch()
       await server.getTableSockets(table, async (playerSocket, player) => {
@@ -573,7 +577,7 @@ export const Trucoshi = ({
         }
         playerSocket.emit(
           EServerEvent.UPDATE_MATCH,
-          player ? table.getPublicMatch(playerSocket.data.user.session) : publicMatch
+          player ? table.getPublicMatch(playerSocket.data.user.session, false, skipPreviousHand) : publicMatch
         )
       })
       return publicMatch
@@ -1159,6 +1163,8 @@ export const Trucoshi = ({
     async onHandFinished(table) {
       log.trace({ ...table.getPublicMatchInfo() }, `Table Hand Finished`)
 
+      await server.emitMatchUpdate(table, undefined, true)
+      await new Promise((resolve) => setTimeout(resolve, PLAYER_TIMEOUT_GRACE * 2))
       const publicMatch = await server.emitMatchUpdate(table)
 
       table.lobby.teams.map((team) => {

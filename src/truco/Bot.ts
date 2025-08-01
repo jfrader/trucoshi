@@ -475,7 +475,7 @@ function isCertainToWin(context: BotContext): boolean {
   const opponentBest = opponentCards.length ? Math.max(...opponentCards.map((c) => CARDS[c])) : 0
   const teammateBest = teammateCards.length ? Math.max(...teammateCards.map((c) => CARDS[c])) : 0
   const teammatesNotPlayed = getTeammates(context).filter(
-    (p) => !context.currentRound?.cards?.some((c) => c.player.idx === p.idx)
+    (p) => !currentRoundCards.some((c) => c.player.idx === p.idx)
   )
   const teammateBestInHand = teammatesNotPlayed.reduce(
     (max, p) => Math.max(max, ...p.hand.map((c) => CARDS[c])),

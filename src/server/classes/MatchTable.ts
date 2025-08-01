@@ -24,7 +24,7 @@ export interface IMatchTable {
   getPreviousHand(hand: IHand): IMatchPreviousHand
   getFlorBattle(hand: IHand): IMatchFlorBattle
   getHandRounds(hand: IHand): IPlayedCard[][]
-  getPublicMatch(session?: string, freshHand?: boolean): IPublicMatch
+  getPublicMatch(session?: string, freshHand?: boolean, skipPreviousHand?: boolean): IPublicMatch
   getPublicMatchInfo(): IPublicMatchInfo
   playerDisconnected(player: IPlayer): void
   playerReconnected(player: IPlayer, userSession: IUserSession): void
@@ -146,8 +146,8 @@ export function MatchTable(
           : null,
       }
     },
-    getPublicMatch(userSession, freshHand) {
-      return getPublicMatch(table, userSession, freshHand)
+    getPublicMatch(userSession, freshHand, skipCurrentHand) {
+      return getPublicMatch(table, userSession, freshHand, skipCurrentHand)
     },
   }
 
@@ -157,7 +157,8 @@ export function MatchTable(
 const getPublicMatch = (
   table: IMatchTable,
   userSession?: string,
-  freshHand: boolean = false
+  freshHand: boolean = false,
+  skipCurrentHand: boolean = false
 ): IPublicMatch => {
   const { lobby } = table
   const { gameLoop } = lobby
@@ -198,9 +199,12 @@ const getPublicMatch = (
     freshHand,
     ownerKey: players.find((p) => p.session === table.ownerSession)?.key || "",
     rounds,
-    previousHand: currentHand?.displayingPreviousHand() ? table.getPreviousHand(currentHand) : null,
+    previousHand:
+      !skipCurrentHand && currentHand?.displayingPreviousHand()
+        ? table.getPreviousHand(currentHand)
+        : null,
     florBattle:
-      currentHand?.displayingFlorBattle() ||
+      (!skipCurrentHand && currentHand?.displayingFlorBattle()) ||
       (currentHand?.displayingPreviousHand() && currentHand.flor.state === 5)
         ? table.getFlorBattle(currentHand)
         : null,
