@@ -9,6 +9,7 @@ import { CARDS, ITable } from "./lib"
 import { AxiosResponse } from "axios"
 import { ITrucoshi } from "./server"
 import { BotProfile } from "./truco/Bot"
+import { MatchBet } from "@prisma/client"
 
 export enum EMatchState {
   UNREADY = "UNREADY",
@@ -26,8 +27,13 @@ export interface IMatchDetails extends Match {
 }
 export interface IAccountDetails {
   stats: UserStats | null
+  matches: Array<
+    Match & {
+      players: Pick<MatchPlayer, "accountId" | "idx" | "teamIdx" | "bot" | "name">[]
+      bet: Pick<MatchBet, "id" | "satsPerPlayer"> | null
+    }
+  >
   account: User | null
-  matches: Array<Match>
 }
 
 export interface IUserData {

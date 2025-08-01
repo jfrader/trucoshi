@@ -30,7 +30,15 @@ import { PayRequest, User } from "lightning-accounts"
 import { createAdapter } from "@socket.io/redis-adapter"
 import { accountsApi, validateJwt } from "../../accounts/client"
 import { createClient } from "redis"
-import { EMatchState, Match, MatchPlayer, Prisma, PrismaClient, UserStats } from "@prisma/client"
+import {
+  EMatchState,
+  Match,
+  MatchBet,
+  MatchPlayer,
+  Prisma,
+  PrismaClient,
+  UserStats,
+} from "@prisma/client"
 import { SocketError } from "./SocketError"
 import { TMap } from "./TMap"
 import { ClientToServerEvents, EServerEvent, ServerToClientEvents } from "../../events"
@@ -204,7 +212,16 @@ export interface ITrucoshi {
   getAccountDetails(
     socket: TrucoshiSocket,
     accountId: number
-  ): Promise<{ stats: UserStats | null; matches: Array<Match>; account: User }>
+  ): Promise<{
+    stats: UserStats | null
+    matches: Array<
+      Match & {
+        players: Pick<MatchPlayer, "accountId" | "idx" | "teamIdx" | "bot" | "name">[]
+        bet: Pick<MatchBet, "id" | "satsPerPlayer"> | null
+      }
+    >
+    account: User
+  }>
   getMatchDetails(socket: TrucoshiSocket, matchId: number): Promise<IMatchDetails>
   getRanking(): Promise<Array<IPlayerRanking>>
   resetSocketsMatchState(table: IMatchTable): Promise<void>
@@ -2257,8 +2274,20 @@ export const Trucoshi = ({
                   satsPerPlayer: isPlayer,
                 },
               },
+              players: {
+                select: {
+                  idx: true,
+                  teamIdx: true,
+                  accountId: true,
+                  bot: true,
+                  name: true,
+                },
+              },
             },
           },
+        },
+        orderBy: {
+          id: "desc",
         },
       })
 
