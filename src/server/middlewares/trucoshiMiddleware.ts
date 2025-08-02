@@ -42,7 +42,7 @@ export const trucoshiMiddleware = (server: ITrucoshi) => {
       logger.debug(`Socket ${socket.id} disconnected, reason?: %s`, reason)
       if (socket.data.user) {
         const matchingSockets = await server.io.in(socket.data.user?.session).fetchSockets()
-        const isDisconnected = matchingSockets.length === 0
+        const isDisconnected = "length" in matchingSockets && matchingSockets.length === 0
 
         if (isDisconnected) {
           const user = socket.data.user

@@ -558,7 +558,7 @@ export const Trucoshi = ({
       const playerSockets: any[] = []
       const spectatorSockets: any[] = []
 
-      if (!allSockets || !allSockets.length) {
+      if (!allSockets || !("length" in allSockets) || !allSockets.length) {
         log.warn(
           { matchTable: table.getPublicMatchInfo() },
           "Nobody is here? No sockets for this match table..."

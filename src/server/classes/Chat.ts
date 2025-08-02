@@ -158,7 +158,10 @@ export const Chat = (io?: TrucoshiServer, tables?: TMap<string, IMatchTable>) =>
       io.in(room)
         .fetchSockets()
         .then((matchingSockets) => {
-          if (matchingSockets.filter((s) => s.data.user?.key === key).length <= 1) {
+          if (
+            "filter" in matchingSockets &&
+            matchingSockets.filter((s) => s.data.user?.key === key).length <= 1
+          ) {
             log.debug(`${name} entro a la sala ${room}`)
             chatroom.system(`${name} entro a la sala`, true)
           }
@@ -227,7 +230,7 @@ export const Chat = (io?: TrucoshiServer, tables?: TMap<string, IMatchTable>) =>
     io.in(userSocket.data.user?.session)
       .fetchSockets()
       .then((matchingSockets) => {
-        const isDisconnected = matchingSockets.length === 0
+        const isDisconnected = "length" in matchingSockets && matchingSockets.length === 0
         if (userSocket.data.user && isDisconnected) {
           const { name } = userSocket.data.user
           chat.rooms.get(room)?.system(`${name} salió de la sala`, "leave")
