@@ -77,8 +77,6 @@ export const trucoshiMiddleware = (server: ITrucoshi) => {
           }
         }
       }
-
-      socket.data = {}
     })
 
     socket.on(EClientEvent.JOIN_ROOM, async (room) => {
