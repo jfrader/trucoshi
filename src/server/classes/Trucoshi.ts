@@ -392,6 +392,14 @@ export const Trucoshi = ({
                       userId: player.accountId!,
                       description: `Returning bet from unfinished match ID: ${match.id}`,
                     })
+
+                    matchLog.info(
+                      {
+                        playerAccountId: player.accountId,
+                        amountInSats,
+                      },
+                      "Returned bet to player"
+                    )
                   })
                 }
               }
