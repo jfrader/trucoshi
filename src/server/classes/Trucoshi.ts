@@ -787,6 +787,11 @@ export const Trucoshi = ({
 
             return server.resetSocketsMatchState(matchTable).then(resolve).catch(reject)
           }
+
+          if (force) {
+            return resolve()
+          }
+
           return reject(new Error("Invalid Command " + command))
         }
         return reject(new Error("Undefined Command"))
