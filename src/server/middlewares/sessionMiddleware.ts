@@ -11,7 +11,7 @@ export const sessionMiddleware = (server: ITrucoshi) => {
     socket.use(validateSession(socket))
 
     socket.on("error", (err) => {
-      logger.error(err, "Socket packet error")
+      logger.error({ message: err.message || "Unknown socket error" }, "Socket error")
       socket.disconnect()
     })
 
