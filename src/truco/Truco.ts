@@ -80,6 +80,7 @@ export function Truco(teams: [ITeam, ITeam]) {
       const teamIdx = truco.teamIdx
 
       player.saidTruco()
+      teams[player.teamIdx].resetPassed()
 
       if (teamIdx === null || teamIdx !== playerTeamIdx) {
         truco.waitingAnswer = true
@@ -110,6 +111,8 @@ export function Truco(teams: [ITeam, ITeam]) {
         } else {
           player.saidTruco()
         }
+
+        teams[player.teamIdx].resetPassed()
         truco.waitingAnswer = false
         truco.answer = answer
       }

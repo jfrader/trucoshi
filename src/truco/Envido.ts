@@ -183,6 +183,7 @@ export function Envido(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITa
         envido.answered = false
 
         turnGenerator = envidoTurnGeneratorSequence(envido)
+        teams[player.teamIdx].resetPassed()
 
         if (replace) {
           envido.stake = replace
@@ -272,6 +273,9 @@ export function Envido(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITa
         const opponentTeam = teams[opponentIdx]
         envido.winner = opponentTeam
       }
+
+      teams[player.teamIdx].resetPassed()
+
       envido.answered = true
       envido.teamIdx = opponentIdx
       envido.answer = answer

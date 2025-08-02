@@ -51,6 +51,7 @@ export function Player({
     hasSaidEnvidoPoints: false,
     hasSaidFlor: false,
     hasSaidTruco: false,
+    hasPassed: false,
     disabled: false,
     ready: false,
     abandoned: false,
@@ -81,6 +82,12 @@ export function Player({
     },
     saidTruco() {
       player.hasSaidTruco = true
+    },
+    passed() {
+      player.hasPassed = true
+    },
+    resetPassed() {
+      player.hasPassed = false
     },
     resetCommands() {
       player._commands = new Set()
@@ -228,6 +235,7 @@ const getPublicPlayer = (
     hasSaidEnvidoPoints,
     hasSaidFlor,
     hasSaidTruco,
+    hasPassed,
     ...privateProps
   } = player
 
@@ -261,6 +269,7 @@ const getPublicPlayer = (
     hasSaidEnvidoPoints,
     hasSaidFlor,
     hasSaidTruco,
+    hasPassed,
     ...meProps,
   }
 }

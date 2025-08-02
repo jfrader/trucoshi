@@ -8,6 +8,7 @@ import {
   EHandState,
   ESayCommand,
   ETrucoCommand,
+  GAME_ERROR,
   ICard,
   IHandCommands,
   IHandPoints,
@@ -483,6 +484,13 @@ const handleEnvido = (match: IMatch, hand: IHand, currentPlayer: IPlayer) => {
   ) {
     match.teams[opposingTeamIdx].activePlayers.forEach((player) => {
       envido.possibleAnswerCommands.forEach((cmd) => player._commands.add(cmd))
+      if (
+        !player.hasPassed &&
+        currentPlayer.idx === player.idx &&
+        match.teams[opposingTeamIdx].activePlayers.length > 1
+      ) {
+        player._commands.add(ESayCommand.PASO)
+      }
     })
   }
 
@@ -593,11 +601,18 @@ const handleTrucoAndMazo = (match: IMatch, hand: IHand, currentPlayer: IPlayer) 
       }
 
       if (truco.waitingAnswer) {
-        if (player.teamIdx === opposingTeamIdx) {
+        if (!player.hasPassed && player.teamIdx === opposingTeamIdx) {
           const nextCmd = truco.getNextTrucoCommand()
           if (nextCmd) player._commands.add(nextCmd)
           player._commands.add(EAnswerCommand.QUIERO)
           player._commands.add(EAnswerCommand.NO_QUIERO)
+
+          if (
+            match.teams[opposingTeamIdx].activePlayers.length > 1 &&
+            currentPlayer.idx === player.idx
+          ) {
+            player._commands.add(ESayCommand.PASO)
+          }
         }
       } else if (truco.teamIdx !== player.teamIdx) {
         const nextCmd = truco.getNextTrucoCommand()
@@ -615,6 +630,13 @@ const trucoCommand = (hand: IHand, player: IPlayer) => {
 }
 
 const commands: IHandCommands = {
+  [ESayCommand.PASO]: (hand, player) => {
+    if (player.idx !== hand.currentPlayer?.idx) {
+      throw new Error(GAME_ERROR.INVALID_COMAND)
+    }
+
+    player.passed()
+  },
   [ESayCommand.MAZO]: (hand, player) => {
     hand.disablePlayer(player)
 

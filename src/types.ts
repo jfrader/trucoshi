@@ -142,6 +142,7 @@ export enum EChatSystem {
 
 export enum ESayCommand {
   MAZO = "MAZO",
+  PASO = "PASO",
 }
 
 export enum EFlorCommand {
@@ -315,6 +316,7 @@ export type IPublicPlayer = Pick<
   | "hasSaidFlor"
   | "hasSaidEnvidoPoints"
   | "hasSaidTruco"
+  | "hasPassed"
 > &
   (
     | {
@@ -369,6 +371,7 @@ export interface IPlayer {
   hasSaidFlor: boolean
   hasSaidEnvidoPoints: boolean
   hasSaidTruco: boolean
+  hasPassed: boolean
   isEnvidoTurn: boolean
   isOwner: boolean
   disabled: boolean
@@ -382,6 +385,8 @@ export interface IPlayer {
   saidEnvidoPoints(): void
   saidFlor(): void
   saidTruco(): void
+  passed(): void
+  resetPassed(): void
   resetCommands(): void
   calculateEnvido(): Array<{ value: number; cards: ICard[] }>
   setIdx(idx: number): void
@@ -425,6 +430,7 @@ export interface ITeam {
   disable(player: IPlayer): boolean
   abandon(player: IPlayer): boolean
   enable(player?: IPlayer): boolean
+  resetPassed(): void;
   addPoints(matchPoint: number, points: number, simulate?: boolean): ITeamPoints
 }
 

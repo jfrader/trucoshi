@@ -7,7 +7,7 @@ export function Team(id: 0 | 1, name?: string) {
       return Array.from(team._players.values())
     },
     get activePlayers() {
-      return Array.from(team._players.values()).filter((p) => !p.disabled)
+      return Array.from(team._players.values()).filter((p) => !p.disabled && !p.hasPassed)
     },
     id,
     name: name || (id ? "Ellos" : "Nosotros"),
@@ -52,6 +52,9 @@ export function Team(id: 0 | 1, name?: string) {
     abandon(player) {
       team._players.get(player.session)?.abandon()
       return team.isTeamAbandoned()
+    },
+    resetPassed() {
+      team.players.forEach((player) => player.resetPassed())
     },
     pointsToWin(matchPoint) {
       if (team.points.malas < matchPoint && team.points.buenas < 1) {
