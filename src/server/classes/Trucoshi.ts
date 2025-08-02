@@ -767,15 +767,13 @@ export const Trucoshi = ({
 
             server.clearTurnTimeout(matchTable.matchSessionId)
 
-            if (saidCommand !== ESayCommand.PASO) {
-              server.chat.rooms
-                .getOrThrow(matchTable.matchSessionId)
-                .command(
-                  player.teamIdx as 0 | 1,
-                  saidCommand,
-                  getCommandSound({ command: saidCommand, state: currentState, player })
-                )
-            }
+            server.chat.rooms
+              .getOrThrow(matchTable.matchSessionId)
+              .command(
+                player.teamIdx as 0 | 1,
+                saidCommand,
+                getCommandSound({ command: saidCommand, state: currentState, player })
+              )
 
             if (
               currentState === EHandState.WAITING_ENVIDO_POINTS_ANSWER &&

@@ -4,6 +4,7 @@ import {
   EEnvidoCommand,
   EFlorCommand,
   EHandState,
+  ESayCommand,
   IPlayer,
 } from "../types"
 
@@ -16,7 +17,7 @@ export function getCommandSound({
   command: ECommand | number
   player: IPlayer
 }) {
-  if (command === EEnvidoAnswerCommand.SON_BUENAS) {
+  if (command === EEnvidoAnswerCommand.SON_BUENAS || command === ESayCommand.PASO) {
     return "miss"
   }
 
