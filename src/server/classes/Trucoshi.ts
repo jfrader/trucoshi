@@ -9,6 +9,7 @@ import {
   EHandState,
   ESayCommand,
   GAME_ERROR,
+  IAccountDetails,
   ICard,
   ILobbyOptions,
   IMatchDetails,
@@ -209,19 +210,7 @@ export interface ITrucoshi {
   removePlayerAndCleanup(table: IMatchTable, player: IPlayer): Promise<void>
   deletePlayerAndReturnBet(table: IMatchTable, player: MatchPlayer): Promise<void>
   cleanupMatchTable(table: IMatchTable): Promise<void>
-  getAccountDetails(
-    socket: TrucoshiSocket,
-    accountId: number
-  ): Promise<{
-    stats: UserStats | null
-    matches: Array<
-      Match & {
-        players: Pick<MatchPlayer, "accountId" | "idx" | "teamIdx" | "bot" | "name">[]
-        bet: Pick<MatchBet, "id" | "satsPerPlayer"> | null
-      }
-    >
-    account: User
-  }>
+  getAccountDetails(socket: TrucoshiSocket, accountId: number): Promise<IAccountDetails>
   getMatchDetails(socket: TrucoshiSocket, matchId: number): Promise<IMatchDetails>
   getRanking(): Promise<Array<IPlayerRanking>>
   resetSocketsMatchState(table: IMatchTable): Promise<void>
@@ -568,6 +557,14 @@ export const Trucoshi = ({
       const players: IPublicPlayer[] = []
       const playerSockets: any[] = []
       const spectatorSockets: any[] = []
+
+      if (!allSockets || !allSockets.length) {
+        log.warn(
+          { matchTable: table.getPublicMatchInfo() },
+          "Nobody is here? No sockets for this match table..."
+        )
+        return { players: [], sockets: [], spectators: [] }
+      }
 
       for (const playerSocket of allSockets) {
         if (!playerSocket.data.user?.session) {
