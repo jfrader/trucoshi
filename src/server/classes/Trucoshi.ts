@@ -31,13 +31,7 @@ import { PayRequest, User } from "lightning-accounts"
 import { createAdapter } from "@socket.io/redis-adapter"
 import { accountsApi, validateJwt } from "../../accounts/client"
 import { createClient } from "redis"
-import {
-  EMatchState,
-  MatchPlayer,
-  Prisma,
-  PrismaClient,
-  UserStats,
-} from "@prisma/client"
+import { EMatchState, MatchPlayer, Prisma, PrismaClient, UserStats } from "@prisma/client"
 import { SocketError } from "./SocketError"
 import { TMap } from "./TMap"
 import { ClientToServerEvents, EServerEvent, ServerToClientEvents } from "../../events"
@@ -560,9 +554,12 @@ export const Trucoshi = ({
       }
     },
     async getTableSockets(table, callback) {
-      log.info({ table: table.getPublicMatchInfo() }, "Getting all Match Table sockets...")
-
       const allSockets = await server.io.of("/").in(table.matchSessionId).fetchSockets()
+
+      log.trace(
+        { table: table.getPublicMatchInfo(), sockets: allSockets.map((s) => s.id) },
+        "Got all Match Table sockets..."
+      )
 
       const players: IPublicPlayer[] = []
       const playerSockets: any[] = []
