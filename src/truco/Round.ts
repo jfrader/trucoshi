@@ -1,7 +1,6 @@
-import logger from "../utils/logger"
 import { ICard, IPlayedCard, IPlayer } from "../types"
 import { getCardValue } from "../lib/utils"
-import { PlayedCard } from "../lib"
+import { CARDS, PlayedCard } from "../lib"
 
 export interface IRound {
   tie: boolean
@@ -11,7 +10,8 @@ export interface IRound {
   turn: number
   unbeatable: boolean
   nextTurn(): void
-  use(playedCard: IPlayedCard): ICard
+
+  use(playedCard: IPlayedCard, handPlayedCards: IPlayedCard[]): ICard
 }
 
 export interface IRoundPoints {
@@ -31,8 +31,10 @@ export function Round(): IRound {
     nextTurn() {
       round.turn++
     },
-    use({ card, player }) {
+    use(playedCard, handPlayedCards) {
+      const { card, player } = playedCard
       const value = getCardValue(card)
+
       if (value === round.highest && player.teamIdx !== round.winner?.teamIdx) {
         round.tie = true
       }
@@ -42,14 +44,34 @@ export function Round(): IRound {
         round.winner = player as IPlayer
       }
 
-      if (value === 13) {
-        round.unbeatable = true
-      }
+      round.cards.push(playedCard)
 
-      round.cards.push(PlayedCard(player, card))
+      round.unbeatable = isCardUnbeatable(card, handPlayedCards)
+
       return card
     },
   }
 
   return round
+}
+
+function isCardUnbeatable(card: ICard, handPlayedCards: IPlayedCard[]): boolean {
+  const currentValue = getCardValue(card)
+
+  if (currentValue === 13) {
+    return true
+  }
+
+  const allCards = Object.keys(CARDS) as ICard[]
+
+  const playedCardKeys = handPlayedCards.map((playedCard) => playedCard.card)
+
+  const unplayedCards = allCards.filter((c) => !playedCardKeys.includes(c))
+
+  const highestUnplayedValue = unplayedCards.reduce((max, c) => {
+    const value = getCardValue(c)
+    return value > max ? value : max
+  }, -1)
+
+  return currentValue > highestUnplayedValue
 }

@@ -14,6 +14,7 @@ import {
   IHandPoints,
   IHandRoundLog,
   IPlayer,
+  IPlayedCard,
 } from "../types"
 import { Envido, IEnvido } from "./Envido"
 import { IMatch } from "./Match"
@@ -49,6 +50,7 @@ export interface IHand {
   get currentPlayer(): IPlayer | null
   set currentPlayer(player: IPlayer | null)
   currentRound: IRound | null
+  playedCards: IPlayedCard[]
   init(): Promise<IHand>
   setBitcoinBlock(hash: string, height: number): void
   setTrucoWinner(teamIdx: 0 | 1): void
@@ -64,7 +66,6 @@ export interface IHand {
   setTurnCommands(): void
   play(): IPlayInstance
   nextTurn(): void
-  endEnvido(): void
   endEnvido(): void
   pushRound(round: IRound): IRound
   setTurn(turn: number): IPlayer
@@ -252,6 +253,8 @@ export function Hand(match: IMatch, idx: number) {
     envido: Envido(match.teams, match.options, match.table),
     flor: Flor(match.teams, match.options, match.table),
     truco: Truco(match.teams),
+
+    playedCards: [],
     setTurnCommands() {
       return setTurnCommands(match, hand)
     },
@@ -317,7 +320,6 @@ export function Hand(match: IMatch, idx: number) {
     },
     say(command, player) {
       try {
-        // Cancel Envido if Flor is declared
         if (command === EFlorCommand.FLOR && hand.envido.started && !hand.envido.finished) {
           hand.envido.finished = true
           hand.envido.winner = null
@@ -353,7 +355,6 @@ export function Hand(match: IMatch, idx: number) {
     },
     use(idx, card, burn) {
       const player = hand.currentPlayer
-
       const round = hand.currentRound
       if (!player || !round) {
         return null
@@ -366,7 +367,11 @@ export function Hand(match: IMatch, idx: number) {
       const playerCard = player.useCard(idx, card)
       if (playerCard) {
         hand.started = true
-        const card = round.use(PlayedCard(player, playerCard, burn))
+
+        const playedCard = PlayedCard(player, playerCard, burn)
+        hand.playedCards.push(playedCard)
+
+        const card = round.use(playedCard, hand.playedCards)
 
         hand.addLog(hand.rounds.length - 1, { player: player.idx, card })
 
@@ -454,13 +459,11 @@ export function Hand(match: IMatch, idx: number) {
 }
 
 const setTurnCommands = (match: IMatch, hand: IHand) => {
-  // Reset commands for all players
   match.table.players.forEach((player) => player.resetCommands())
 
   const currentPlayer = hand.currentPlayer
   if (!currentPlayer) return
 
-  // Set commands for Envido, Flor, and Truco/Mazo
   handleEnvido(match, hand, currentPlayer)
   handleTrucoAndMazo(match, hand, currentPlayer)
 
@@ -469,12 +472,10 @@ const setTurnCommands = (match: IMatch, hand: IHand) => {
   }
 }
 
-// Handle Envido commands
 const handleEnvido = (match: IMatch, hand: IHand, currentPlayer: IPlayer) => {
   const envido = hand.envido
   const opposingTeamIdx = Number(!envido.teamIdx)
 
-  // Opposing team responds to Envido if not yet answered
   if (
     envido.teamIdx !== null &&
     !envido.answered &&
@@ -494,7 +495,6 @@ const handleEnvido = (match: IMatch, hand: IHand, currentPlayer: IPlayer) => {
     })
   }
 
-  // Current player says "Son Buenas" if conditions met
   if (
     envido.accepted &&
     !envido.finished &&
@@ -512,7 +512,6 @@ const handleEnvido = (match: IMatch, hand: IHand, currentPlayer: IPlayer) => {
     }
   }
 
-  // Add Envido commands before cards are played
   if (
     hand.rounds.length <= 1 &&
     !envido.started &&
@@ -539,13 +538,11 @@ const handleEnvido = (match: IMatch, hand: IHand, currentPlayer: IPlayer) => {
   }
 }
 
-// Handle Flor commands
 const handleFlor = (match: IMatch, hand: IHand, currentPlayer: IPlayer) => {
   const flor = hand.flor
   const teamIdx = flor.teamIdx
   const opposingTeamIdx = Number(!teamIdx)
 
-  // Handle Flor responses and declarations
   if (
     hand.truco.answer === null &&
     hand.envido.answer === null &&
@@ -553,13 +550,11 @@ const handleFlor = (match: IMatch, hand: IHand, currentPlayer: IPlayer) => {
     !flor.answered
   ) {
     if (flor.state < 4) {
-      // Same team can declare Flor
       match.teams[teamIdx].activePlayers
         .filter((p) => p.hasFlor && !p.hasSaidFlor)
         .forEach((player) => player._commands.add(EFlorCommand.FLOR))
     }
 
-    // Opposing team responds to Flor
     match.teams[opposingTeamIdx].activePlayers
       .filter((p) => p.hasFlor)
       .forEach((player) => {
@@ -567,7 +562,6 @@ const handleFlor = (match: IMatch, hand: IHand, currentPlayer: IPlayer) => {
       })
   }
 
-  // Add Flor command before cards are played
   if (hand.rounds.length <= 1 && !hand.truco.answer && !hand.envido.answer && flor.state < 4) {
     if (
       !currentPlayer.hasSaidFlor &&
@@ -580,7 +574,6 @@ const handleFlor = (match: IMatch, hand: IHand, currentPlayer: IPlayer) => {
   }
 }
 
-// Handle Truco and Mazo commands
 const handleTrucoAndMazo = (match: IMatch, hand: IHand, currentPlayer: IPlayer) => {
   const { truco, flor, envido } = hand
   const opposingTeamIdx = Number(!truco.teamIdx)
