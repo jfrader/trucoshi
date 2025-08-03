@@ -77,7 +77,6 @@ interface SocketData {
   identity?: string
   matches: TMap<string, ISocketMatchState>
   throttler?: (...any: any[]) => any
-  listeners?: Set<string>
 }
 
 export type TrucoshiServer = Server<
