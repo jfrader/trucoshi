@@ -247,7 +247,7 @@ export const Trucoshi = ({
     httpServer,
     {
       pingInterval: 10000, // Send ping every 10s
-      pingTimeout: 5000, // Disconnect if no pong in 5s
+      pingTimeout: 20000, // Disconnect if no pong in 5s
       cors: {
         credentials: true,
         origin,
