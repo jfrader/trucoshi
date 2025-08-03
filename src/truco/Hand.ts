@@ -499,12 +499,17 @@ const handleEnvido = (match: IMatch, hand: IHand, currentPlayer: IPlayer) => {
     envido.accepted &&
     !envido.finished &&
     envido.winningPointsAnswer > 0 &&
-    currentPlayer.teamIdx !== envido.winner?.id &&
-    match.teams[currentPlayer.teamIdx].activePlayers
-      .filter((p) => p.key !== currentPlayer.key)
-      .every((p) => p.hasSaidEnvidoPoints)
+    currentPlayer.teamIdx !== envido.winner?.id
   ) {
-    currentPlayer._commands.add(EEnvidoAnswerCommand.SON_BUENAS)
+    if (
+      match.teams[currentPlayer.teamIdx].activePlayers
+        .filter((p) => p.key !== currentPlayer.key)
+        .every((p) => p.hasSaidEnvidoPoints)
+    ) {
+      currentPlayer._commands.add(EEnvidoAnswerCommand.SON_BUENAS)
+    } else {
+      currentPlayer._commands.add(ESayCommand.PASO)
+    }
   }
 
   // Add Envido commands before cards are played
@@ -633,6 +638,10 @@ const commands: IHandCommands = {
   [ESayCommand.PASO]: (hand, player) => {
     if (player.idx !== hand.currentPlayer?.idx) {
       throw new Error(GAME_ERROR.INVALID_COMAND)
+    }
+
+    if (hand.state === EHandState.WAITING_ENVIDO_POINTS_ANSWER) {
+      hand.envido.sayPoints(player, 0)
     }
 
     player.passed()

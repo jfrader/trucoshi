@@ -80,6 +80,10 @@ describe("Trucoshi Lib", () => {
             }
 
             if (pointsRound) {
+              if (play.player.commands.includes(ESayCommand.PASO) && Math.random() > 0.75) {
+                sayPlay(play, ESayCommand.PASO, play.player)
+                return
+              }
               if (
                 play.player.commands.includes(EEnvidoAnswerCommand.SON_BUENAS) &&
                 Math.random() > 0.51

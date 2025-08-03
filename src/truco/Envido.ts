@@ -209,17 +209,22 @@ export function Envido(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITa
         "sayPoints called"
       )
 
+      player.saidEnvidoPoints()
+
       if (!envido.winningPlayer || envido.winningPointsAnswer === -1) {
         envido.winningPlayer = player
         envido.winningPointsAnswer = points
         log.trace({ playerKey: player.key, points }, "Set as first winning player")
       } else {
+        envido.turn = 0
         if (points > envido.winningPointsAnswer) {
           envido.winningPlayer = player
           envido.winningPointsAnswer = points
+          envido.players = teams[Number(!player.teamIdx)].activePlayers.filter(
+            (p) => !p.hasSaidEnvidoPoints
+          )
           log.trace({ playerKey: player.key, points }, "New winning player due to higher points")
-        }
-        if (points === envido.winningPointsAnswer) {
+        } else if (points === envido.winningPointsAnswer) {
           const playerPos = table.getPlayerPosition(player.key, true)
           const currentWinnerPos = table.getPlayerPosition(envido.winningPlayer.key, true)
           const forehandWinner = playerPos < currentWinnerPos ? player : envido.winningPlayer
@@ -235,17 +240,20 @@ export function Envido(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITa
             },
             "Tie detected, selecting forehand winner"
           )
+          envido.players = teams[Number(!forehandWinner.teamIdx)].activePlayers.filter(
+            (p) => !p.hasSaidEnvidoPoints
+          )
           envido.winningPlayer = forehandWinner
+        } else {
+          envido.players = teams[player.teamIdx].activePlayers.filter((p) => !p.hasSaidEnvidoPoints)
         }
       }
-
-      player.saidEnvidoPoints()
-      log.trace({ playerKey: player.key }, "Player marked as having said envido points")
 
       const winningPlayerTeamIdx = envido.winningPlayer.teamIdx as 0 | 1
       const loosingTeamIdx = Number(!winningPlayerTeamIdx) as 0 | 1
 
       if (envido.teams[loosingTeamIdx].players.every((p) => p.hasSaidEnvidoPoints || p.disabled)) {
+        envido.teams.forEach((team) => team.resetPassed())
         envido.finished = true
         envido.winner = teams[envido.winningPlayer.teamIdx]
         log.trace(

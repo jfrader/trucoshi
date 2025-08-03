@@ -139,17 +139,14 @@ export const Chat = (io?: TrucoshiServer, tables?: TMap<string, IMatchTable>) =>
 
   const adapter = io.of("/").adapter
 
-  // Initialize listeners tracking on socket connection
   io.on("connection", (socket) => {
-    // Ensure socket.data.listeners is initialized
     socket.data.listeners = socket.data.listeners ?? new Set<string>()
 
     socket.on("disconnect", () => {
-      // Clean up listeners on disconnect
       socket.removeAllListeners(EClientEvent.CHAT)
       socket.removeAllListeners(EClientEvent.SAY)
-      socket.data.listeners?.clear() // Clear all tracked listeners
-      socket.data.throttler = undefined // Clear throttler
+      socket.data.listeners?.clear()
+      socket.data.throttler = undefined
     })
   })
 
@@ -186,10 +183,8 @@ export const Chat = (io?: TrucoshiServer, tables?: TMap<string, IMatchTable>) =>
       })
     }
 
-    // Ensure socket.data.listeners is initialized
     userSocket.data.listeners = userSocket.data.listeners ?? new Set<string>()
 
-    // Add CHAT listener only if not already added
     if (!userSocket.data.listeners.has(EClientEvent.CHAT)) {
       userSocket.on(EClientEvent.CHAT, (matchId, message, callback) => {
         if (matchId !== room || !userSocket.data.user) {
@@ -208,7 +203,6 @@ export const Chat = (io?: TrucoshiServer, tables?: TMap<string, IMatchTable>) =>
       userSocket.data.listeners.add(EClientEvent.CHAT)
     }
 
-    // Add SAY listener only if not already added
     if (!userSocket.data.listeners.has(EClientEvent.SAY)) {
       const sayHandler = throttle(
         (message, toTeamIdx, fromUser) => {
@@ -252,11 +246,10 @@ export const Chat = (io?: TrucoshiServer, tables?: TMap<string, IMatchTable>) =>
       return
     }
 
-    // Remove CHAT and SAY listeners when leaving a room
     userSocket.removeAllListeners(EClientEvent.CHAT)
     userSocket.removeAllListeners(EClientEvent.SAY)
-    userSocket.data.listeners?.clear() // Clear all tracked listeners
-    userSocket.data.throttler = undefined // Clear throttler
+    userSocket.data.listeners?.clear()
+    userSocket.data.throttler = undefined
 
     io.in(userSocket.data.user?.session)
       .fetchSockets()

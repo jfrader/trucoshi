@@ -14,6 +14,8 @@
  * - The bot operates within the playBot function, using inputs like table (game state), bot (player data), play (current play instance), playCard, and sayCommand.
  * - Resolved an issue where the bot called "truco" on the first round every hand, misjudging hand wins. Now, it usually escalates after a round win with a guaranteed hand, with rare first-round "truco" calls for very strong hands or bluffs, tightened to occur 1-2 times per match.
  * - Addressed a game hanging issue (repeating turns) by ensuring playBot always returns a valid action (playCard or sayCommand) when it’s the bot’s turn, handling edge cases like null play.rounds or unexpected states.
+ * - Corrected TypeScript errors related to 'disabled' property by using p.player.disabled for IPlayedCard objects instead of p.disabled, ensuring type safety.
+ * - Adjusted flor phase thresholds to align with the maximum flor value of 38 (e.g., CONTRAFLOR_AL_RESTO at 20 + (18 * envidoConfidence)), correcting previous overestimations (e.g., 37).
  *
  * Desired Behavior:
  * - The bot should feel like a player at an Argentinian Truco table, blending strategy and cultural spirit. For example, "Bender" might call a rare first-round "truco" with a weak hand to rattle opponents, while "Hodlbot" waits for rock-solid envido points, driven by traits.
@@ -27,6 +29,7 @@
  * - Balance Personalities: Tweak traits (e.g., Hodlbot’s patience, Nick’s balanced bluffing) for distinct, authentic styles using personality factors.
  * - Sharpen Opponent Insight: Enhance inferOpponentHand and estimateOpponentStrength for better bluff/fold decisions.
  * - Polish Realism: Ensure varied, trait-driven responses and no game hangs by always returning a valid action.
+ * - Validate flor thresholds across all personality profiles to ensure consistency with the maximum value of 38.
  */
 
 import {
@@ -42,6 +45,7 @@ import {
   ITable,
   ITeamPoints,
   IPlayedCard,
+  ESayCommand,
 } from ".."
 import { ITrucoshi, PLAYER_TIMEOUT_GRACE } from "../server"
 import { IPlayInstance } from "./Play"
@@ -695,8 +699,8 @@ export async function playBot(
 
   // Apply momentum and add randomness for variability
   const delay = Math.max(
-    PLAYER_TIMEOUT_GRACE * 0.5, // Minimum 450ms
-    baseDelay * momentumFactor * (0.8 + Math.random() * 0.4) // 20% randomness
+    PLAYER_TIMEOUT_GRACE * 0.8, // Minimum 450ms
+    baseDelay * momentumFactor * (0.5 + Math.random() * 0.4) // 20% randomness
   )
   await new Promise((resolve) => setTimeout(resolve, delay))
 
@@ -953,6 +957,21 @@ export async function playBot(
     const forehandWins = botPos < winnerPos
 
     if (
+      context.bot._commands.has(ESayCommand.PASO) &&
+      opponentIsWinner &&
+      (opponentWins ||
+        (!forehandWins && context.play.envido.winningPointsAnswer >= highestEnvido)) &&
+      (context.profile.caution > 0.6 || Math.random() < 0.7 * context.profile.caution)
+    ) {
+      return sayCommand({
+        command: ESayCommand.PASO,
+        play,
+        player: bot,
+        table: table.sessionId,
+      })
+    }
+
+    if (
       context.bot._commands.has(EEnvidoAnswerCommand.SON_BUENAS) &&
       opponentIsWinner &&
       (opponentWins || !forehandWins)
@@ -964,7 +983,13 @@ export async function playBot(
         table: table.sessionId,
       })
     }
-    return sayCommand({ command: highestEnvido, play, player: bot, table: table.sessionId })
+
+    return sayCommand({
+      command: highestEnvido,
+      play,
+      player: bot,
+      table: table.sessionId,
+    })
   }
 
   // **Default Case**
