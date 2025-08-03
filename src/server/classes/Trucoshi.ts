@@ -290,7 +290,11 @@ export const Trucoshi = ({
         logger.debug("Connecting to redis at " + process.env.APP_REDIS_URL)
         try {
           await Promise.all([pubClient.connect(), subClient.connect()])
-          io.adapter(createAdapter(pubClient, subClient))
+          io.adapter(
+            createAdapter(pubClient, subClient, {
+              key: process.env.APP_LIGHTNING_ACCOUNTS_EMAIL || process.env.NODE_ENV || "default",
+            })
+          )
           logger.info("Connected to Redis")
         } catch (e) {
           logger.error(e, "Failed to connect to Redis")
