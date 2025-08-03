@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto"
 import debounce from "lodash.debounce"
 import { createServer, Server as HttpServer } from "http"
-import { Server, Socket } from "socket.io"
+import { RemoteSocket, Server, Socket } from "socket.io"
 import {
   EAnswerCommand,
   ECommand,
@@ -33,8 +33,6 @@ import { accountsApi, validateJwt } from "../../accounts/client"
 import { createClient } from "redis"
 import {
   EMatchState,
-  Match,
-  MatchBet,
   MatchPlayer,
   Prisma,
   PrismaClient,
@@ -116,7 +114,10 @@ export interface ITrucoshi {
   createUserSession(socket: TrucoshiSocket, username?: string, token?: string): IUserSession
   getTableSockets(
     table: IMatchTable,
-    callback?: (playerSocket: TrucoshiSocket, player: IPlayer | null) => Promise<void>
+    callback?: (
+      playerSocket: RemoteSocket<ServerToClientEvents, SocketData>,
+      player: IPlayer | null
+    ) => Promise<void>
   ): Promise<{ sockets: any[]; players: IPublicPlayer[]; spectators: any[] }>
   getSessionActiveMatches(session?: string, socket?: TrucoshiSocket): IPublicMatchInfo[]
   login(input: { socket: TrucoshiSocket; account: User; identityJwt: string }): Promise<void>
@@ -559,9 +560,9 @@ export const Trucoshi = ({
       }
     },
     async getTableSockets(table, callback) {
-      const allSockets = await server.io.sockets.adapter.fetchSockets({
-        rooms: new Set([table.matchSessionId]),
-      })
+      log.info({ table: table.getPublicMatchInfo() }, "Getting all Match Table sockets...")
+
+      const allSockets = await server.io.of("/").in(table.matchSessionId).fetchSockets()
 
       const players: IPublicPlayer[] = []
       const playerSockets: any[] = []
