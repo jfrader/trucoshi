@@ -172,6 +172,12 @@ export const Chat = (io?: TrucoshiServer, tables?: TMap<string, IMatchTable>) =>
   })
 
   adapter.on("join-room", (room, socketId) => {
+    const chatroom = chat.rooms.get(room)
+
+    if (!chatroom) {
+      return
+    }
+
     const userSocket = io.sockets.sockets.get(socketId)
     if (!userSocket || !userSocket.data.user) {
       log.debug(
@@ -182,98 +188,93 @@ export const Chat = (io?: TrucoshiServer, tables?: TMap<string, IMatchTable>) =>
     }
 
     const { name, key } = userSocket.data.user
-    const chatroom = chat.rooms.get(room)
 
-    if (chatroom) {
-      io.in(room)
-        .fetchSockets()
-        .then((matchingSockets) => {
-          if (
-            matchingSockets.length <= 1 ||
-            matchingSockets.filter((s) => s.data.user?.key === key).length <= 1
-          ) {
-            log.debug({ socketId, room }, `${name} entro a la sala ${room}`)
-            chatroom.system(`${name} entro a la sala`, true)
-          }
-        })
-        .catch((error) => {
-          log.error(
-            { socketId, room, error: error.message },
-            `Error fetching sockets for join-room event`
-          )
-        })
-
-      userSocket.emit(EServerEvent.UPDATE_CHAT, {
-        id: chatroom.id,
-        messages: chatroom.messages,
+    io.in(room)
+      .fetchSockets()
+      .then((matchingSockets) => {
+        if (
+          matchingSockets.length <= 1 ||
+          matchingSockets.filter((s) => s.data.user?.key === key).length <= 1
+        ) {
+          log.debug({ socketId, room }, `${name} entro a la sala ${room}`)
+          chatroom.system(`${name} entro a la sala`, true)
+        }
       })
-
-      // Attach CHAT listener
-      userSocket.on(EClientEvent.CHAT, (matchId, message, callback) => {
-        log.debug({ socketId: userSocket.id, matchId, message }, `Received CHAT event`)
-
-        if (matchId !== room || !userSocket.data.user) {
-          log.warn(
-            { socketId: userSocket.id, matchId },
-            `CHAT event rejected: invalid matchId or no user data`
-          )
-          return callback?.({ success: false })
-        }
-
-        const player = tables
-          .get(matchId)
-          ?.lobby.players.find((p) => p.key === userSocket.data.user?.key)
-
-        if (!player) {
-          log.warn(
-            { socketId: userSocket.id, matchId, key: userSocket.data.user?.key },
-            `CHAT event rejected: player not found`
-          )
-          return callback?.({ success: false })
-        }
-
-        chatroom.send(
-          {
-            name: userSocket.data.user.name,
-            key: userSocket.data.user.key,
-            teamIdx: player.teamIdx,
-          },
-          message,
-          true
+      .catch((error) => {
+        log.error(
+          { socketId, room, error: error.message },
+          `Error fetching sockets for join-room event`
         )
-        callback?.({ success: true })
       })
 
-      // Attach SAY listener
-      userSocket.on(EClientEvent.SAY, (matchId, message, callback) => {
-        log.debug({ socketId: userSocket.id, matchId, message }, `Received SAY event`)
+    userSocket.emit(EServerEvent.UPDATE_CHAT, {
+      id: chatroom.id,
+      messages: chatroom.messages,
+    })
 
-        if (matchId !== room || !userSocket.data.user) {
-          log.warn(
-            { socketId: userSocket.id, matchId },
-            `SAY event rejected: invalid matchId or no user data`
-          )
-          return callback?.({ success: false })
-        }
+    // Attach CHAT listener
+    userSocket.on(EClientEvent.CHAT, (matchId, message, callback) => {
+      log.debug({ socketId: userSocket.id, matchId, message }, `Received CHAT event`)
 
-        const player = tables
-          .get(matchId)
-          ?.lobby.players.find((p) => p.key === userSocket.data.user?.key)
+      if (matchId !== room || !userSocket.data.user) {
+        log.warn(
+          { socketId: userSocket.id, matchId },
+          `CHAT event rejected: invalid matchId or no user data`
+        )
+        return callback?.({ success: false })
+      }
 
-        if (!player) {
-          log.warn(
-            { socketId: userSocket.id, matchId, key: userSocket.data.user?.key },
-            `SAY event rejected: player not found`
-          )
-          return callback?.({ success: false })
-        }
+      const player = tables
+        .get(matchId)
+        ?.lobby.players.find((p) => p.key === userSocket.data.user?.key)
 
-        userSocket.data.throttler?.(message, undefined, userSocket.data.user, matchId)
-        callback?.({ success: true })
-      })
-    } else {
-      log.warn({ socketId, room }, `Join-room failed: chat room not found`)
-    }
+      if (!player) {
+        log.warn(
+          { socketId: userSocket.id, matchId, key: userSocket.data.user?.key },
+          `CHAT event rejected: player not found`
+        )
+        return callback?.({ success: false })
+      }
+
+      chatroom.send(
+        {
+          name: userSocket.data.user.name,
+          key: userSocket.data.user.key,
+          teamIdx: player.teamIdx,
+        },
+        message,
+        true
+      )
+      callback?.({ success: true })
+    })
+
+    // Attach SAY listener
+    userSocket.on(EClientEvent.SAY, (matchId, message, callback) => {
+      log.debug({ socketId: userSocket.id, matchId, message }, `Received SAY event`)
+
+      if (matchId !== room || !userSocket.data.user) {
+        log.warn(
+          { socketId: userSocket.id, matchId },
+          `SAY event rejected: invalid matchId or no user data`
+        )
+        return callback?.({ success: false })
+      }
+
+      const player = tables
+        .get(matchId)
+        ?.lobby.players.find((p) => p.key === userSocket.data.user?.key)
+
+      if (!player) {
+        log.warn(
+          { socketId: userSocket.id, matchId, key: userSocket.data.user?.key },
+          `SAY event rejected: player not found`
+        )
+        return callback?.({ success: false })
+      }
+
+      userSocket.data.throttler?.(message, undefined, userSocket.data.user, matchId)
+      callback?.({ success: true })
+    })
   })
 
   adapter.on("leave-room", (room, socketId) => {

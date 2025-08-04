@@ -18,6 +18,8 @@ export interface IMatchTable {
   lobby: ILobby
   busy: boolean
   awardedSatsPerPlayer: number
+  playerSockets: string[]
+  spectatorSockets: string[]
   state(): EMatchState
   setBusy(busy: boolean): void
   isSessionPlaying(session: string): IPlayer | null
@@ -43,6 +45,8 @@ export function MatchTable(
     busy: false,
     lobby: Lobby(matchSessionId, ownerSession.name, options),
     awardedSatsPerPlayer: 0,
+    playerSockets: [],
+    spectatorSockets: [],
     setAwardedPerPlayer(award) {
       table.awardedSatsPerPlayer = award
     },

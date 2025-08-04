@@ -272,7 +272,7 @@ export function Envido(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITa
       if (answer === true) {
         envido.accepted = true
         envido.turn = 0
-        envido.players = table.getPlayersForehandFirst()
+        envido.players = table.getPlayersForehandFirst().filter((p) => !p.disabled)
 
         turnGenerator = envidoTurnGeneratorSequence(envido)
       }

@@ -17,6 +17,7 @@ import {
   IPlayerRanking,
   IPublicMatch,
   IPublicMatchInfo,
+  IPublicMatchStats,
   IPublicPlayer,
   ITeam,
   ITrucoshiStats,
@@ -565,8 +566,8 @@ export const Trucoshi = ({
       )
 
       const players: IPublicPlayer[] = []
-      const playerSockets: any[] = []
-      const spectatorSockets: any[] = []
+      const playerSockets: RemoteSocket<ServerToClientEvents, SocketData>[] = []
+      const spectatorSockets: RemoteSocket<ServerToClientEvents, SocketData>[] = []
 
       if (!allSockets || !("length" in allSockets) || !allSockets.length) {
         log.warn(
@@ -602,18 +603,30 @@ export const Trucoshi = ({
     },
     async emitMatchUpdate(table, skipSocketIds = [], skipPreviousHand = false) {
       log.trace(table.getPublicMatchInfo(), "Emitting match update to all sockets")
-      const publicMatch = table.getPublicMatch()
-      await server.getTableSockets(table, async (playerSocket, player) => {
-        if (skipSocketIds.includes(playerSocket.id) || !playerSocket.data.user) {
-          return
-        }
-        playerSocket.emit(
-          EServerEvent.UPDATE_MATCH,
-          player
-            ? table.getPublicMatch(playerSocket.data.user.session, false, skipPreviousHand)
-            : publicMatch
+
+      const { spectators, sockets } = await server.getTableSockets(table)
+      const stats: IPublicMatchStats = { spectators: spectators.length || 0 }
+      const publicMatch = table.getPublicMatch(undefined, undefined, skipPreviousHand)
+
+      const filterFn = (socket: TrucoshiSocket) =>
+        !skipSocketIds.includes(socket.id) && socket.data.user
+
+      sockets
+        .filter(filterFn)
+        .forEach((socket) =>
+          socket.emit(
+            EServerEvent.UPDATE_MATCH,
+            socket.data.user
+              ? table.getPublicMatch(socket.data.user.session, false, skipPreviousHand)
+              : publicMatch,
+            stats
+          )
         )
-      })
+
+      spectators
+        .filter(filterFn)
+        .forEach((socket) => socket.emit(EServerEvent.UPDATE_MATCH, publicMatch, stats))
+
       return publicMatch
     },
     async emitWaitingPossibleSay({ play, table, onlyThisSocket }) {
@@ -642,7 +655,7 @@ export const Trucoshi = ({
             }
 
             log.trace(
-              { match: table.getPublicMatchInfo(), player: player.getPublicPlayer() },
+              { match: table.getPublicMatchInfo(), player: player.getPublicPlayer("log") },
               "Emitting waiting possible say to a player"
             )
 
@@ -721,10 +734,10 @@ export const Trucoshi = ({
             if (player.session === play.player?.session) {
               log.trace(
                 {
-                  match: table.getPublicMatchInfo(),
-                  player: player.getPublicPlayer(),
                   handIdx: play.handIdx,
+                  match: table.getPublicMatchInfo(),
                   rounds: play.getHand().rounds,
+                  player: player.getPublicPlayer("log"),
                 },
                 "Emitting waiting play to a player"
               )
@@ -811,7 +824,10 @@ export const Trucoshi = ({
       const matchTable = typeof table === "string" ? server.tables.getOrThrow(table) : table
       return new Promise<void>((resolve, reject) => {
         if (cardIdx !== undefined && card) {
-          log.trace({ player, card, cardIdx }, "Attempt to play card")
+          log.trace(
+            { card, cardIdx, player: player.getPublicPlayer("log") },
+            "Attempt to play card"
+          )
           const playedCard = play.use(cardIdx, card)
           if (playedCard) {
             log.trace({ player, card, cardIdx }, "Play card success")
@@ -1202,8 +1218,11 @@ export const Trucoshi = ({
     async onHandFinished(table) {
       log.trace({ ...table.getPublicMatchInfo() }, `Table Hand Finished`)
 
-      await server.emitMatchUpdate(table, undefined, true)
-      await new Promise((resolve) => setTimeout(resolve, PLAYER_TIMEOUT_GRACE * 2))
+      if (process.env.APP_DISABLE_TIMERS !== "1") {
+        await server.emitMatchUpdate(table, undefined, true)
+        await new Promise((resolve) => setTimeout(resolve, PLAYER_TIMEOUT_GRACE * 2))
+      }
+
       const publicMatch = await server.emitMatchUpdate(table)
 
       table.lobby.teams.map((team) => {

@@ -9,6 +9,7 @@ import {
   IPublicChatRoom,
   IPublicMatch,
   IPublicMatchInfo,
+  IPublicMatchStats,
   ITrucoshiStats,
   IUserData,
   IWaitingPlayData,
@@ -45,7 +46,7 @@ export interface ServerToClientEvents {
   [EServerEvent.NEW_MESSAGE]: (roomId: string, message?: IChatMessage) => void
   [EServerEvent.UPDATE_ACTIVE_MATCHES]: (activeMatches: IPublicMatchInfo[]) => void
   [EServerEvent.UPDATE_PUBLIC_MATCHES]: (publicMatches: IPublicMatchInfo[]) => void
-  [EServerEvent.UPDATE_MATCH]: (match: IPublicMatch, callback?: () => void) => void
+  [EServerEvent.UPDATE_MATCH]: (match: IPublicMatch, stats?: IPublicMatchStats, callback?: () => void) => void
   [EServerEvent.KICK_PLAYER]: (match: IPublicMatch, session: string, reason?: string) => void
   [EServerEvent.MATCH_DELETED]: (matchSessionId: string) => void
   [EServerEvent.SET_SESSION]: (

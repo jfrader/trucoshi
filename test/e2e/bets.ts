@@ -119,7 +119,7 @@ describe("Bets", () => {
     balances = await Promise.all(
       clients.map(async (_, i) => {
         try {
-          const response = await apis[i].auth.getAuth({ headers: { Cookie: cookies[i] } })
+          const response = await apis[i].auth.getUserProfile({ headers: { Cookie: cookies[i] } })
           return response.data.wallet?.balanceInSats || 0
         } catch (err) {
           throw handleError(err, `Failed to fetch balance for client ${i}`)
@@ -180,7 +180,7 @@ describe("Bets", () => {
             expect(winner?.points.buenas).to.be.greaterThanOrEqual(9)
 
             for (const [idx] of clients.entries()) {
-              const res = await apis[idx].auth.getAuth({ headers: { Cookie: cookies[idx] } })
+              const res = await apis[idx].auth.getUserProfile({ headers: { Cookie: cookies[idx] } })
               const expectedBalance =
                 winner?.id === matches[idx].me?.teamIdx ? balances[idx] + 9 : balances[idx] - 10
               expect(res.data.wallet?.balanceInSats).to.equal(expectedBalance)
@@ -350,7 +350,7 @@ describe("Bets", () => {
         client.emit(EClientEvent.LEAVE_MATCH, matchId as string, () => resolve())
       })
 
-      const res = await apis[i].auth.getAuth({ headers: { Cookie: cookies[i] } })
+      const res = await apis[i].auth.getUserProfile({ headers: { Cookie: cookies[i] } })
       expect(res.data.wallet?.balanceInSats).to.equal(balances[i])
     }
   })

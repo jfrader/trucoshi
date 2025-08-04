@@ -1,5 +1,5 @@
 # Dockerfile
-FROM node:21-alpine
+FROM node:24-alpine
 
 ARG APP_PORT=2999
 

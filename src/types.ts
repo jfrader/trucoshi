@@ -99,6 +99,10 @@ export interface IPublicMatch {
   awardedSatsPerPlayer?: number
 }
 
+export interface IPublicMatchStats {
+  spectators: number
+}
+
 export interface IPublicMatchInfo {
   ownerId: string
   matchSessionId: string
@@ -430,7 +434,7 @@ export interface ITeam {
   disable(player: IPlayer): boolean
   abandon(player: IPlayer): boolean
   enable(player?: IPlayer): boolean
-  resetPassed(): void;
+  resetPassed(): void
   addPoints(matchPoint: number, points: number, simulate?: boolean): ITeamPoints
 }
 
@@ -454,6 +458,8 @@ export const DANGEROUS_COMMANDS: ECommand[] = [
   EEnvidoAnswerCommand.SON_BUENAS,
   EFlorCommand.ACHICO,
 ]
+
+export const WARNING_COMMANDS: ECommand[] = [ESayCommand.PASO]
 
 export type ITrucoshiStats = {
   onlinePlayers: number[]
