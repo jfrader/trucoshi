@@ -942,7 +942,7 @@ export const Trucoshi = ({
     },
     setTurnTimeout({ table, player, play, user, retry, cancel }) {
       const currentHand = play.getHand()
-      table.log.debug(
+      table.log.trace(
         {
           player: player.getPublicPlayer("log"),
           options: table.lobby.options,
