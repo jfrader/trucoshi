@@ -229,7 +229,6 @@ export const trucoshiMiddleware = (server: ITrucoshi) => {
 
           socket.join(table.matchSessionId)
 
-          server.emitMatchUpdate(table).catch(console.error)
           return callback({
             success: true,
             match: table.getPublicMatch(userSession.session),

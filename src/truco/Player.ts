@@ -241,7 +241,9 @@ const getPublicPlayer = (
 
   const { session, commands, hasFlor, envido, hand, payRequestId, flor } = privateProps
 
-  const isMe = Boolean(userSession === "log" || session === userSession)
+  const logPrivateFields = process.env.NODE_ENV !== "production" && userSession === "log"
+
+  const isMe = Boolean(logPrivateFields || session === userSession)
 
   const meProps = isMe
     ? { isMe, commands, hasFlor, envido, hand, flor, payRequestId }

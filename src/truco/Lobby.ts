@@ -352,6 +352,6 @@ const addPlayerToLobby = async ({
   lobby.calculateFull()
   lobby.calculateReady()
 
-  log.trace({ playerParams, player: player.getPublicPlayer() }, "Player added to match")
+  log.trace(playerParams, "Player added to match")
   return player
 }

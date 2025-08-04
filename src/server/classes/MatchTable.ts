@@ -10,6 +10,8 @@ import {
   IPublicMatchInfo,
 } from "../../types"
 import { IUserSession } from "./UserSession"
+import logger from "../../utils/logger"
+import { Logger } from "pino"
 
 export interface IMatchTable {
   matchId?: number
@@ -20,6 +22,7 @@ export interface IMatchTable {
   awardedSatsPerPlayer: number
   playerSockets: string[]
   spectatorSockets: string[]
+  log: Logger<never, boolean>
   state(): EMatchState
   setBusy(busy: boolean): void
   isSessionPlaying(session: string): IPlayer | null
@@ -39,6 +42,8 @@ export function MatchTable(
   ownerSession: IUserSession,
   options: Partial<ILobbyOptions> = {}
 ) {
+  const matchLog = logger.child({ matchSessionId })
+
   const table: IMatchTable = {
     ownerSession: ownerSession.session,
     matchSessionId,
@@ -47,6 +52,7 @@ export function MatchTable(
     awardedSatsPerPlayer: 0,
     playerSockets: [],
     spectatorSockets: [],
+    log: matchLog,
     setAwardedPerPlayer(award) {
       table.awardedSatsPerPlayer = award
     },
