@@ -21,7 +21,7 @@ import { IMatch } from "./Match"
 import { IPlayInstance, PlayInstance } from "./Play"
 import { IRound, Round } from "./Round"
 import { ITruco, Truco } from "./Truco"
-import { PlayedCard, dealCards } from "../lib"
+import { CARDS_HUMAN_READABLE, PlayedCard, dealCards } from "../lib"
 import { checkHandWinner } from "../lib/utils"
 import { Flor, IFlor } from "./Flor"
 import { getMemoLatestBitcoinBlock } from "../accounts/client"
@@ -254,7 +254,11 @@ export function Hand(match: IMatch, idx: number) {
     get roundsLogFlatten() {
       return hand.roundsLog
         .filter((round) => round.length)
-        .map((round) => round.flatMap((r) => `Player ${r.player}: ${r.card || r.command}`))
+        .map((round) =>
+          round.flatMap(
+            (r) => `Player ${r.player}: ${r.card ? CARDS_HUMAN_READABLE[r.card] : r.command}`
+          )
+        )
     },
     envido: Envido(match.teams, match.options, match.table),
     flor: Flor(match.teams, match.options, match.table),
