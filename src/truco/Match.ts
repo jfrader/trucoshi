@@ -104,7 +104,7 @@ export function Match(
     async play() {
       log.trace(
         {
-          rounds: match.currentHand?.roundsLog,
+          rounds: match.currentHand?.roundsLogFlatten,
           winner: match.winner,
           options: match.options,
           players: table.players.map((p) => p.getPublicPlayer("log")),

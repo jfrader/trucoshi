@@ -67,7 +67,7 @@ describe("Trucoshi Lib", () => {
         match
           .onEnvido(async (play, pointsRound) => {
             if (!play.player || (!play.player._commands.size && !pointsRound)) {
-              console.log(play.getHand().roundsLog)
+              console.log(play.getHand().roundsLogFlatten)
               console.log({
                 onEnvido: true,
                 players: lobby.players.length,
@@ -110,7 +110,7 @@ describe("Trucoshi Lib", () => {
                 hand: play.player.hand,
                 hasFlor: play.player.hasFlor,
               })
-              console.log(play.getHand().roundsLog)
+              console.log(play.getHand().roundsLogFlatten)
               return process.abort()
             }
 
@@ -119,7 +119,7 @@ describe("Trucoshi Lib", () => {
 
           .onFlor(async (play) => {
             if (!play.player || !play.player._commands.size) {
-              console.log(play.getHand().roundsLog)
+              console.log(play.getHand().roundsLogFlatten)
               console.log({
                 onFlor: true,
                 players: lobby.players.length,
@@ -165,7 +165,7 @@ describe("Trucoshi Lib", () => {
                 hand: play.player.hand,
                 hasFlor: play.player.hasFlor,
               })
-              console.log(play.getHand().roundsLog)
+              console.log(play.getHand().roundsLogFlatten)
               return process.abort()
             }
 
@@ -175,7 +175,7 @@ describe("Trucoshi Lib", () => {
             const hand = play.getHand()
 
             if (!play.player || !play.player._commands.size) {
-              console.log(play.getHand().roundsLog)
+              console.log(play.getHand().roundsLogFlatten)
               console.log({
                 onTruco: true,
                 players: lobby.players.length,
@@ -210,7 +210,7 @@ describe("Trucoshi Lib", () => {
                 hasFlor: play.player.hasFlor,
                 hasSaidFlor: play.player?.hasSaidFlor,
               })
-              console.log(play.getHand().roundsLog)
+              console.log(play.getHand().roundsLogFlatten)
               return process.abort()
             }
 

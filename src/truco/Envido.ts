@@ -176,7 +176,7 @@ export function Envido(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITa
         envido.teamIdx = playerTeamIdx
         envido.stake += accept
         envido.declineStake += decline
-        envido.players = [...teams[opponentIdx].players].sort((a, b) =>
+        envido.players = [...teams[opponentIdx].activePlayers].sort((a, b) =>
           a.hasFlor && !a.hasSaidFlor ? -1 : b.hasFlor && !b.hasSaidFlor ? 1 : 0
         )
         envido.started = true

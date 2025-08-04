@@ -137,7 +137,7 @@ export const GameLoop = (match: IMatch) => {
               matchId: match.id,
               state: play.state,
               player: play.player.name,
-              rounds: play.getHand()?.roundsLog,
+              rounds: play.getHand()?.roundsLogFlatten,
             },
             "Game new turn started"
           )

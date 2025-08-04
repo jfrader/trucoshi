@@ -731,7 +731,7 @@ export const Trucoshi = ({
               table.log.trace(
                 {
                   handIdx: play.handIdx,
-                  rounds: play.getHand().rounds,
+                  rounds: play.getHand().roundsLogFlatten,
                   player: player.getPublicPlayer("log"),
                 },
                 "Emitting waiting play to a player"
@@ -831,7 +831,10 @@ export const Trucoshi = ({
           )
           const playedCard = play.use(cardIdx, card)
           if (playedCard) {
-            matchTable.log.trace({ player, card, cardIdx }, "Play card success")
+            matchTable.log.trace(
+              { player: player.getPublicPlayer("log"), card, cardIdx },
+              "Play card success"
+            )
             server.clearTurnTimeout(matchTable.matchSessionId)
 
             const sound =
@@ -946,7 +949,7 @@ export const Trucoshi = ({
         {
           player: player.getPublicPlayer("log"),
           options: table.lobby.options,
-          rounds: currentHand.roundsLog,
+          rounds: currentHand.roundsLogFlatten,
         },
         "New player turn timeout started"
       )
@@ -1220,7 +1223,7 @@ export const Trucoshi = ({
     },
     async onHandFinished(table, hand) {
       table.log.debug(
-        { ...table.getPublicMatchInfo(), rounds: hand?.roundsLog },
+        { ...table.getPublicMatchInfo(), handIdx: hand?.idx, rounds: hand?.roundsLogFlatten },
         "Match Hand Finished"
       )
 

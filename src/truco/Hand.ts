@@ -47,6 +47,7 @@ export interface IHand {
   envidoWinnerIdx?: 0 | 1
   florWinnerIdx?: 0 | 1
   _currentPlayer: IPlayer | null
+  get roundsLogFlatten(): Array<Array<string>>
   get currentPlayer(): IPlayer | null
   set currentPlayer(player: IPlayer | null)
   currentRound: IRound | null
@@ -250,10 +251,14 @@ export function Hand(match: IMatch, idx: number) {
     state: EHandState.WAITING_PLAY,
     rounds: [],
     roundsLog: [[], [], []],
+    get roundsLogFlatten() {
+      return hand.roundsLog
+        .filter((round) => round.length)
+        .map((round) => round.flatMap((r) => `Player ${r.player}: ${r.card || r.command}`))
+    },
     envido: Envido(match.teams, match.options, match.table),
     flor: Flor(match.teams, match.options, match.table),
     truco: Truco(match.teams),
-
     playedCards: [],
     setTurnCommands() {
       return setTurnCommands(match, hand)
@@ -388,7 +393,7 @@ export function Hand(match: IMatch, idx: number) {
         hand.setTurn(hand.turn + 1)
       }
 
-      log.trace({ round: hand.roundsLog }, "Calling round next turn")
+      log.trace({ round: hand.roundsLogFlatten }, "Calling round next turn")
 
       hand.currentRound?.nextTurn()
     },
