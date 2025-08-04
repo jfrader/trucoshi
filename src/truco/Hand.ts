@@ -595,7 +595,7 @@ const handleTrucoAndMazo = (match: IMatch, hand: IHand, currentPlayer: IPlayer) 
         !flor.finished &&
         (flor.started ||
           match.teams[player.teamIdx].activePlayers.some(
-            (p) => p !== player && p.hasFlor && !p.hasSaidFlor
+            (p) => p.key !== player.key && p.hasFlor && !p.hasSaidFlor
           ))
 
       if (hasTeammateWithUnsaidFlor) {
@@ -611,7 +611,7 @@ const handleTrucoAndMazo = (match: IMatch, hand: IHand, currentPlayer: IPlayer) 
           player._commands.add(EAnswerCommand.NO_QUIERO)
 
           if (
-            match.teams[opposingTeamIdx].activePlayers.length > 1 &&
+            match.teams[player.teamIdx].activePlayers.length > 1 &&
             currentPlayer.idx === player.idx
           ) {
             player._commands.add(ESayCommand.PASO)
@@ -650,11 +650,41 @@ const commands: IHandCommands = {
     if (hand.state === EHandState.WAITING_ENVIDO_ANSWER) {
       if (
         hand.envido.teamIdx !== player.teamIdx &&
-        !hand.envido.players
-          .filter((p) => !p.disabled)
-          .find((p) => p.teamIdx === player.teamIdx && p.key !== player.key)
+        !hand.envido.players.find(
+          (p) =>
+            p.teamIdx === player.teamIdx &&
+            p.key !== player.key &&
+            !p.disabled &&
+            !p.abandoned &&
+            !p.hasPassed
+        )
       ) {
         hand.envido.sayAnswer(player, false)
+        hand.endEnvido()
+      }
+    }
+
+    if (hand.state === EHandState.WAITING_FLOR_ANSWER) {
+      if (
+        hand.envido.teamIdx !== player.teamIdx &&
+        !hand.envido.players.find(
+          (p) =>
+            p.hasFlor &&
+            !p.hasSaidFlor &&
+            p.teamIdx === player.teamIdx &&
+            p.key !== player.key &&
+            !p.disabled &&
+            !p.abandoned
+        )
+      ) {
+        hand.flor.players = hand.flor.players.filter((p) => p.key !== player.key)
+        if (!hand.flor.players.length) {
+          if (hand.flor.state >= 4) {
+            hand.flor.sayAnswer(player, false)
+            hand.endEnvido()
+          }
+        }
+
         hand.endEnvido()
       }
     }
@@ -666,9 +696,9 @@ const commands: IHandCommands = {
     if (hand.state === EHandState.WAITING_FLOR_ANSWER && hand.flor.state >= 4) {
       if (
         hand.flor.teamIdx !== player.teamIdx &&
-        !hand.flor.players
-          .filter((p) => !p.disabled)
-          .find((p) => p.teamIdx === player.teamIdx && p.key !== player.key)
+        !hand.flor.players.find(
+          (p) => p.teamIdx === player.teamIdx && p.key !== player.key && !p.disabled && !p.abandoned
+        )
       ) {
         hand.flor.sayAnswer(player, false)
         hand.endEnvido()
@@ -678,11 +708,17 @@ const commands: IHandCommands = {
     if (hand.state === EHandState.WAITING_FOR_TRUCO_ANSWER) {
       if (
         hand.truco.teamIdx !== player.teamIdx &&
-        !hand.truco.players
-          .filter((p) => !p.disabled)
-          .find((p) => p.teamIdx === player.teamIdx && p.key !== player.key)
+        !hand.truco.players.find(
+          (p) =>
+            p.teamIdx === player.teamIdx &&
+            p.key !== player.key &&
+            !p.disabled &&
+            !p.abandoned &&
+            !p.hasPassed
+        )
       ) {
         hand.truco.sayAnswer(player, false)
+        hand.setState(EHandState.WAITING_PLAY)
       }
     }
 

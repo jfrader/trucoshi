@@ -187,7 +187,13 @@ export const GameLoop = (match: IMatch) => {
           }
         } catch (e) {
           log.error(e)
-          log.fatal(e, "Match" + match.id + " ended because an error was thrown in the game loop!")
+          log.fatal(
+            e,
+            "Match " +
+              match.table.sessionId +
+              " ended because an error was thrown in the game loop!"
+          )
+          process.exit(1)
           match.setWinner(match.teams[0])
           winner = match.teams[0]
         }
@@ -196,7 +202,9 @@ export const GameLoop = (match: IMatch) => {
       }
 
       if (!match.winner) {
-        log.fatal("Match" + match.id + ": No winner found in game loop, forcing termination")
+        log.fatal(
+          "Match " + match.table.sessionId + ": No winner found in game loop, forcing termination"
+        )
         match.setWinner(match.teams[0])
         winner = match.teams[0]
       }
@@ -225,9 +233,13 @@ export const GameLoop = (match: IMatch) => {
             ] as [ITeamPoints, ITeamPoints]
           )
         )
-      } catch (e) {
+      } catch (e: any) {
         console.error(e)
-        log.fatal(e, "Match" + match.id + " Gameloop onWinner callback error!!!")
+        log.fatal(
+          { rounds: gameloop.currentHand?.roundsLogFlatten },
+          "Match " + match.table.sessionId + " callback error"
+        )
+        log.fatal(e, "Match " + match.table.sessionId + " Gameloop onWinner callback error!!!")
       }
     },
   }

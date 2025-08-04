@@ -1121,7 +1121,7 @@ export const Trucoshi = ({
           retry: turn,
           cancel: () => {
             server
-              .sayCommand({ table, play, player, command: EFlorCommand.FLOR }, true)
+              .sayCommand({ table, play, player, command: ESayCommand.MAZO }, true)
               .catch((e) => table.log.error(e, "Flor turn timeout failed to say FLOR command"))
               .finally(resolve)
           },

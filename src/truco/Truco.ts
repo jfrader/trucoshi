@@ -37,6 +37,12 @@ const TRUCO_STATE_MAP = {
 
 function* trucoTurnGeneratorSequence(truco: ITruco): Generator<ITruco, void, ITruco> {
   while (truco.answer === null) {
+    if (!truco.players.length) {
+      truco.waitingAnswer = false
+      truco.answer = false
+      yield truco
+    }
+
     let player = truco.players[truco.turn]
 
     if (truco.turn >= truco.players.length - 1) {
@@ -88,7 +94,7 @@ export function Truco(teams: [ITeam, ITeam]) {
         const opponentIdx = Number(!playerTeamIdx) as 0 | 1
         truco.teamIdx = playerTeamIdx
         truco.answer = null
-        truco.players = [...teams[opponentIdx].players].sort((a, b) =>
+        truco.players = [...teams[opponentIdx].activePlayers].sort((a, b) =>
           a.hasFlor && !a.hasSaidFlor ? -1 : b.hasFlor && !b.hasSaidFlor ? 1 : 0
         )
 

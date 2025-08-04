@@ -164,7 +164,7 @@ export function Flor(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITabl
       flor.declineStake = 0
       flor.players = table
         .getPlayersForehandFirst()
-        .filter((p) => !p.disabled && p.hasFlor && !p.hasSaidFlor)
+        .filter((p) => !p.disabled && !p.abandoned && p.hasFlor && !p.hasSaidFlor)
       flor.candidates.push(player)
       flor.state = 3
       flor.accepted = false
@@ -202,7 +202,7 @@ export function Flor(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITabl
       flor.stake = 6
       flor.declineStake = 4 // Declining CONTRAFLOR gives 4 points
       flor.teamIdx = playerTeamIdx
-      flor.players = teams[opponentIdx].players.filter((p) => !p.disabled && p.hasFlor)
+      flor.players = teams[opponentIdx].activePlayers.filter((p) => p.hasFlor)
       flor.candidates.push(player)
       flor.state = 4
 
@@ -237,7 +237,7 @@ export function Flor(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITabl
       flor.stake = replace
       flor.declineStake = 6
       flor.teamIdx = playerTeamIdx
-      flor.players = teams[opponentIdx].players.filter((p) => !p.disabled && p.hasFlor)
+      flor.players = teams[opponentIdx].activePlayers.filter((p) => p.hasFlor)
       flor.candidates.push(player)
       flor.state = 5
 

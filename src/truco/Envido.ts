@@ -118,7 +118,7 @@ export const EnvidoCalculator: IEnvidoCalculator = {
 
 function* envidoTurnGeneratorSequence(envido: IEnvido) {
   while (envido.answer === null || envido.winner === null) {
-    let player = envido.players[envido.turn]
+    const player = envido.players[envido.turn]
 
     if (envido.turn >= envido.players.length - 1) {
       envido.setTurn(0)
@@ -127,6 +127,7 @@ function* envidoTurnGeneratorSequence(envido: IEnvido) {
     }
 
     envido.setCurrentPlayer(player)
+
     if (player.disabled) {
       envido.setCurrentPlayer(null)
     }
@@ -249,10 +250,7 @@ export function Envido(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITa
         }
       }
 
-      const winningPlayerTeamIdx = envido.winningPlayer.teamIdx as 0 | 1
-      const loosingTeamIdx = Number(!winningPlayerTeamIdx) as 0 | 1
-
-      if (envido.teams[loosingTeamIdx].players.every((p) => p.hasSaidEnvidoPoints || p.disabled)) {
+      if (!envido.players.length) {
         envido.teams.forEach((team) => team.resetPassed())
         envido.finished = true
         envido.winner = teams[envido.winningPlayer.teamIdx]
