@@ -127,7 +127,7 @@ function* envidoTurnGeneratorSequence(envido: IEnvido) {
     }
 
     envido.setCurrentPlayer(player)
-    if (player.disabled) {
+    if (!player || player.disabled) {
       envido.setCurrentPlayer(null)
     }
 
@@ -287,7 +287,6 @@ export function Envido(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITa
       envido.answered = true
       envido.teamIdx = opponentIdx
       envido.answer = answer
-      envido.turn = 0
       return envido
     },
     setTeam(idx: 0 | 1) {
