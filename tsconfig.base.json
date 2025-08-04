@@ -2,7 +2,7 @@
   "compilerOptions": {
     "target": "es2015",
     "module": "ESNext",
-    "lib": ["es2022", "dom"],
+    "lib": ["es6", "dom"],
     "allowJs": true,
     "outDir": "dist",
     "rootDir": "src",
