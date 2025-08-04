@@ -1223,7 +1223,7 @@ export const Trucoshi = ({
     },
     async onHandFinished(table, hand) {
       table.log.debug(
-        { ...table.getPublicMatchInfo(), handIdx: hand?.idx, rounds: hand?.roundsLogFlatten },
+        { handIdx: hand?.idx, rounds: hand?.roundsLogFlatten, points: hand?.points },
         "Match Hand Finished"
       )
 
