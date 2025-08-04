@@ -3,13 +3,12 @@ export * from "./events"
 export { CARDS, CARDS_HUMAN_READABLE, SUITS_HUMAN_READABLE, BURNT_CARD } from "./lib/constants"
 
 import { RequestParams, User } from "lightning-accounts"
-import { Match, MatchPlayer, MatchHand, UserStats } from "@trucoshi/prisma"
+import { Match, MatchPlayer, MatchHand, UserStats, MatchBet } from "@trucoshi/prisma"
 import { IHand, IPlayInstance } from "./truco"
 import { CARDS, ITable } from "./lib"
 import { AxiosResponse } from "axios"
 import { ITrucoshi } from "./server"
 import { BotProfile } from "./truco/Bot"
-import { MatchBet } from "@prisma/client"
 
 export enum EMatchState {
   UNREADY = "UNREADY",
