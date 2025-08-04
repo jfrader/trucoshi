@@ -254,11 +254,7 @@ export function Hand(match: IMatch, idx: number) {
     get roundsLogFlatten() {
       return hand.roundsLog
         .filter((round) => round.length)
-        .map((round) =>
-          round.flatMap(
-            (r) => `Player ${r.player}: ${r.card ? CARDS_HUMAN_READABLE[r.card] : r.command}`
-          )
-        )
+        .map((round) => round.flatMap((r) => `Player ${r.player}: ${r.card || r.command}`))
     },
     envido: Envido(match.teams, match.options, match.table),
     flor: Flor(match.teams, match.options, match.table),
