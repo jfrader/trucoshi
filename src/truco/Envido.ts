@@ -118,6 +118,13 @@ export const EnvidoCalculator: IEnvidoCalculator = {
 
 function* envidoTurnGeneratorSequence(envido: IEnvido) {
   while (envido.answer === null || envido.winner === null) {
+    if (!envido.players.length) {
+      envido.winner = envido.winner || envido.teams[envido.teamIdx!]
+      envido.answer = false
+      envido.finished = true
+      yield envido
+    }
+
     const player = envido.players[envido.turn]
 
     if (envido.turn >= envido.players.length - 1) {
