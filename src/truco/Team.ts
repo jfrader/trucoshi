@@ -7,7 +7,9 @@ export function Team(id: 0 | 1, name?: string) {
       return Array.from(team._players.values())
     },
     get activePlayers() {
-      return Array.from(team._players.values()).filter((p) => !p.disabled && !p.hasPassed)
+      return Array.from(team._players.values()).filter(
+        (p) => !p.disabled && !p.abandoned && !p.hasPassed
+      )
     },
     id,
     name: name || (id ? "Ellos" : "Nosotros"),

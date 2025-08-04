@@ -46,7 +46,7 @@ function* trucoTurnGeneratorSequence(truco: ITruco): Generator<ITruco, void, ITr
     }
 
     truco.setCurrentPlayer(player)
-    if (!player || player.disabled) {
+    if (player.disabled) {
       truco.setCurrentPlayer(null)
     }
 
