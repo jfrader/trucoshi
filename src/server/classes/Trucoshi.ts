@@ -1218,8 +1218,11 @@ export const Trucoshi = ({
         })
       })
     },
-    async onHandFinished(table) {
-      table.log.debug(table.getPublicMatchInfo(), `Table Hand Finished`)
+    async onHandFinished(table, hand) {
+      table.log.debug(
+        { ...table.getPublicMatchInfo(), rounds: hand?.roundsLog },
+        "Match Hand Finished"
+      )
 
       if (process.env.APP_DISABLE_TIMERS !== "1") {
         await server.emitMatchUpdate(table, undefined, true)
