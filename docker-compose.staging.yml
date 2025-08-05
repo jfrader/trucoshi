@@ -21,6 +21,7 @@ services:
       file: docker-compose.prod.yml
       service: redis
   server:
+    hostname: server_trucoshi_staging
     networks:
       lightningaccountsnet:
         ipv4_address: 10.29.0.60
