@@ -567,7 +567,7 @@ export const Trucoshi = ({
       const spectatorSockets: RemoteSocket<ServerToClientEvents, SocketData>[] = []
 
       if (!allSockets || !("length" in allSockets) || !allSockets.length) {
-        table.log.warn(
+        table.log.debug(
           table.getPublicMatchInfo(),
           "Nobody is here? No sockets for this match table..."
         )

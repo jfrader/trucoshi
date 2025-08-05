@@ -431,17 +431,17 @@ describe("Trucoshi Lib", () => {
       let playedProm: Promise<any>[] = []
       while (played < 250) {
         played++
-        await new Promise((resolve) => {
-          playGame(resolve, true)
-        })
-        // playedProm.push(
-        //   new Promise((resolve) => {
-        //     playGame(resolve, true)
-        //   })
-        // )
+        // await new Promise((resolve) => {
+        //   playGame(resolve, true)
+        // })
+        playedProm.push(
+          new Promise((resolve) => {
+            playGame(resolve, true)
+          })
+        )
       }
 
-      // await Promise.allSettled(playedProm)
+      await Promise.allSettled(playedProm)
     }
 
     ;(async () => {

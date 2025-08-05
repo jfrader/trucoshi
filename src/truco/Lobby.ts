@@ -278,8 +278,7 @@ const addPlayerToLobby = async ({
   const existing = lobby.players.find((p) => p.session === session)
   const hasMovedSlots = Boolean(existing)
 
-  const resolvedTeamIdx: 0 | 1 =
-    teamIdx !== undefined ? teamIdx : (Number(!lobby.lastTeamIdx) as 0 | 1)
+  const resolvedTeamIdx: 0 | 1 = teamIdx ?? (Number(!lobby.lastTeamIdx) as 0 | 1)
   const resolvedIsOwner = existing?.isOwner ?? isOwner
 
   if (lobby.started) {
@@ -309,6 +308,23 @@ const addPlayerToLobby = async ({
     throw new Error(GAME_ERROR.TEAM_IS_FULL)
   }
 
+  // Find the next available slot that matches the resolvedTeamIdx
+  const slotIndex = lobby._players.findIndex(
+    (slot) => !slot.name && slot.teamIdx === resolvedTeamIdx
+  )
+  if (slotIndex === -1) {
+    log.debug(
+      {
+        ...playerParams,
+        slotIndex,
+        resolvedTeamIdx,
+        players: lobby.players.map((p) => p.getPublicPlayer("log")),
+      },
+      "No slot available for team"
+    )
+    throw new Error(GAME_ERROR.TEAM_IS_FULL)
+  }
+
   const player = Player({
     accountId,
     key,
@@ -319,16 +335,6 @@ const addPlayerToLobby = async ({
     bot,
   })
   player.setSession(session)
-  lobby.lastTeamIdx = resolvedTeamIdx
-
-  // Find the next available slot that matches the resolvedTeamIdx
-  const slotIndex = lobby._players.findIndex(
-    (slot) => !slot.name && slot.teamIdx === resolvedTeamIdx
-  )
-  if (slotIndex === -1) {
-    log.trace(playerParams, "No slot available for team")
-    throw new Error(GAME_ERROR.TEAM_IS_FULL)
-  }
 
   lobby._players[slotIndex] = player
 
@@ -348,6 +354,8 @@ const addPlayerToLobby = async ({
       }
     }
   }
+
+  lobby.lastTeamIdx = resolvedTeamIdx
 
   lobby.calculateFull()
   lobby.calculateReady()

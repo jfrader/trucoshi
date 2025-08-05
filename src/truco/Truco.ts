@@ -38,6 +38,7 @@ const TRUCO_STATE_MAP = {
 function* trucoTurnGeneratorSequence(truco: ITruco): Generator<ITruco, void, ITruco> {
   while (truco.answer === null) {
     if (!truco.players.length) {
+      truco.setCurrentPlayer(null)
       truco.waitingAnswer = false
       truco.answer = false
       yield truco

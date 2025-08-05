@@ -2,7 +2,7 @@ import { io as Client, Socket } from "socket.io-client"
 import { assert, expect } from "chai"
 import { ICard, IPublicMatch } from "../../src/types"
 import { ITrucoshi, Trucoshi, TrucoshiSocket } from "../../src/server/classes"
-import { playRandomMatch } from "./serverHelpers"
+import { playBotsMatch, playRandomMatch } from "../serverHelpers"
 import {
   ClientToServerEvents,
   EClientEvent,
@@ -42,7 +42,7 @@ describe("Socket Server", () => {
 
         io.on("connection", (socket) => {
           serverSocket = socket
-          socket.setMaxListeners(50)
+          socket.setMaxListeners(250)
         })
 
         done()
@@ -57,7 +57,9 @@ describe("Socket Server", () => {
   })
 
   beforeEach(() => {
-    clients.map((c) => c.removeAllListeners())
+    clients.map((c) => {
+      c.removeAllListeners()
+    })
   })
 
   it("should send ping", (done) => {
@@ -203,5 +205,23 @@ describe("Socket Server", () => {
     for (let i = 0; i < 5; i++) {
       await playRandomMatch(clients)
     }
+  })
+
+  it("should play 25 bot matches in parallel of 6 players", (done) => {
+    const promises: Array<() => Promise<void>> = []
+    for (let i = 0; i < 25; i++) {
+      promises.push(() => playBotsMatch([clients[0]], 5))
+    }
+
+    Promise.all(promises.map((p) => p())).then(() => done())
+  })
+
+  it("should play 25 bot matches in parallel of 4 players", (done) => {
+    const promises: Array<() => Promise<void>> = []
+    for (let i = 0; i < 25; i++) {
+      promises.push(() => playBotsMatch([clients[0]], 3))
+    }
+
+    Promise.all(promises.map((p) => p())).then(() => done())
   })
 })

@@ -702,7 +702,10 @@ export async function playBot(
     PLAYER_TIMEOUT_GRACE * 0.8, // Minimum 450ms
     baseDelay * momentumFactor * (0.5 + Math.random() * 0.4) // 20% randomness
   )
-  await new Promise((resolve) => setTimeout(resolve, delay))
+
+  if (process.env.NODE_ENV !== "test") {
+    await new Promise((resolve) => setTimeout(resolve, delay))
+  }
 
   // **Flor Phase**
   if (context.play.state === EHandState.WAITING_FLOR_ANSWER && context.bot.flor) {

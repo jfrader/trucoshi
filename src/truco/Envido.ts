@@ -119,6 +119,7 @@ export const EnvidoCalculator: IEnvidoCalculator = {
 function* envidoTurnGeneratorSequence(envido: IEnvido) {
   while (envido.answer === null || envido.winner === null) {
     if (!envido.players.length) {
+      envido.setCurrentPlayer(null)
       envido.winner = envido.winner || envido.teams[envido.teamIdx!]
       envido.answer = false
       envido.finished = true
@@ -135,7 +136,7 @@ function* envidoTurnGeneratorSequence(envido: IEnvido) {
 
     envido.setCurrentPlayer(player)
 
-    if (player.disabled) {
+    if (!player || player.disabled) {
       envido.setCurrentPlayer(null)
     }
 
