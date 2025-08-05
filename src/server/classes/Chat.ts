@@ -228,19 +228,11 @@ export const Chat = (io?: TrucoshiServer, tables?: TMap<string, IMatchTable>) =>
         .get(matchId)
         ?.lobby.players.find((p) => p.key === userSocket.data.user?.key)
 
-      if (!player) {
-        log.warn(
-          { socketId: userSocket.id, matchId, key: userSocket.data.user?.key },
-          `CHAT event rejected: player not found`
-        )
-        return callback?.({ success: false })
-      }
-
       chatroom.send(
         {
           name: userSocket.data.user.name,
           key: userSocket.data.user.key,
-          teamIdx: player.teamIdx,
+          teamIdx: player?.teamIdx,
         },
         message,
         true

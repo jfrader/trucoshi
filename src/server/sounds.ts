@@ -21,15 +21,16 @@ export function getCommandSound({
     return "miss"
   }
 
-  if (
-    state === EHandState.WAITING_FOR_TRUCO_ANSWER &&
-    Object.values(EEnvidoCommand).includes(command as EEnvidoCommand)
-  ) {
-    return player.bot ? "bot" : "hit"
+  if (state === EHandState.WAITING_FOR_TRUCO_ANSWER) {
+    if (
+      Object.values(EEnvidoCommand).includes(command as EEnvidoCommand) ||
+      Object.values(EFlorCommand).includes(command as EFlorCommand)
+    )
+      return player.bot ? "bot" : "hit"
   }
 
   if (state === EHandState.WAITING_ENVIDO_ANSWER && command === EFlorCommand.FLOR) {
-    if (Math.random() < 0.34) {
+    if (Math.random() < 0.35) {
       return "toasty"
     }
     return player.bot ? "bot" : "kiss"

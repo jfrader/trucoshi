@@ -1254,7 +1254,7 @@ export const Trucoshi = ({
     onWinner(table, winner) {
       const matchEndTime = Date.now()
       return new Promise<void>((resolve) => {
-        table.log.trace(table.getPublicMatchInfo(), "Match has finished with a winner")
+        table.log.info(table.getPublicMatchInfo(), "Match has finished with a winner")
 
         const chat = server.chat.rooms.getOrThrow(table.matchSessionId)
         chat.system(`${winner.name} es el equipo ganador!`)

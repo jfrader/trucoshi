@@ -108,6 +108,7 @@ export interface IPublicMatchInfo {
   players: number
   options: ILobbyOptions
   state: EMatchState
+  winnerTeamIdx: 0 | 1 | undefined
 }
 
 export type IPublicChatRoom = Pick<IChatRoom, "id" | "messages">

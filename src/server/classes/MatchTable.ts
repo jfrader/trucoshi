@@ -98,7 +98,7 @@ export function MatchTable(
       const {
         matchSessionId,
         state,
-        lobby: { playerCount, options, hostName },
+        lobby: { playerCount, options, hostName, gameLoop },
       } = table
       return {
         ownerId: hostName,
@@ -106,6 +106,7 @@ export function MatchTable(
         options,
         players: playerCount,
         state: state(),
+        winnerTeamIdx: gameLoop?.winner?.id,
       }
     },
     getHandRounds(hand) {
