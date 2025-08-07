@@ -353,6 +353,19 @@ export const Trucoshi = ({
                     continue
                   }
 
+                  // Skip players who received awards
+                  if (player.satsReceived && player.satsReceived > 0) {
+                    matchLog.info(
+                      {
+                        playerId: player.id,
+                        accountId: player.accountId,
+                        satsReceived: player.satsReceived,
+                      },
+                      "Skipping refund: Player already received award"
+                    )
+                    continue
+                  }
+
                   const amountInSats = player.satsPaid
                   matchLog.info(
                     {
@@ -461,7 +474,7 @@ export const Trucoshi = ({
                         "Returned bet to player"
                       )
                     } catch (e: any) {
-                      matchLog.fatal(
+                      matchLog.error(
                         {
                           error: e.response?.data || e.message,
                           playerAccountId: player.accountId,
@@ -474,16 +487,28 @@ export const Trucoshi = ({
                   }
                 }
 
-                await tx.matchBet.update({
-                  where: { id: match.bet?.id },
-                  data: { refunded: true },
-                })
+                const hasAwards = match.players.some((p) => p.satsReceived && p.satsReceived > 0)
+                if (!hasAwards) {
+                  await tx.matchBet.update({
+                    where: { id: match.bet?.id },
+                    data: { refunded: true },
+                  })
+                  matchLog.info({ matchId: match.id }, "Marked matchBet as refunded")
+                } else {
+                  matchLog.warn(
+                    {
+                      matchId: match.id,
+                      playersWithAwards: match.players.filter((p) => p.satsReceived > 0),
+                    },
+                    "Skipping refund: Some players received awards"
+                  )
+                }
               },
               { timeout: 60000 }
             )
           }
         } catch (e) {
-          logger.fatal(e, "Failed to repay unpaid matches!")
+          logger.error(e, "Failed to repay unpaid matches!")
         }
       }
 
@@ -2385,11 +2410,21 @@ export const Trucoshi = ({
               userSession.account &&
               table.lobby.options.satsPerPlayer > 0
             ) {
-              const dbPlayer = await server.store.matchPlayer.findUniqueOrThrow({
-                where: { id: player.matchPlayerId },
-              })
-              await server.deletePlayerAndReturnBet(table, dbPlayer)
-              return server.removePlayerAndCleanup(table, player)
+              try {
+                const dbPlayer = await server.store.matchPlayer.findUnique({
+                  where: { id: player.matchPlayerId },
+                })
+                if (!dbPlayer) {
+                  await server.removePlayerAndCleanup(table, player)
+                  return
+                }
+                await server.deletePlayerAndReturnBet(table, dbPlayer)
+                return server.removePlayerAndCleanup(table, player)
+              } catch (e) {
+                table.log.error(e, "Failed to fetch or refund MatchPlayer record")
+                await server.removePlayerAndCleanup(table, player)
+                return
+              }
             }
 
             userSession
