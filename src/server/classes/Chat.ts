@@ -6,10 +6,12 @@ import { EClientEvent, EServerEvent } from "../../events"
 import { IMatchTable } from "./MatchTable"
 import logger from "../../utils/logger"
 import throttle from "lodash.throttle"
+import sanitizeHtml from "sanitize-html"
 
 const log = logger.child({ class: "Chat" })
 
 const SYSTEM_ID = "system"
+const MAX_MESSAGE_LENGTH = 200
 
 export interface IChat {
   rooms: TMap<string, IChatRoom>
@@ -118,6 +120,26 @@ const ChatRoom = (io: TrucoshiServer, id: string) => {
   return room
 }
 
+const sanitizeMessage = (message: string): string => {
+  return sanitizeHtml(message, {
+    allowedTags: [],
+    allowedAttributes: {},
+    textFilter: (text) => {
+      return text.trim().replace(/[\n\r]+/g, " ")
+    },
+  })
+}
+
+const validateMessage = (message: string): boolean => {
+  if (typeof message !== "string") {
+    return false
+  }
+  if (message.length > MAX_MESSAGE_LENGTH) {
+    return false
+  }
+  return true
+}
+
 export const Chat = (io?: TrucoshiServer, tables?: TMap<string, IMatchTable>) => {
   if (!io || !tables) {
     return {} as IChat
@@ -142,19 +164,18 @@ export const Chat = (io?: TrucoshiServer, tables?: TMap<string, IMatchTable>) =>
   io.on("connection", (socket) => {
     log.debug({ socketId: socket.id }, "Socket connected")
 
-    // Initialize throttler for SAY events
     const sayHandler = throttle(
       (message, toTeamIdx, fromUser, matchId) => {
         const chatroom = chat.rooms.get(matchId)
-        if (chatroom) {
-          log.debug(
-            { socketId: socket.id, matchId, message },
-            `Processing throttled SAY event for ${fromUser.name}`
-          )
-          chatroom.sound(message, toTeamIdx, fromUser)
-        } else {
+        if (!chatroom) {
           log.warn({ socketId: socket.id, matchId }, `Chat room not found for SAY event`)
+          return
         }
+        log.debug(
+          { socketId: socket.id, matchId, message },
+          `Processing throttled SAY event for ${fromUser.name}`
+        )
+        chatroom.sound(message, toTeamIdx, fromUser)
       },
       4000,
       { leading: true, trailing: false }
@@ -162,12 +183,78 @@ export const Chat = (io?: TrucoshiServer, tables?: TMap<string, IMatchTable>) =>
 
     socket.data.throttler = sayHandler
 
-    // Clean up on disconnect
     socket.on("disconnect", () => {
-      log.debug({ socketId: socket.id }, `Socket disconnected, clearing listeners and throttler`)
+      log.debug({ socketId: socket.id }, "Socket disconnected, clearing listeners and throttler")
       socket.removeAllListeners(EClientEvent.CHAT)
       socket.removeAllListeners(EClientEvent.SAY)
       socket.data.throttler = undefined
+    })
+
+    socket.on(EClientEvent.CHAT, (matchId, message, callback) => {
+      log.debug({ socketId: socket.id, matchId, message }, "Received CHAT event")
+
+      if (matchId !== chat.rooms.get(matchId)?.id || !socket.data.user) {
+        log.warn(
+          { socketId: socket.id, matchId },
+          "CHAT event rejected: invalid matchId or no user data"
+        )
+        return callback?.({ success: false })
+      }
+
+      const sanitizedMessage = sanitizeMessage(message)
+      if (!validateMessage(sanitizedMessage)) {
+        log.warn({ socketId: socket.id, matchId, message }, "Invalid CHAT message rejected")
+        return callback?.({ success: false })
+      }
+
+      const player = tables.get(matchId)?.lobby.players.find((p) => p.key === socket.data.user?.key)
+
+      const chatroom = chat.rooms.get(matchId)
+      if (!chatroom) {
+        log.warn({ socketId: socket.id, matchId }, "Chat room not found for CHAT event")
+        return callback?.({ success: false })
+      }
+
+      if (sanitizedMessage === "") {
+        log.warn({ socketId: socket.id, matchId }, "Message is empty")
+        return callback?.({ success: false })
+      }
+
+      chatroom.send(
+        {
+          name: socket.data.user.name,
+          key: socket.data.user.key,
+          teamIdx: player?.teamIdx,
+        },
+        sanitizedMessage,
+        true
+      )
+      callback?.({ success: true })
+    })
+
+    socket.on(EClientEvent.SAY, (matchId, message, callback) => {
+      log.debug({ socketId: socket.id, matchId, message }, `Received SAY event`)
+
+      if (matchId !== chat.rooms.get(matchId)?.id || !socket.data.user) {
+        log.warn(
+          { socketId: socket.id, matchId },
+          `SAY event rejected: invalid matchId or no user data`
+        )
+        return callback?.({ success: false })
+      }
+
+      const player = tables.get(matchId)?.lobby.players.find((p) => p.key === socket.data.user?.key)
+
+      if (!player) {
+        log.warn(
+          { socketId: socket.id, matchId, key: socket.data.user?.key },
+          `SAY event rejected: player not found`
+        )
+        return callback?.({ success: false })
+      }
+
+      socket.data.throttler?.(message, undefined, socket.data.user, matchId)
+      callback?.({ success: true })
     })
   })
 
@@ -210,62 +297,6 @@ export const Chat = (io?: TrucoshiServer, tables?: TMap<string, IMatchTable>) =>
     userSocket.emit(EServerEvent.UPDATE_CHAT, {
       id: chatroom.id,
       messages: chatroom.messages,
-    })
-
-    // Attach CHAT listener
-    userSocket.on(EClientEvent.CHAT, (matchId, message, callback) => {
-      log.debug({ socketId: userSocket.id, matchId, message }, `Received CHAT event`)
-
-      if (matchId !== room || !userSocket.data.user) {
-        log.warn(
-          { socketId: userSocket.id, matchId },
-          `CHAT event rejected: invalid matchId or no user data`
-        )
-        return callback?.({ success: false })
-      }
-
-      const player = tables
-        .get(matchId)
-        ?.lobby.players.find((p) => p.key === userSocket.data.user?.key)
-
-      chatroom.send(
-        {
-          name: userSocket.data.user.name,
-          key: userSocket.data.user.key,
-          teamIdx: player?.teamIdx,
-        },
-        message,
-        true
-      )
-      callback?.({ success: true })
-    })
-
-    // Attach SAY listener
-    userSocket.on(EClientEvent.SAY, (matchId, message, callback) => {
-      log.debug({ socketId: userSocket.id, matchId, message }, `Received SAY event`)
-
-      if (matchId !== room || !userSocket.data.user) {
-        log.warn(
-          { socketId: userSocket.id, matchId },
-          `SAY event rejected: invalid matchId or no user data`
-        )
-        return callback?.({ success: false })
-      }
-
-      const player = tables
-        .get(matchId)
-        ?.lobby.players.find((p) => p.key === userSocket.data.user?.key)
-
-      if (!player) {
-        log.warn(
-          { socketId: userSocket.id, matchId, key: userSocket.data.user?.key },
-          `SAY event rejected: player not found`
-        )
-        return callback?.({ success: false })
-      }
-
-      userSocket.data.throttler?.(message, undefined, userSocket.data.user, matchId)
-      callback?.({ success: true })
     })
   })
 
