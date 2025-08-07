@@ -1754,12 +1754,16 @@ export const Trucoshi = ({
 
       let pr: PayRequest | null = null
 
+      let dbPlayerExists: MatchPlayer | null = null
       if (server.store) {
-        if (ready && table.lobby.options.satsPerPlayer > 0) {
-          if (!player.payRequestId) {
-            throw new Error("Player doesn't have a pay request ID!")
-          }
+        // Fetch dbPlayerExists at the start to ensure it's in scope for all operations
+        dbPlayerExists = await server.store.matchPlayer.findFirst({
+          where: userSession.account
+            ? { accountId: userSession.account.id, matchId: table.matchId }
+            : { session: userSession.session, matchId: table.matchId },
+        })
 
+        if (ready && table.lobby.options.satsPerPlayer > 0) {
           if (!userSession.account) {
             throw new SocketError(
               "GAME_REQUIRES_ACCOUNT",
@@ -1767,28 +1771,44 @@ export const Trucoshi = ({
             )
           }
 
-          const res = await accountsApi.wallet.getPayRequest(String(player.payRequestId))
-          pr = res.data
+          // Check if player already paid
+          if (dbPlayerExists && dbPlayerExists.satsPaid > 0 && dbPlayerExists.payRequestId) {
+            table.log.debug(
+              {
+                player: player.getPublicPlayer(),
+                payRequestId: dbPlayerExists.payRequestId,
+                satsPaid: dbPlayerExists.satsPaid,
+              },
+              "Player already paid, skipping payment validation"
+            )
+          } else {
+            if (!player.payRequestId) {
+              throw new Error("Player doesn't have a pay request ID!")
+            }
 
-          table.log.debug({ pr }, "Found PR for setting player ready")
+            try {
+              const res = await accountsApi.wallet.getPayRequest(String(player.payRequestId))
+              pr = res.data
+              table.log.debug({ pr }, "Found PR for setting player ready")
 
-          if (!pr) {
-            throw new Error("Pay request not found!")
+              if (!pr) {
+                throw new Error("Pay request not found!")
+              }
+
+              if (!pr.paid) {
+                throw new Error("Pay request has not been paid!")
+              }
+
+              table.setBusy(true)
+            } catch (e: any) {
+              table.log.error(
+                { error: e.message, payRequestId: player.payRequestId },
+                "Failed to validate payment request"
+              )
+              throw new SocketError("PAYMENT_ERROR", "Failed to validate payment request")
+            }
           }
-
-          if (!pr.paid) {
-            throw new Error("Pay request has not been paid!")
-          }
-
-          table.setBusy(true)
         }
-
-        const where = { matchId: table.matchId }
-        const dbPlayerExists = await server.store.matchPlayer.findFirst({
-          where: userSession.account
-            ? { accountId: userSession.account.id, ...where }
-            : { session: userSession.session, ...where },
-        })
 
         const update = {
           session: userSession.session,
@@ -1808,49 +1828,60 @@ export const Trucoshi = ({
 
         table.log.trace({ update }, "About to update or create match player")
 
-        if (dbPlayerExists) {
-          const dbPlayer = await server.store.matchPlayer.update({
-            where: { id: dbPlayerExists.id },
-            data: update,
-          })
-          player.setMatchPlayerId(dbPlayer.id)
-          log.trace({ dbPlayer }, "Updated match player")
-        } else {
-          const dbPlayer = await server.store.matchPlayer.create({
-            data: {
-              ...update,
-              match: {
-                connect: {
-                  id: table.matchId,
+        try {
+          if (dbPlayerExists) {
+            const dbPlayer = await server.store.matchPlayer.update({
+              where: { id: dbPlayerExists.id },
+              data: update,
+            })
+            player.setMatchPlayerId(dbPlayer.id)
+            table.log.trace({ dbPlayer }, "Updated match player")
+          } else {
+            const dbPlayer = await server.store.matchPlayer.create({
+              data: {
+                ...update,
+                match: {
+                  connect: {
+                    id: table.matchId,
+                  },
                 },
               },
-            },
-          })
-          player.setMatchPlayerId(dbPlayer.id)
-          table.log.trace({ dbPlayer }, "Created match player")
+            })
+            player.setMatchPlayerId(dbPlayer.id)
+            table.log.trace({ dbPlayer }, "Created match player")
+          }
+        } catch (e: any) {
+          table.log.error({ error: e.message }, "Failed to update or create match player")
+          throw new SocketError("UNEXPECTED_ERROR", "Failed to update player data")
         }
       }
 
-      player.setReady(ready)
+      try {
+        player.setReady(ready)
 
-      if (player.bot) {
-        server.chat.rooms
-          .get(table.matchSessionId)
-          ?.system(`${player.name} ${ready ? "está" : "no está"} listo`, ready ? "botvoice" : "bot")
-      } else {
-        server.chat.rooms
-          .get(table.matchSessionId)
-          ?.system(`${player.name} ${ready ? "está" : "no está"} listo`, ready ? "join" : "leave")
+        if (player.bot) {
+          server.chat.rooms
+            .get(table.matchSessionId)
+            ?.system(
+              `${player.name} ${ready ? "está" : "no está"} listo`,
+              ready ? "botvoice" : "bot"
+            )
+        } else {
+          server.chat.rooms
+            .get(table.matchSessionId)
+            ?.system(`${player.name} ${ready ? "está" : "no está"} listo`, ready ? "join" : "leave")
+        }
+
+        await server.emitMatchUpdate(table)
+      } catch (e: any) {
+        table.log.error({ message: e.message }, "Failed to set player ready or emit match update")
+        throw new SocketError("UNEXPECTED_ERROR", "Failed to set player ready")
+      } finally {
+        if (table.busy) {
+          table.log.debug({ matchSessionId: table.matchSessionId }, "Resetting busy flag")
+          table.setBusy(false)
+        }
       }
-
-      server
-        .emitMatchUpdate(table)
-        .catch((e) =>
-          table.log.error(
-            { message: e.message },
-            "Failed to emit match update after player set ready"
-          )
-        )
 
       return table
     },
