@@ -708,7 +708,7 @@ export async function playBot(
   }
 
   // **Flor Phase**
-  if (context.play.state === EHandState.WAITING_FLOR_ANSWER && context.bot.flor) {
+  if (context.play.state === EHandState.WAITING_FLOR_ANSWER && context.bot.hasFlor && context.bot.flor) {
     if (context.play.flor.stake > 3) {
       return sayCommand({
         command:

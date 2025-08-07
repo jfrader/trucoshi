@@ -5,7 +5,6 @@ import { RemoteSocket, Server, Socket } from "socket.io"
 import {
   EAnswerCommand,
   ECommand,
-  EFlorCommand,
   EHandState,
   ESayCommand,
   GAME_ERROR,
@@ -315,13 +314,13 @@ export const Trucoshi = ({
         try {
           const unpaidMatches = await server.store.match.findMany({
             where: {
-              bet: { satsPerPlayer: { gt: 0 }, winnerAwarded: false },
+              bet: { satsPerPlayer: { gt: 0 }, winnerAwarded: false, refunded: false },
             },
             include: { bet: true, players: true },
           })
 
           if (unpaidMatches.length > 0) {
-            logger.error(
+            logger.warn(
               { unpaidMatchesLength: unpaidMatches.length },
               "Found matches that had outstanding bets, trying to repay players entrance sats..."
             )
@@ -329,89 +328,162 @@ export const Trucoshi = ({
 
           for (const match of unpaidMatches) {
             const matchLog = log.child({ matchSessionId: match.sessionId, matchId: match.id })
+            matchLog.info(
+              { players: match.players },
+              "Trying to repay bets to players on this match..."
+            )
 
-            matchLog.trace("Trying to repay bets to players on this match...")
-            // Returning bets to all players if wasnt awarded and server is starting
-            // Should also check if one of the teams won and give the award to its players
-            for (const player of match.players) {
-              if (
-                player.accountId &&
-                player.satsPaid > 0 &&
-                player.satsReceived < player.satsPaid
-              ) {
-                const amountInSats = player.satsPaid - player.satsReceived
+            await server.store.$transaction(
+              async (tx) => {
+                for (const player of match.players) {
+                  if (!player.accountId || !player.satsPaid || !player.payRequestId) {
+                    matchLog.info(
+                      {
+                        playerId: player.id,
+                        accountId: player.accountId,
+                        satsPaid: player.satsPaid,
+                        payRequestId: player.payRequestId,
+                      },
+                      "Skipping refund: Missing accountId, satsPaid, or payRequestId"
+                    )
+                    await tx.matchPlayer.update({
+                      where: { id: player.id },
+                      data: { satsPaid: 0, payRequestId: null },
+                    })
+                    continue
+                  }
 
-                if (!amountInSats) {
-                  matchLog.trace(
+                  const amountInSats = player.satsPaid
+                  matchLog.info(
                     {
                       playerAccountId: player.accountId,
                       satsPaid: player.satsPaid,
-                      satsReceived: player.satsReceived,
                       amountInSats,
+                      payRequestId: player.payRequestId,
+                      apiUrl: process.env.APP_LIGHTNING_ACCOUNTS_URL,
                     },
-                    "Nothing to pay to this player"
-                  )
-                  continue
-                }
-
-                matchLog.trace(
-                  {
-                    playerAccountId: player.accountId,
-                    amountInSats,
-                  },
-                  "Looking for paid pay request"
-                )
-
-                const pr = await accountsApi.wallet.getPayRequest(String(player.payRequestId))
-
-                matchLog.trace(
-                  {
-                    isPaid: pr.data.paid,
-                    payRequestId: pr.data.id,
-                  },
-                  "Found Pay Request..."
-                )
-
-                if (pr.data.paid) {
-                  matchLog.trace(
-                    {
-                      isPaid: pr.data.paid,
-                      payRequestId: pr.data.id,
-                    },
-                    "It's paid, so paying user now..."
+                    "Looking for paid pay request"
                   )
 
-                  server.store.$transaction(async (tx) => {
+                  let pr
+                  try {
+                    pr = await accountsApi.wallet.getPayRequest(String(player.payRequestId))
+                    matchLog.info(
+                      {
+                        isPaid: pr.data.paid,
+                        payRequestId: pr.data.id,
+                        amountInSats: pr.data.amountInSats,
+                      },
+                      "Found Pay Request"
+                    )
+                  } catch (e: any) {
+                    matchLog.warn(
+                      {
+                        error: e.response?.data || e.message,
+                        status: e.response?.status,
+                        payRequestId: player.payRequestId,
+                        apiUrl: process.env.APP_LIGHTNING_ACCOUNTS_URL,
+                      },
+                      "Failed to get pay request, skipping player"
+                    )
                     await tx.matchPlayer.update({
                       where: { id: player.id },
-                      data: { satsReceived: amountInSats },
+                      data: { satsPaid: 0, payRequestId: null },
                     })
+                    continue
+                  }
 
-                    await accountsApi.wallet.payUser({
-                      amountInSats,
-                      userId: player.accountId!,
-                      description: `Returning bet from unfinished match ID: ${match.id}`,
+                  if (pr.data.paid) {
+                    const existingRefund = await tx.matchPlayer.findFirst({
+                      where: {
+                        id: player.id,
+                        satsPaid: 0,
+                        payRequestId: null,
+                      },
                     })
+                    if (existingRefund) {
+                      matchLog.warn(
+                        { playerAccountId: player.accountId },
+                        "Player already refunded, skipping"
+                      )
+                      continue
+                    }
 
                     matchLog.info(
                       {
-                        playerAccountId: player.accountId,
+                        isPaid: pr.data.paid,
+                        payRequestId: pr.data.id,
                         amountInSats,
                       },
-                      "Returned bet to player"
+                      "Pay request is paid, refunding user"
                     )
-                  })
-                }
-              }
-            }
 
-            await server.store.matchBet.update({
-              where: { id: match.bet?.id },
-              data: { winnerAwarded: true },
-            })
+                    try {
+                      const walletBefore = await accountsApi.users.getUserWallet(
+                        String(player.accountId)
+                      )
+                      matchLog.debug(
+                        {
+                          playerAccountId: player.accountId,
+                          balanceBefore: walletBefore.data.balanceInSats,
+                        },
+                        "Wallet balance before refund"
+                      )
+
+                      await tx.matchPlayer.update({
+                        where: { id: player.id },
+                        data: { satsPaid: 0, payRequestId: null },
+                      })
+
+                      await accountsApi.wallet.payUser({
+                        amountInSats: pr.data.amountInSats,
+                        userId: player.accountId,
+                        description: `Returning bet from unfinished match ID: ${match.id}`,
+                      })
+
+                      const walletAfter = await accountsApi.users.getUserWallet(
+                        String(player.accountId)
+                      )
+                      matchLog.debug(
+                        {
+                          playerAccountId: player.accountId,
+                          balanceAfter: walletAfter.data.balanceInSats,
+                          amountRefunded: pr.data.amountInSats,
+                        },
+                        "Wallet balance after refund"
+                      )
+
+                      matchLog.info(
+                        {
+                          playerAccountId: player.accountId,
+                          amountInSats: pr.data.amountInSats,
+                        },
+                        "Returned bet to player"
+                      )
+                    } catch (e: any) {
+                      matchLog.fatal(
+                        {
+                          error: e.response?.data || e.message,
+                          playerAccountId: player.accountId,
+                          amountInSats,
+                        },
+                        "Failed to refund user, skipping"
+                      )
+                      throw e
+                    }
+                  }
+                }
+
+                await tx.matchBet.update({
+                  where: { id: match.bet?.id },
+                  data: { refunded: true },
+                })
+              },
+              { timeout: 60000 }
+            )
           }
         } catch (e) {
-          logger.error(e, "Failed to repay unpaid matches")
+          logger.fatal(e, "Failed to repay unpaid matches!")
         }
       }
 
@@ -1393,143 +1465,215 @@ export const Trucoshi = ({
 
       return true
     },
-    async setMatchOptions({ identityJwt, matchSessionId, userSession, options }) {
+    async setMatchOptions({
+      identityJwt,
+      matchSessionId,
+      userSession,
+      options,
+    }: {
+      identityJwt: string | null
+      matchSessionId: string
+      userSession: IUserSession
+      options: Partial<ILobbyOptions>
+    }): Promise<IMatchTable> {
       if (!userSession.ownedMatches.has(matchSessionId)) {
         throw new Error("User is not the match owner, can't set options")
       }
 
       const table = server.tables.getOrThrow(matchSessionId)
-      if (table.lobby.started || table.busy) {
-        throw new Error("Match already started or already had bets setup, can't change options")
+      if (table.lobby.started) {
+        throw new Error("Match already started, can't change options")
       }
 
-      let payRequests: PayRequest[] = []
       const satsPerPlayer = options.satsPerPlayer
       const currentOptions = structuredClone(table.lobby.options)
-
       const hasChangedBet =
         satsPerPlayer !== undefined && currentOptions.satsPerPlayer !== satsPerPlayer
 
-      if (hasChangedBet) {
-        if (satsPerPlayer > 0) {
-          if (
-            process.env.APP_MAX_BET &&
-            Number(process.env.APP_MAX_BET) > 0 &&
-            satsPerPlayer > Number(process.env.APP_MAX_BET)
-          ) {
-            throw new SocketError("FORBIDDEN", "Maximo " + process.env.APP_MAX_BET + " sats")
-          }
+      if (!hasChangedBet) {
+        // No bet change, just update options
+        table.lobby.setOptions(options)
+        await server.store?.match.update({
+          data: { options: table.lobby.options as unknown as Prisma.JsonObject },
+          where: { id: table.matchId },
+        })
+        server.chat.rooms.getOrThrow(matchSessionId).system("Las reglas han cambiado", "chat")
+        await server.emitMatchUpdate(table)
+        return table
+      }
 
-          if (!server.store) {
-            throw new Error("This server doesn't support bets")
-          }
+      if (!server.store) {
+        throw new Error("This server doesn't support bets")
+      }
 
-          if (!identityJwt) {
-            table.log.error({ identityJwt, acc: userSession.account }, "Failed to save options")
-            throw new SocketError("INVALID_IDENTITY", "Inicia sesion para usar sats!")
-          }
+      if (satsPerPlayer !== undefined && satsPerPlayer > 0) {
+        // Validate new bet
+        if (
+          process.env.APP_MAX_BET &&
+          Number(process.env.APP_MAX_BET) > 0 &&
+          satsPerPlayer > Number(process.env.APP_MAX_BET)
+        ) {
+          throw new SocketError("FORBIDDEN", `Máximo ${process.env.APP_MAX_BET} sats`)
+        }
+        if (!identityJwt || !userSession.account) {
+          throw new SocketError("FORBIDDEN", "Inicia sesión para usar sats!")
+        }
+        await server.checkUserSufficientBalance({
+          identityJwt,
+          account: userSession.account,
+          satsPerPlayer,
+        })
+      }
 
-          if (!userSession.account) {
-            table.log.error({ identityJwt, acc: userSession.account }, "Failed to save options")
-            throw new SocketError("FORBIDDEN", "Inicia sesion para usar sats!")
-          }
-
-          await server.checkUserSufficientBalance({
-            identityJwt,
-            account: userSession.account,
-            satsPerPlayer,
-          })
-
-          const guestSessions = table.lobby.players
-            .filter((player) => !player.accountId)
-            .map((u) => u.session)
-
-          for (const session of guestSessions) {
-            await table.lobby.removePlayer(session)
-          }
-
-          await server.getTableSockets(table, async (playerSocket) => {
-            if (playerSocket.data.user && guestSessions.includes(playerSocket.data.user?.session)) {
-              playerSocket.emit(
-                EServerEvent.KICK_PLAYER,
-                table.getPublicMatch(playerSocket.data.user.session),
-                playerSocket.data.user.session,
-                GAME_ERROR.GAME_REQUIRES_ACCOUNT
-              )
-            }
-          })
-
-          await server.store.$transaction(async (tx) => {
-            await tx.match.update({
-              data: {
-                options: table.lobby.options as unknown as Prisma.JsonObject,
-                bet:
-                  satsPerPlayer > 0
-                    ? {
-                        upsert: {
-                          create: {
-                            allPlayersPaid: false,
-                            winnerAwarded: false,
-                            satsPerPlayer,
-                          },
-                          update: {
-                            allPlayersPaid: false,
-                            winnerAwarded: false,
-                            satsPerPlayer,
-                          },
-                        },
-                      }
-                    : undefined,
-              },
-              where: {
-                id: table.matchId,
-              },
-              include: {
-                bet: true,
-              },
+      table.setBusy(true)
+      let payRequests: PayRequest[] = []
+      try {
+        await server.store.$transaction(
+          async (tx) => {
+            const dbMatch = await tx.match.findUniqueOrThrow({
+              where: { id: table.matchId },
+              include: { players: true, bet: true },
             })
 
-            table.lobby.setOptions(options)
+            // Refund existing bets if necessary
+            if (dbMatch.bet && dbMatch.bet.satsPerPlayer > 0 && hasChangedBet) {
+              for (const player of dbMatch.players) {
+                if (player.payRequestId && player.satsPaid > 0) {
+                  let pr
+                  try {
+                    pr = await accountsApi.wallet.getPayRequest(String(player.payRequestId))
+                  } catch (e) {
+                    table.log.error(e, `Failed to fetch pay request ${player.payRequestId}`)
+                    throw new SocketError("UNEXPECTED_ERROR", "Failed to fetch pay request")
+                  }
 
-            try {
+                  if (pr.data.paid) {
+                    await tx.matchPlayer.update({
+                      where: { id: player.id },
+                      data: { satsPaid: 0, payRequestId: null },
+                    })
+
+                    await accountsApi.wallet.payUser({
+                      amountInSats: pr.data.amountInSats,
+                      userId: player.accountId!,
+                      description: `Returning bet due to bet change in match ID: ${table.matchId}`,
+                    })
+
+                    table.log.info(
+                      {
+                        matchId: table.matchId,
+                        sessionId: matchSessionId,
+                        playerAccountId: player.accountId,
+                        amountInSats: pr.data.amountInSats,
+                      },
+                      "Refunded bet to player due to bet change"
+                    )
+                  }
+                }
+              }
+
+              if (dbMatch.bet) {
+                await tx.matchBet.update({
+                  where: { id: dbMatch.bet.id },
+                  data: { refunded: true, allPlayersPaid: false },
+                })
+              }
+            }
+
+            // Set new options and create new payment requests if bet is active
+            if (satsPerPlayer !== undefined && satsPerPlayer > 0) {
+              const guestSessions = table.lobby.players
+                .filter((p) => !p.accountId)
+                .map((u) => u.session)
+              for (const session of guestSessions) {
+                await table.lobby.removePlayer(session)
+              }
+              await server.getTableSockets(table, async (playerSocket) => {
+                if (
+                  playerSocket.data.user &&
+                  guestSessions.includes(playerSocket.data.user.session)
+                ) {
+                  playerSocket.emit(
+                    EServerEvent.KICK_PLAYER,
+                    table.getPublicMatch(playerSocket.data.user.session),
+                    playerSocket.data.user.session,
+                    GAME_ERROR.GAME_REQUIRES_ACCOUNT
+                  )
+                }
+              })
+
               const prs = await accountsApi.wallet.createPayRequests({
                 amountInSats: satsPerPlayer,
                 description: `Request to enter match ${matchSessionId} - Match ID: ${table.matchId}`,
-                meta: {
-                  application: "trucoshi",
-                  matchSessionId,
-                  matchId: table.matchId,
-                },
+                meta: { application: "trucoshi", matchSessionId, matchId: table.matchId },
                 receiverIds: table.lobby.players
                   .filter((p) => !!p.accountId)
                   .map((p) => p.accountId) as number[],
               })
               payRequests = prs.data
-            } catch (e) {
-              table.lobby.setOptions(currentOptions)
-              throw e
+
+              await tx.match.update({
+                data: {
+                  options: {
+                    ...table.lobby.options,
+                    satsPerPlayer,
+                  } as unknown as Prisma.JsonObject,
+                  bet: {
+                    upsert: {
+                      create: {
+                        allPlayersPaid: false,
+                        winnerAwarded: false,
+                        refunded: false,
+                        satsPerPlayer,
+                      },
+                      update: {
+                        allPlayersPaid: false,
+                        winnerAwarded: false,
+                        refunded: false,
+                        satsPerPlayer,
+                      },
+                    },
+                  },
+                },
+                where: { id: table.matchId },
+              })
+            } else {
+              // No bet (satsPerPlayer === 0)
+              await tx.match.update({
+                data: {
+                  options: {
+                    ...table.lobby.options,
+                    satsPerPlayer: 0,
+                  } as unknown as Prisma.JsonObject,
+                },
+                where: { id: table.matchId },
+              })
             }
-          })
-        } else {
-          // @TODO: Cleanup databases from bet and payback old bet if removing sats or changing amount
-          // (not actually possible yet due to lobby.busy flag)
-        }
-      } else {
-        table.lobby.setOptions(options)
+
+            table.lobby.setOptions(options)
+            table.lobby.players.forEach((player) => {
+              if (!player.bot) {
+                player.setPayRequest(
+                  payRequests.find((pr) => pr.receiver?.id === player.accountId)?.id
+                )
+                player.setReady(false)
+              }
+            })
+          },
+          { timeout: 60000 }
+        )
+      } catch (e) {
+        table.lobby.setOptions(currentOptions)
+        table.log.error(e, "Failed to update match options")
+        throw new SocketError("UNEXPECTED_ERROR", "Failed to update match options")
+      } finally {
+        table.setBusy(false)
       }
 
       server.chat.rooms
-        .getOrThrow(table.matchSessionId)
+        .getOrThrow(matchSessionId)
         .system("Las reglas han cambiado", hasChangedBet ? "bot" : "chat")
-
-      table.lobby.players.forEach((player) => {
-        if (player.bot) {
-          return
-        }
-        player.setPayRequest(payRequests.find((pr) => pr.receiver?.id === player.accountId)?.id)
-        player.setReady(false)
-      })
-
+      await server.emitMatchUpdate(table)
       return table
     },
     async kickPlayer({ matchSessionId, userSession, key }) {
@@ -1970,17 +2114,14 @@ export const Trucoshi = ({
                   })
                 }
 
-                table.setAwardedPerPlayer(amountInSats)
-              } catch (e) {
-                table.log.fatal(e, "ON WINNER: Failed to pay awards!")
-              }
-              try {
                 await server.store.matchBet.update({
                   where: { matchId: table.matchId },
                   data: { winnerAwarded: true },
                 })
+
+                table.setAwardedPerPlayer(amountInSats)
               } catch (e) {
-                table.log.fatal(e, "ON WINNER: Failed to update bet after paying awards!")
+                table.log.fatal(e, "ON WINNER: Failed to pay awards!")
               }
             }
 
@@ -2084,72 +2225,121 @@ export const Trucoshi = ({
     async deletePlayerAndReturnBet(table, player) {
       try {
         if (!server.store) {
+          table.log.error(
+            { player, matchSessionId: table.matchSessionId },
+            "No database store available"
+          )
           return
         }
 
         if (!player.accountId) {
+          table.log.trace(
+            { player, matchSessionId: table.matchSessionId },
+            "Player has no accountId, skipping refund"
+          )
           return
         }
 
-        table.log.trace(
-          { player, matchSessionId: table.matchSessionId },
-          "Socket left a match lobby that had bets paid by the player, giving sats back if needed..."
-        )
-
-        if (player && player.accountId && player.satsPaid > 0) {
-          const amountInSats = player.satsPaid - player.satsReceived
-
-          if (!amountInSats) {
-            table.log.trace(
-              {
-                matchId: table.matchId,
-                sessionId: table.matchSessionId,
-                playerAccountId: player.accountId,
-                satsPaid: player.satsPaid,
-                satsReceived: player.satsReceived,
-                amountInSats,
-              },
-              "Nothing to pay to this player"
-            )
-            return
-          }
-          const pr = await accountsApi.wallet.getPayRequest(String(player.payRequestId))
-
+        if (player.satsPaid <= 0 || !player.payRequestId) {
           table.log.trace(
-            { pr: pr.data, player },
-            "Found pay request, checking if paid to return sats..."
+            { player, matchSessionId: table.matchSessionId },
+            "Player has no paid bets or payRequestId, skipping refund"
+          )
+          await server.store.matchPlayer.delete({ where: { id: player.id } })
+          return
+        }
+
+        const pr = await accountsApi.wallet.getPayRequest(String(player.payRequestId))
+        if (!pr.data.paid) {
+          table.log.error(
+            { matchId: table.matchId, payRequestId: player.payRequestId },
+            "Pay request was not marked as paid"
+          )
+          await server.store.matchPlayer.delete({ where: { id: player.id } })
+          return
+        }
+
+        await server.store.$transaction(async (tx) => {
+          // Ensure matchBet exists
+          let matchBet = await tx.matchBet.findUnique({ where: { matchId: table.matchId } })
+          if (table.matchId && !matchBet && player.satsPaid > 0) {
+            matchBet = await tx.matchBet.create({
+              data: {
+                matchId: table.matchId,
+                allPlayersPaid: false,
+                winnerAwarded: false,
+                refunded: false,
+                satsPerPlayer: player.satsPaid,
+              },
+            })
+            table.log.info(
+              { matchId: table.matchId, betId: matchBet.id },
+              "Created matchBet record during player refund"
+            )
+          }
+
+          // Log balance before refund
+          const walletBefore = await accountsApi.users.getUserWallet(String(player.accountId))
+          table.log.debug(
+            { playerAccountId: player.accountId, balanceBefore: walletBefore.data.balanceInSats },
+            "Wallet balance before refund"
           )
 
-          if (pr.data.paid) {
-            await server.store.$transaction(async (tx) => {
-              await tx.matchPlayer.delete({
-                where: { id: player.id },
-              })
+          // Update player record
+          await tx.matchPlayer.update({
+            where: { id: player.id },
+            data: { satsPaid: 0, payRequestId: null },
+          })
 
-              await accountsApi.wallet.payUser({
-                amountInSats: pr.data.amountInSats,
-                userId: player.accountId!,
-                description: `Returning bet from leaving match ID: ${table.matchId}`,
-              })
+          // Refund the exact amount paid
+          await accountsApi.wallet.payUser({
+            amountInSats: pr.data.amountInSats,
+            userId: player.accountId!,
+            description: `Returning bet from leaving match ID: ${table.matchId}`,
+          })
 
-              table.log.debug(
-                {
-                  matchId: table.matchId,
-                  sessionId: table.matchSessionId,
-                  playerAccountId: player.accountId,
-                  satsPaid: player.satsPaid,
-                  satsReceived: player.satsReceived,
-                  amountInSats,
-                },
-                "Sent sats from bet back to player"
+          // Log balance after refund
+          const walletAfter = await accountsApi.users.getUserWallet(String(player.accountId))
+          table.log.debug(
+            {
+              playerAccountId: player.accountId,
+              balanceAfter: walletAfter.data.balanceInSats,
+              amountRefunded: pr.data.amountInSats,
+            },
+            "Wallet balance after refund"
+          )
+
+          // Check remaining players
+          const remainingPlayers = await tx.matchPlayer.findMany({
+            where: { matchId: table.matchId },
+          })
+
+          if (matchBet) {
+            if (remainingPlayers.length === 0) {
+              await tx.matchBet.update({
+                where: { id: matchBet.id },
+                data: { refunded: true },
+              })
+              table.log.info(
+                { matchId: table.matchId, sessionId: table.matchSessionId },
+                "All players left, marked matchBet as refunded"
               )
-            })
-          } else {
-            throw new Error("Pay request wasn't marked as paid")
+            }
           }
-        }
+
+          table.log.info(
+            {
+              matchId: table.matchId,
+              sessionId: table.matchSessionId,
+              playerAccountId: player.accountId,
+              amountInSats: pr.data.amountInSats,
+            },
+            "Sent sats from bet back to player"
+          )
+        })
       } catch (e) {
         table.log.fatal(e, "Failed to return bet sats to player!")
+        throw e
       }
     },
     async leaveMatch(matchId, socket, force = false) {
@@ -2411,24 +2601,81 @@ export const Trucoshi = ({
       table.log.trace(table.getPublicMatchInfo(), "Cleaning up match table")
       try {
         const shouldReturnBets = table.state() !== EMatchState.FINISHED
-        if (server.store && shouldReturnBets && table.lobby.options.satsPerPlayer > 0) {
-          await server.store.$transaction(async (tx) => {
-            const dbMatch = await tx.match.findUniqueOrThrow({
-              where: { id: table.matchId },
-              include: { players: true },
-            })
-
-            for (const player of dbMatch.players) {
-              if (player.payRequestId) {
-                await server.deletePlayerAndReturnBet(table, player)
+        if (server.store && shouldReturnBets) {
+          await server.store.$transaction(
+            async (tx) => {
+              const dbMatch = await tx.match.findUnique({
+                where: { id: table.matchId },
+                include: { players: true, bet: true },
+              })
+              if (!dbMatch) {
+                table.log.debug(
+                  { matchId: table.matchId, sessionId: matchSessionId },
+                  "Match not found during cleanup, skipping database operations"
+                )
+                return
               }
-            }
 
-            await tx.matchBet.delete({ where: { matchId: table.matchId } })
-            await tx.match.delete({ where: { id: table.matchId } })
-          })
+              table.log.debug(
+                { matchId: table.matchId, playerCount: dbMatch.players.length },
+                "Found match for cleanup"
+              )
+
+              // Process refunds for betting matches
+              if (table.lobby.options.satsPerPlayer > 0) {
+                for (const player of dbMatch.players) {
+                  if (player.payRequestId && player.satsPaid > 0) {
+                    table.log.trace(
+                      {
+                        playerId: player.id,
+                        accountId: player.accountId,
+                        payRequestId: player.payRequestId,
+                      },
+                      "Processing refund for player"
+                    )
+                    await server.deletePlayerAndReturnBet(table, player)
+                  } else {
+                    table.log.trace(
+                      { playerId: player.id, accountId: player.accountId },
+                      "No refund needed for player (no payRequestId or satsPaid)"
+                    )
+                    await tx.matchPlayer.delete({
+                      where: { id: player.id },
+                    })
+                  }
+                }
+
+                if (dbMatch.bet) {
+                  await tx.matchBet.delete({ where: { matchId: table.matchId } })
+                  table.log.info(
+                    { matchId: table.matchId, betId: dbMatch.bet.id },
+                    "Deleted matchBet record"
+                  )
+                }
+              } else {
+                // Delete players for non-betting matches
+                await tx.matchPlayer.deleteMany({ where: { matchId: table.matchId } })
+                table.log.trace(
+                  { matchId: table.matchId },
+                  "Deleted matchPlayer records for non-betting match"
+                )
+              }
+
+              // Delete the match record for non-finished matches
+              await tx.match.delete({ where: { id: table.matchId } })
+              table.log.info({ matchId: table.matchId }, "Deleted match record")
+            },
+            { timeout: 60000 }
+          )
+        } else if (server.store) {
+          // Handle finished matches: preserve database record, clean up server state
+          table.log.info(
+            { matchId: table.matchId, sessionId: matchSessionId },
+            "Match is finished, preserving database record"
+          )
         }
 
+        // Disconnect all sockets from the match
         await server.getTableSockets(table, async (playerSocket, player) => {
           playerSocket.leave(table.matchSessionId)
           if (player) {
@@ -2436,6 +2683,7 @@ export const Trucoshi = ({
           }
         })
 
+        // Clean up player sessions
         for (const player of table.lobby.players) {
           const userSession = server.sessions.get(player.session)
           if (!userSession) {
@@ -2451,10 +2699,12 @@ export const Trucoshi = ({
           }
         }
 
+        // Notify all sockets of match deletion
         await server.getTableSockets(table, async (socket) => {
           socket.emit(EServerEvent.MATCH_DELETED, matchSessionId)
         })
 
+        // Remove match-related data from server state
         server.tables.delete(matchSessionId)
         server.chat.delete(matchSessionId)
         server.turns.delete(matchSessionId)

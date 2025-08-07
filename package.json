@@ -30,7 +30,7 @@
     "docker:staging": "docker compose -f docker-compose.staging.yml down && docker compose -f docker-compose.staging.yml --env-file .env up --build",
     "docker:e2e": "NODE_ENV=test ./init-e2e.sh",
     "test": "dotenv -e .env.test -- ts-mocha --exit ./test/lib/**/*.ts -t 50000",
-    "test:e2e": "prisma db push --force-reset && dotenv -e .env.test -- ts-mocha --exit ./test/**/*.ts -t 60000",
+    "test:e2e": "prisma db push --force-reset && dotenv -e .env.test -- ts-mocha --reporter spec --verbose --exit ./test/**/*.ts -t 60000",
     "profiler": "node --prof ./bin/trucoshi-server",
     "prepublishOnly": "yarn test && yarn build:dist",
     "cli:autoplay": "APP_DEBUG_LEVEL=warn yarn run ts-node src/utils/scripts/autoplay",

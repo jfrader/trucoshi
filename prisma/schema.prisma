@@ -45,6 +45,7 @@ model MatchBet {
   satsPerPlayer  Int
   allPlayersPaid Boolean
   winnerAwarded  Boolean
+  refunded       Boolean  @default(false)
   match          Match    @relation(fields: [matchId], references: [id])
 }
 
