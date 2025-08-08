@@ -112,7 +112,7 @@ export function PlayInstance(
         }
 
         if (player.sayCommand(command, force) === false) {
-          throw new Error(GAME_ERROR.INVALID_COMAND)
+          throw new Error(GAME_ERROR.INVALID_COMMAND)
         }
 
         if (typeof command === "number") {

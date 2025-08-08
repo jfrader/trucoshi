@@ -1,9 +1,8 @@
 import { expect } from "chai"
-import { Deck, Random, rng } from "../../src"
-import { ICard } from "trucoshi"
+import { Deck, ICard, Random, rng } from "../../src"
 
 describe("Trucoshi Deck", () => {
-  it("should have a proper randomness distribution", (done) => {
+  it("should generate distributed random integers", (done) => {
     const random = Random()
     random.clients[0] = "test-client-seed"
     random.secret = rng.generateServerSeed()
@@ -33,7 +32,7 @@ describe("Trucoshi Deck", () => {
     done()
   })
 
-  it("should shuffle from the previous deck state", (done) => {
+  it("should shuffle deck with proper distributed randomness", (done) => {
     const deck = Deck()
 
     deck.random.bitcoinHash = "test-bitcoin-hash"

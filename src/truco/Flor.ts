@@ -192,7 +192,7 @@ export function Flor(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITabl
       }
       const playerTeamIdx = player.teamIdx as 0 | 1
       if (playerTeamIdx === flor.teamIdx) {
-        throw new SocketError(GAME_ERROR.INVALID_COMAND)
+        throw new SocketError(GAME_ERROR.INVALID_COMMAND)
       }
 
       player.saidFlor()
@@ -223,7 +223,7 @@ export function Flor(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITabl
       }
       const playerTeamIdx = player.teamIdx as 0 | 1
       if (playerTeamIdx === flor.teamIdx) {
-        throw new SocketError(GAME_ERROR.INVALID_COMAND)
+        throw new SocketError(GAME_ERROR.INVALID_COMMAND)
       }
 
       player.saidFlor()
@@ -269,10 +269,10 @@ export function Flor(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITabl
       const playerTeamIdx = player.teamIdx as 0 | 1
       const opponentIdx = Number(!playerTeamIdx) as 0 | 1
       if (playerTeamIdx === flor.teamIdx) {
-        throw new SocketError(GAME_ERROR.INVALID_COMAND)
+        throw new SocketError(GAME_ERROR.INVALID_COMMAND)
       }
       if (flor.state < 4) {
-        throw new SocketError(GAME_ERROR.INVALID_COMAND)
+        throw new SocketError(GAME_ERROR.INVALID_COMMAND)
       }
 
       flor.answered = true

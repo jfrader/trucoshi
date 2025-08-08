@@ -55,7 +55,7 @@ const EMPTY_ENVIDO: Pick<
 
 export const EnvidoCalculator: IEnvidoCalculator = {
   [EEnvidoCommand.ENVIDO]: (args) => {
-    if (!args || args.stake === undefined || args.declineStake === undefined) {
+    if (!args || args.stake === undefined) {
       throw new Error("Envido calculator arguments are undefined")
     }
 
@@ -68,13 +68,11 @@ export const EnvidoCalculator: IEnvidoCalculator = {
 
     return {
       accept: 2,
-      decline: 1,
       next: args.stake < 2 ? [EEnvidoCommand.ENVIDO, ...next] : next,
     }
   },
   [EEnvidoCommand.REAL_ENVIDO]: () => ({
     accept: 3,
-    decline: 1,
     next: [EEnvidoCommand.FALTA_ENVIDO, EAnswerCommand.QUIERO, EAnswerCommand.NO_QUIERO],
   }),
   [EEnvidoCommand.FALTA_ENVIDO]: (args) => {
@@ -90,7 +88,6 @@ export const EnvidoCalculator: IEnvidoCalculator = {
     const points = teams[higher].points
     const next = [EAnswerCommand.QUIERO, EAnswerCommand.NO_QUIERO]
     const accept = 0
-    const decline = 1
 
     if (faltaEnvido === 2) {
       const replace =
@@ -100,7 +97,6 @@ export const EnvidoCalculator: IEnvidoCalculator = {
 
       return {
         accept,
-        decline,
         replace,
         next,
       }
@@ -109,7 +105,6 @@ export const EnvidoCalculator: IEnvidoCalculator = {
     const replace = matchPoint * 2 - totals[higher]
     return {
       accept,
-      decline,
       replace,
       next,
     }
@@ -171,20 +166,25 @@ export function Envido(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITa
       return envido.stake
     },
     sayEnvido(command, player) {
+      if (options.flor && player.hasFlor && !player.hasSaidFlor) {
+        throw new Error(GAME_ERROR.INVALID_COMMAND)
+      }
+
       const playerTeamIdx = player.teamIdx as 0 | 1
+
       if (envido.teamIdx !== playerTeamIdx && envido.possibleAnswerCommands.includes(command)) {
         const opponentIdx = Number(!playerTeamIdx) as 0 | 1
 
-        const { accept, decline, replace, next } = EnvidoCalculator[command]({
+        envido.declineStake = envido.stake || 1
+
+        const { accept, replace, next } = EnvidoCalculator[command]({
           stake: envido.stake,
-          declineStake: envido.declineStake,
           teams,
           options,
         })
 
         envido.teamIdx = playerTeamIdx
         envido.stake += accept
-        envido.declineStake += decline
         envido.players = [...teams[opponentIdx].activePlayers].sort((a, b) =>
           a.hasFlor && !a.hasSaidFlor ? -1 : b.hasFlor && !b.hasSaidFlor ? 1 : 0
         )

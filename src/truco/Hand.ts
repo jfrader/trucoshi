@@ -635,7 +635,7 @@ const trucoCommand = (hand: IHand, player: IPlayer) => {
 const commands: IHandCommands = {
   [ESayCommand.PASO]: (hand, player) => {
     if (player.idx !== hand.currentPlayer?.idx) {
-      throw new Error(GAME_ERROR.INVALID_COMAND)
+      throw new Error(GAME_ERROR.INVALID_COMMAND)
     }
 
     if (hand.state === EHandState.WAITING_ENVIDO_POINTS_ANSWER) {

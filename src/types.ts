@@ -217,7 +217,7 @@ export enum GAME_ERROR {
   TEAM_NOT_READY = "TEAM_NOT_READY",
   TEAM_IS_FULL = "TEAM_IS_FULL",
   ENVIDO_NOT_ACCEPTED = "ENVIDO_NOT_ACCEPTED",
-  INVALID_COMAND = "INVALID_COMAND",
+  INVALID_COMMAND = "INVALID_COMMAND",
   INSUFFICIENT_BALANCE = "INSUFFICIENT_BALANCE",
   GAME_REQUIRES_ACCOUNT = "GAME_REQUIRES_ACCOUNT",
   NO_FLOR = "NO_FLOR",
@@ -234,7 +234,6 @@ export interface EnvidoState {
 
 export type IEnvidoCalculatorResult = {
   accept: number
-  decline: number
   replace?: number
   next: Array<ECommand>
 }
@@ -246,7 +245,6 @@ export type IFaltaEnvidoCalculatorArgs = {
 
 export type IEnvidoCalculatorArgs = {
   stake: number
-  declineStake: number
 } & (IFaltaEnvidoCalculatorArgs | never)
 
 export type IEnvidoCalculator = {
