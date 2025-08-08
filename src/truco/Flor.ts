@@ -1,4 +1,3 @@
-import { SocketError } from "../server"
 import { getMinNumberIndex } from "../lib/utils"
 import { EAnswerCommand, EFlorCommand, GAME_ERROR, IPlayer, ITeam, ILobbyOptions } from "../types"
 import { ITable } from "../lib/classes/Table"
@@ -71,7 +70,7 @@ export function Flor(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITabl
     },
     sayFlor(player) {
       if (!player.hasFlor) {
-        throw new SocketError(GAME_ERROR.NO_FLOR)
+        throw new Error(GAME_ERROR.NO_FLOR)
       }
       const playerTeamIdx = player.teamIdx as 0 | 1
       const opponentIdx = Number(!playerTeamIdx) as 0 | 1
@@ -85,7 +84,6 @@ export function Flor(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITabl
       } else if (flor.teamIdx === playerTeamIdx) {
         // Same team can say FLOR
         flor.candidates.push(player)
-        // Check if all players in the team with Flor have declared
         if (
           teams[playerTeamIdx].players
             .filter((p) => p.hasFlor && !p.disabled)
@@ -137,25 +135,8 @@ export function Flor(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITabl
           }
         }
         flor.winningPlayer = winningPlayer
-
-        // Check if all players in the team with Flor have declared
-        if (
-          teams[playerTeamIdx].players
-            .filter((p) => p.hasFlor && !p.disabled)
-            .every((p) => p.hasSaidFlor || p.usedHand.length > 0)
-        ) {
-          // All team players with Flor have said it, check opponents
-          if (
-            teams[opponentIdx].players
-              .filter((p) => !p.disabled && p.hasFlor)
-              .every((p) => p.hasSaidFlor || p.usedHand.length > 0)
-          ) {
-            flor.winner = winningPlayer ? teams[winningPlayer.teamIdx] : null
-            flor.finished = true
-            return flor
-          }
-        }
-
+        flor.winner = winningPlayer ? teams[winningPlayer.teamIdx] : null
+        flor.finished = true // Resolve immediately
         turnGenerator = florTurnGeneratorSequence(flor)
         return flor
       }
@@ -188,11 +169,11 @@ export function Flor(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITabl
     },
     sayContraflor(player) {
       if (!player.hasFlor || flor.state !== 3) {
-        throw new SocketError(GAME_ERROR.NO_FLOR)
+        throw new Error(GAME_ERROR.INVALID_COMMAND)
       }
       const playerTeamIdx = player.teamIdx as 0 | 1
       if (playerTeamIdx === flor.teamIdx) {
-        throw new SocketError(GAME_ERROR.INVALID_COMMAND)
+        throw new Error(GAME_ERROR.INVALID_COMMAND)
       }
 
       player.saidFlor()
@@ -208,7 +189,11 @@ export function Flor(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITabl
 
       if (flor.players.length > 0) {
         flor.answered = false
-        flor.possibleAnswerCommands = [EAnswerCommand.QUIERO, EAnswerCommand.NO_QUIERO]
+        flor.possibleAnswerCommands = [
+          EAnswerCommand.QUIERO,
+          EAnswerCommand.NO_QUIERO,
+          EFlorCommand.CONTRAFLOR_AL_RESTO,
+        ]
       } else {
         flor.finished = true
         flor.answered = true
@@ -218,21 +203,24 @@ export function Flor(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITabl
       return flor
     },
     sayContraflorAlResto(player) {
-      if (!player.hasFlor || flor.state !== 3) {
-        throw new SocketError(GAME_ERROR.NO_FLOR)
+      if (!player.hasFlor) {
+        throw new Error(GAME_ERROR.NO_FLOR)
       }
       const playerTeamIdx = player.teamIdx as 0 | 1
       if (playerTeamIdx === flor.teamIdx) {
-        throw new SocketError(GAME_ERROR.INVALID_COMMAND)
+        throw new Error(GAME_ERROR.INVALID_COMMAND)
       }
 
       player.saidFlor()
 
       const opponentIdx = Number(!playerTeamIdx) as 0 | 1
 
-      const totals = teams.map((team) => team.points.malas + team.points.buenas)
+      const totals = teams.map((team) => (team.points.malas || 0) + (team.points.buenas || 0))
       const lower = getMinNumberIndex(totals)
-      const replace = options.matchPoint * 2 - totals[lower]
+      const replace =
+        totals[lower] !== undefined
+          ? options.matchPoint * 2 - totals[lower]
+          : options.matchPoint * 2
 
       flor.stake = replace
       flor.declineStake = 6
@@ -254,13 +242,16 @@ export function Flor(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITabl
     },
     sayAchico(player) {
       if (!player.hasFlor) {
-        throw new SocketError(GAME_ERROR.NO_FLOR)
+        throw new Error(GAME_ERROR.NO_FLOR)
+      }
+      if (flor.state !== 3) {
+        throw new Error(GAME_ERROR.INVALID_COMMAND)
       }
       player.saidFlor()
       flor.finished = true
       flor.winner = teams[Number(!player.teamIdx)]
       flor.stake = 3
-      flor.declineStake = flor.state === 4 ? 4 : flor.state === 5 ? 6 : 3
+      flor.declineStake = 3
       flor.answered = true
       flor.accepted = false
       return flor
@@ -269,10 +260,10 @@ export function Flor(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITabl
       const playerTeamIdx = player.teamIdx as 0 | 1
       const opponentIdx = Number(!playerTeamIdx) as 0 | 1
       if (playerTeamIdx === flor.teamIdx) {
-        throw new SocketError(GAME_ERROR.INVALID_COMMAND)
+        throw new Error(GAME_ERROR.INVALID_COMMAND)
       }
       if (flor.state < 4) {
-        throw new SocketError(GAME_ERROR.INVALID_COMMAND)
+        throw new Error(GAME_ERROR.INVALID_COMMAND)
       }
 
       flor.answered = true

@@ -297,7 +297,7 @@ export const calculateEnvidoPointsArray = (player: IPlayer): IPlayer["envido"] =
   const cards = [...player.hand, ...player.usedHand]
   const hand = cards.map(splitCardvalues)
 
-  const hasFlor = hand.every((card) => card.palo === hand[0].palo)
+  const hasFlor = !!hand.length && hand.every((card) => card.palo === hand[0].palo)
 
   player.hasFlor = hasFlor
   player.flor = hasFlor

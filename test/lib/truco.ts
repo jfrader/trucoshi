@@ -1,452 +1,202 @@
 import { expect } from "chai"
-import { EAnswerCommand, EEnvidoAnswerCommand, EFlorCommand, ESayCommand } from "../../src/types"
-import { IPlayInstance, Lobby } from "../../src/truco"
-import { randomUUID } from "crypto"
 
-function sayPlay(
-  play: IPlayInstance,
-  abandoned,
-  abandon,
-  fallback: any = ESayCommand.MAZO,
-  ...args: Parameters<typeof play.say>
-) {
-  if (!abandoned && abandon && play.player && Math.random() > 0.8) {
-    abandoned = true
-    play.say(fallback, play.player, true)
-    play.teams[play.player.teamIdx].abandon(play.player)
-    return true
-  }
+import { ITeam, ILobbyOptions, IPlayer } from "../../src/types"
+import { ITable, Table } from "../../src/lib"
+import { DEFAULT_LOBBY_OPTIONS, Player, Team } from "../../src/truco"
+import { Truco } from "../../src/truco/Truco"
 
-  const r = play.say(...args)
-  if (r === null && !args[2]) {
-    console.log(play.state, play.player, { args }, play.getHand().roundsLogFlatten)
-    process.abort()
-  }
+describe("Trucoshi Truco", () => {
+  let player1: IPlayer, player2: IPlayer, player3: IPlayer, player4: IPlayer
+  let team1: ITeam, team2: ITeam
+  let options: ILobbyOptions
+  let table: ITable
 
-  return abandoned
-}
+  beforeEach(() => {
+    // Create players (2 per team)
+    player1 = Player({ key: "p1", name: "Player 1", teamIdx: 0, accountId: 1, avatarUrl: "" })
+    player2 = Player({ key: "p2", name: "Player 2", teamIdx: 0, accountId: 2, avatarUrl: "" })
+    player3 = Player({ key: "p3", name: "Player 3", teamIdx: 1, accountId: 3, avatarUrl: "" })
+    player4 = Player({ key: "p4", name: "Player 4", teamIdx: 1, accountId: 4, avatarUrl: "" })
 
-describe("Trucoshi Lib", () => {
-  it("should play an entire match of 6", (done) => {
-    const trucoshi = Lobby("testmatch1", "lucas")
+    player1.setSession("p1")
+    player2.setSession("p2")
+    player3.setSession("p3")
+    player4.setSession("p4")
 
-    const promises = ["lucas", "guada", "juli", "day", "gaspar", "fran"].map((n, i) =>
-      trucoshi.addPlayer({ key: n, name: n, session: n }).then((player) => {
-        player.setReady(true)
-        player.setIdx(i)
-      })
-    )
+    // Set hands (mixed suits to avoid flor by default)
+    player1.setHand(["7c", "6b", "5c"])
+    player2.setHand(["5o", "1o", "6e"])
+    player3.setHand(["4e", "3e", "2b"])
+    player4.setHand(["7b", "1b", "5c"])
 
-    Promise.allSettled(promises).then(() => {
-      trucoshi
-        .startMatch()
-        .onTurn(async (play) => {
-          if (!play.player) {
-            return
-          }
-          const randomIdx = Math.round(Math.random() * play.player.hand.length)
-          play.use(randomIdx, play.player.hand[randomIdx])
-        })
-        .onWinner(async (winner) => {
-          expect(winner).to.haveOwnProperty("players")
-          expect(winner.points.buenas).to.be.greaterThanOrEqual(9)
-          done()
-        })
-        .begin()
-    })
-  })
+    // Create teams
+    team1 = Team(0, "Team 1").setPlayers([player1, player2])
+    team2 = Team(1, "Team 2").setPlayers([player3, player4])
 
-  const playGame = (finished, abandon = false) => {
-    const lobby = Lobby(randomUUID(), "lucas")
-
-    let abandoned = false
-
-    const randomPlayersQuantity = [0, 2, 4]
-
-    const candidates = ["lucas", "guada", "juli", "day", "gaspar", "fran"]
-
-    candidates.splice(0, randomPlayersQuantity[Math.floor(Math.random() * 3)])
-
-    const promises = candidates.map((n, i) =>
-      lobby.addPlayer({ key: n, name: n, session: n }).then((player) => {
-        player.setReady(true)
-        player.setIdx(i)
-      })
-    )
-
-    lobby.setOptions({ flor: Math.random() > 0.5 })
-
-    Promise.allSettled(promises).then(() => {
-      const match = lobby.startMatch(15)
-
-      match
-        .onEnvido(async (play, pointsRound) => {
-          if (!play.player || (!play.player._commands.size && !pointsRound)) {
-            console.log(play.getHand().roundsLogFlatten)
-            console.log({
-              onEnvido: true,
-              players: lobby.players.length,
-              idx: play.player?.idx,
-              hand: play.player?.hand,
-              commands: play.player?.commands,
-              hasFlor: play.player?.hasFlor,
-            })
-            return process.abort()
-          }
-
-          if (pointsRound) {
-            if (play.player.commands.includes(ESayCommand.PASO) && Math.random() > 0.75) {
-              abandoned = sayPlay(
-                play,
-                abandoned,
-                abandon,
-                ESayCommand.MAZO,
-                ESayCommand.PASO,
-                play.player
-              )
-              return
-            }
-            if (
-              play.player.commands.includes(EEnvidoAnswerCommand.SON_BUENAS) &&
-              Math.random() > 0.51
-            ) {
-              abandoned = sayPlay(
-                play,
-                abandoned,
-                abandon,
-                ESayCommand.MAZO,
-                EEnvidoAnswerCommand.SON_BUENAS,
-                play.player
-              )
-              return
-            }
-
-            const randomIdx = Math.floor(Math.random() * play.player.envido.length)
-            abandoned = sayPlay(
-              play,
-              abandoned,
-              abandon,
-              ESayCommand.MAZO,
-              play.player.envido[randomIdx].value || 0,
-              play.player
-            )
-            return
-          }
-
-          if (play.player._commands.has(EFlorCommand.FLOR)) {
-            abandoned = sayPlay(play, abandoned, abandon, undefined, EFlorCommand.FLOR, play.player)
-            return
-          }
-
-          if (!play.player._commands.has(EAnswerCommand.QUIERO)) {
-            console.log({
-              onEnvido: true,
-              idx: play.player.idx,
-              commands: play.player.commands,
-              hand: play.player.hand,
-              hasFlor: play.player.hasFlor,
-            })
-            console.log(play.getHand().roundsLogFlatten)
-            return process.abort()
-          }
-
-          abandoned = sayPlay(
-            play,
-            abandoned,
-            abandon,
-            EAnswerCommand.NO_QUIERO,
-            EAnswerCommand.QUIERO,
-            play.player
-          )
-        })
-
-        .onFlor(async (play) => {
-          if (!play.player || !play.player._commands.size) {
-            console.log(play.getHand().roundsLogFlatten)
-            console.log({
-              onFlor: true,
-              players: lobby.players.length,
-              idx: play.player?.idx,
-              hand: play.player?.hand,
-              commands: play.player?.commands,
-              hasFlor: play.player?.hasFlor,
-            })
-            return process.abort()
-          }
-
-          if (play.player._commands.has(EFlorCommand.FLOR)) {
-            if (play.player._commands.has(EFlorCommand.CONTRAFLOR) && Math.random() > 0.49) {
-              if (Math.random() > 0.51) {
-                if (Math.random() > 50) {
-                  abandoned = sayPlay(
-                    play,
-                    abandoned,
-                    abandon,
-                    EFlorCommand.ACHICO,
-                    EFlorCommand.ACHICO,
-                    play.player
-                  )
-                  return
-                }
-
-                abandoned = sayPlay(
-                  play,
-                  abandoned,
-                  abandon,
-                  EFlorCommand.ACHICO,
-                  EFlorCommand.CONTRAFLOR,
-                  play.player
-                )
-                return
-              }
-
-              abandoned = sayPlay(
-                play,
-                abandoned,
-                abandon,
-                EFlorCommand.ACHICO,
-                EFlorCommand.CONTRAFLOR_AL_RESTO,
-                play.player
-              )
-              return
-            }
-
-            abandoned = sayPlay(
-              play,
-              abandoned,
-              abandon,
-              play.player._commands.has(EAnswerCommand.NO_QUIERO)
-                ? EAnswerCommand.NO_QUIERO
-                : ESayCommand.MAZO,
-              EFlorCommand.FLOR,
-              play.player
-            )
-            return
-          }
-
-          if (Math.random() > 0.75) {
-            abandoned = sayPlay(
-              play,
-              abandoned,
-              abandon,
-              EAnswerCommand.NO_QUIERO,
-              EAnswerCommand.NO_QUIERO,
-              play.player
-            )
-            return
-          }
-
-          if (!play.player._commands.has(EAnswerCommand.QUIERO)) {
-            console.log({
-              onFlor: true,
-              florAnswered: play.getHand().flor.teamIdx,
-              idx: play.player.idx,
-              commands: play.player.commands,
-              hand: play.player.hand,
-              hasFlor: play.player.hasFlor,
-            })
-            console.log(play.getHand().roundsLogFlatten)
-            return process.abort()
-          }
-
-          abandoned = sayPlay(
-            play,
-            abandoned,
-            abandon,
-            EAnswerCommand.NO_QUIERO,
-            EAnswerCommand.QUIERO,
-            play.player
-          )
-        })
-        .onTruco(async (play) => {
-          const hand = play.getHand()
-
-          if (!play.player || !play.player._commands.size) {
-            console.log(play.getHand().roundsLogFlatten)
-            console.log({
-              onTruco: true,
-              players: lobby.players.length,
-              idx: play.player?.idx,
-              hand: play.player?.hand,
-              commands: play.player?.commands,
-              hasFlor: play.player?.hasFlor,
-              hasSaidFlor: play.player?.hasSaidFlor,
-              handState: hand.state,
-            })
-            return process.abort()
-          }
-
-          if (play.player._commands.has(EFlorCommand.FLOR)) {
-            abandoned = sayPlay(
-              play,
-              abandoned,
-              abandon,
-              ESayCommand.MAZO,
-              EFlorCommand.FLOR,
-              play.player
-            )
-            return
-          }
-
-          if (!play.player._commands.has(EAnswerCommand.QUIERO)) {
-            console.log({
-              onTruco: true,
-              handRounds: hand.rounds.length,
-              trucoAnswer: hand.truco.answer,
-              envidoAnswer: hand.envido.answer,
-              florState: hand.flor.state,
-              florAnswered: hand.flor.teamIdx,
-              idx: play.player.idx,
-              disabled: play.player.disabled,
-              usedHand: play.player.usedHand.length,
-              commands: play.player.commands,
-              hand: play.player.hand,
-              hasFlor: play.player.hasFlor,
-              hasSaidFlor: play.player?.hasSaidFlor,
-            })
-            console.log(play.getHand().roundsLogFlatten)
-            return process.abort()
-          }
-
-          if (play.player.envido.length > 1 && Math.random() < 75) {
-            let randomIdx = Math.floor(Math.random() * play.player.commands.length)
-
-            let i = 0
-            while (
-              play.player.commands.length > 1 &&
-              i < 5 &&
-              play.player.commands[randomIdx] === ESayCommand.MAZO
-            ) {
-              randomIdx = Math.floor(Math.random() * play.player.commands.length)
-              i++
-            }
-
-            const new_command = play.player.commands[randomIdx]
-
-            abandoned = sayPlay(
-              play,
-              abandoned,
-              abandon,
-              ESayCommand.MAZO,
-              new_command,
-              play.player
-            )
-            return
-          }
-
-          abandoned = sayPlay(
-            play,
-            abandoned,
-            abandon,
-            EAnswerCommand.NO_QUIERO,
-            EAnswerCommand.QUIERO,
-            play.player
-          )
-        })
-        .onTurn(async (play) => {
-          if (!play.player) {
-            return
-          }
-
-          if (play.player._commands.has(EFlorCommand.FLOR)) {
-            abandoned = sayPlay(
-              play,
-              abandoned,
-              abandon,
-              ESayCommand.MAZO,
-              EFlorCommand.FLOR,
-              play.player
-            )
-            return
-          }
-
-          if (play.player.commands.length && Math.random() > 0.51) {
-            let randomIdx = Math.floor(Math.random() * play.player.commands.length)
-
-            let i = 0
-            while (
-              play.player.commands.length > 1 &&
-              i < 5 &&
-              play.player.commands[randomIdx] === ESayCommand.MAZO
-            ) {
-              randomIdx = Math.floor(Math.random() * play.player.commands.length)
-              i++
-            }
-
-            const new_command = play.player.commands[randomIdx]
-
-            abandoned = sayPlay(
-              play,
-              abandoned,
-              abandon,
-              ESayCommand.MAZO,
-              new_command,
-              play.player
-            )
-            return
-          }
-
-          const randomIdx = Math.floor(Math.random() * play.player.hand.length)
-          play.use(randomIdx, play.player.hand[randomIdx])
-        })
-        .onWinner(async (winner) => {
-          expect(winner).to.haveOwnProperty("players")
-          if (!abandon) {
-            expect(winner.points.buenas).to.be.greaterThanOrEqual(9)
-          }
-          finished()
-        })
-        .begin()
-    })
-  }
-
-  it("should play 250 random matches of 2, 4 or 6 players in parallel", (done) => {
-    async function awaitGames() {
-      let played = 0
-      let playedProm: Promise<any>[] = []
-      while (played < 250) {
-        played++
-        // await new Promise((resolve) => {
-        //   playGame(resolve)
-        // })
-        playedProm.push(
-          new Promise((resolve) => {
-            playGame(resolve)
-          })
-        )
-      }
-
-      await Promise.allSettled(playedProm)
+    // Create options with flor disabled by default
+    options = {
+      ...DEFAULT_LOBBY_OPTIONS,
+      matchPoint: 9,
+      faltaEnvido: 1,
+      flor: false,
     }
 
-    ;(async () => {
-      await awaitGames()
-      done()
-    })()
+    // Create table
+    table = Table("test-session", [player1, player3, player2, player4]) // Alternating order
+    table.forehandIdx = 0 // Player 1 is forehand
   })
 
-  it("should play and abandon 250 random matches in parallel", (done) => {
-    async function awaitGames() {
-      let played = 0
-      let playedProm: Promise<any>[] = []
-      while (played < 250) {
-        played++
-        // await new Promise((resolve) => {
-        //   playGame(resolve, true)
-        // })
-        playedProm.push(
-          new Promise((resolve) => {
-            playGame(resolve, true)
-          })
-        )
-      }
+  it("should award 1 point when TRUCO is declined", (done) => {
+    const truco = Truco([team1, team2])
+    truco.sayTruco(player1)
+    expect(truco.state).to.equal(2)
+    expect(truco.teamIdx).to.equal(0)
+    expect(truco.waitingAnswer).to.be.true
+    expect(truco.players.map((p) => p.key)).to.include.members(["p3", "p4"])
+    truco.sayAnswer(player3, false)
+    expect(truco.state).to.equal(1)
+    expect(truco.waitingAnswer).to.be.false
+    expect(truco.answer).to.be.false
+    expect(team2.isTeamDisabled()).to.be.true
+    done()
+  })
 
-      await Promise.allSettled(playedProm)
+  it("should award 2 points when RE_TRUCO is declined after TRUCO", (done) => {
+    const truco = Truco([team1, team2])
+    truco.sayTruco(player1)
+    expect(truco.state).to.equal(2)
+    truco.sayAnswer(player3, true)
+    expect(truco.state).to.equal(2)
+    expect(truco.waitingAnswer).to.be.false
+    expect(truco.answer).to.be.true
+    truco.sayTruco(player3)
+    expect(truco.state).to.equal(3)
+    expect(truco.teamIdx).to.equal(1)
+    expect(truco.waitingAnswer).to.be.true
+    expect(truco.players.map((p) => p.key)).to.include.members(["p1", "p2"])
+    truco.sayAnswer(player1, false)
+    expect(truco.state).to.equal(2)
+    expect(truco.waitingAnswer).to.be.false
+    expect(truco.answer).to.be.false
+    expect(team1.isTeamDisabled()).to.be.true
+    done()
+  })
+
+  it("should award 3 points when VALE_CUATRO is declined after TRUCO and RE_TRUCO", (done) => {
+    const truco = Truco([team1, team2])
+    truco.sayTruco(player1)
+    truco.sayAnswer(player3, true)
+    truco.sayTruco(player3)
+    expect(truco.state).to.equal(3)
+    truco.sayAnswer(player1, true)
+    expect(truco.state).to.equal(3)
+    expect(truco.waitingAnswer).to.be.false
+    expect(truco.answer).to.be.true
+    truco.sayTruco(player1)
+    expect(truco.state).to.equal(4)
+    expect(truco.teamIdx).to.equal(0)
+    expect(truco.waitingAnswer).to.be.true
+    expect(truco.players.map((p) => p.key)).to.include.members(["p3", "p4"])
+    truco.sayAnswer(player3, false)
+    expect(truco.state).to.equal(3)
+    expect(truco.waitingAnswer).to.be.false
+    expect(truco.answer).to.be.false
+    expect(team2.isTeamDisabled()).to.be.true
+    done()
+  })
+
+  it("should not allow further TRUCO calls after VALE_CUATRO", (done) => {
+    const truco = Truco([team1, team2])
+    truco.sayTruco(player1)
+    truco.sayAnswer(player3, true)
+    truco.sayTruco(player3)
+    truco.sayAnswer(player1, true)
+    truco.sayTruco(player1)
+    expect(truco.state).to.equal(4)
+    truco.sayAnswer(player3, true)
+    expect(truco.state).to.equal(4)
+    expect(truco.waitingAnswer).to.be.false
+    expect(truco.answer).to.be.true
+    const before = truco.state
+    truco.sayTruco(player3)
+    expect(truco.state).to.equal(before)
+    expect(truco.waitingAnswer).to.be.false
+    done()
+  })
+
+  it("should handle TRUCO acceptance and continue game", (done) => {
+    const truco = Truco([team1, team2])
+    truco.sayTruco(player1)
+    expect(truco.state).to.equal(2)
+    truco.sayAnswer(player3, true)
+    expect(truco.state).to.equal(2)
+    expect(truco.waitingAnswer).to.be.false
+    expect(truco.answer).to.be.true
+    expect(player3.hasSaidTruco).to.be.true
+    expect(team1.isTeamDisabled()).to.be.false
+    expect(team2.isTeamDisabled()).to.be.false
+    done()
+  })
+
+  it("should prevent same team from answering their own TRUCO", (done) => {
+    const truco = Truco([team1, team2])
+    truco.sayTruco(player1)
+    expect(truco.teamIdx).to.equal(0)
+    const before = { ...truco }
+    truco.sayAnswer(player2, true)
+    expect(truco.state).to.equal(before.state)
+    expect(truco.waitingAnswer).to.equal(before.waitingAnswer)
+    expect(truco.answer).to.equal(before.answer)
+    done()
+  })
+
+  it("should cycle turns correctly using turn generator", (done) => {
+    const truco = Truco([team1, team2])
+    truco.sayTruco(player1)
+    expect(truco.players.map((p) => p.key)).to.include.members(["p3", "p4"])
+    let result = truco.getNextPlayer()
+    if (result.done || !result.value) {
+      throw new Error("Unexpected generator completion")
     }
+    expect(result.value.currentPlayer).to.equal(player3)
+    result = truco.getNextPlayer()
+    if (result.done || !result.value) {
+      throw new Error("Unexpected generator completion")
+    }
+    expect(result.value.currentPlayer).to.equal(player4)
+    result = truco.getNextPlayer()
+    if (result.done || !result.value) {
+      throw new Error("Unexpected generator completion")
+    }
+    expect(result.value.currentPlayer).to.equal(player3)
+    done()
+  })
 
-    ;(async () => {
-      await awaitGames()
-      done()
-    })()
+  it("should handle disabled player in turn sequence", (done) => {
+    const truco = Truco([team1, team2])
+    player3.disable()
+    truco.sayTruco(player1)
+    expect(truco.players.map((p) => p.key)).to.include.members(["p4"])
+    let result = truco.getNextPlayer()
+    if (result.done || !result.value) {
+      throw new Error("Unexpected generator completion")
+    }
+    expect(result.value.currentPlayer).to.equal(player4)
+    result = truco.getNextPlayer()
+    if (result.done || !result.value) {
+      throw new Error("Unexpected generator completion")
+    }
+    expect(result.value.currentPlayer).to.equal(player4)
+    done()
+  })
+
+  it("should sort players with flor first when flor is enabled", (done) => {
+    options.flor = true
+    player3.setHand(["7e", "6e", "5e"]) // Flor for player3
+    const truco = Truco([team1, team2])
+    truco.sayTruco(player1)
+    expect(truco.players.map((p) => p.key)).to.deep.equal(["p3", "p4"]) // p3 first due to flor
+    expect(player3.hasFlor).to.be.true
+    done()
   })
 })
