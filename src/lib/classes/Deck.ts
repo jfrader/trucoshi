@@ -9,6 +9,9 @@ export function Deck(): IDeck {
     random: Random(),
     usedCards: [],
     takeCard() {
+      if (deck.cards.length <= 0) {
+        throw new Error ("No cards left in deck")
+      }
       const card = deck.cards.shift() as ICard
       deck.usedCards.push(card)
       return card
@@ -56,17 +59,12 @@ export function dealCards<
   }
 
   if (cheat_cards) {
-    try {
-      const new_cards = JSON.parse(cheat_cards) as Array<[ICard, ICard, ICard]>
-
-      deck.shuffle(players[0].idx)
-      for (const [key, player] of players.entries()) {
-        playerHands[player.idx] = new_cards[key]
-          ? new_cards[key].map((c) => deck.pick(c) || deck.takeCard())
-          : deck.takeThree()
-      }
-    } catch {
-      //noop
+    const new_cards = JSON.parse(cheat_cards) as Array<[ICard, ICard, ICard]>
+    deck.shuffle(players[0].idx)
+    for (const [key, player] of players.entries()) {
+      playerHands[player.idx] = new_cards[key]
+        ? new_cards[key].map((c) => deck.pick(c) || deck.takeCard())
+        : deck.takeThree()
     }
   }
 
