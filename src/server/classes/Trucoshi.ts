@@ -725,7 +725,7 @@ export const Trucoshi = ({
     },
     async emitWaitingPossibleSay({ play, table, onlyThisSocket }) {
       table.log.trace({ handIdx: play.handIdx }, "Emitting match possible players say")
-      return new Promise<void>((resolve, reject) => {
+      return new Promise<void>((resolve) => {
         return server
           .getTableSockets(table, async (playerSocket, player) => {
             if (onlyThisSocket && playerSocket.id !== onlyThisSocket) {
@@ -768,20 +768,12 @@ export const Trucoshi = ({
               EServerEvent.WAITING_POSSIBLE_SAY,
               table.getPublicMatch(player.session, play.freshHand || false),
               (data) => {
-                if (!data) {
-                  return
-                }
-                if (!play.waitingPlay) {
-                  table.log.trace(
+                if (!data || !play.waitingPlay) {
+                  table.log.warn(
                     { player: player.getPublicPlayer() },
-                    "Tried to say something but someone said something already"
+                    "Tried to say something but someone said something already or callback data came empty"
                   )
-                  return reject(
-                    new Error(
-                      EServerEvent.WAITING_POSSIBLE_SAY +
-                        " was not expecting this player to say anything"
-                    )
-                  )
+                  return
                 }
                 const { command } = data
                 server
@@ -790,7 +782,12 @@ export const Trucoshi = ({
                     resolve()
                     server.sessions.getOrThrow(player.session).reconnect(table.matchSessionId)
                   })
-                  .catch(reject)
+                  .catch((e) =>
+                    table.log.warn(
+                      { message: e.message, command, playerIdx: player.idx },
+                      "Failed to say commmand"
+                    )
+                  )
               }
             )
           })
@@ -798,7 +795,7 @@ export const Trucoshi = ({
       })
     },
     async emitWaitingForPlay({ play, table, onlyThisSocket }) {
-      return new Promise<"say" | "play">((resolve, reject) => {
+      return new Promise<"say" | "play">((resolve) => {
         server
           .emitWaitingPossibleSay({ play, table, onlyThisSocket })
           .then(() => resolve("say"))
@@ -837,19 +834,12 @@ export const Trucoshi = ({
                 EServerEvent.WAITING_PLAY,
                 table.getPublicMatch(player.session),
                 (data: IWaitingPlayData) => {
-                  if (!data) {
-                    return reject(new Error(EServerEvent.WAITING_PLAY + " callback returned empty"))
-                  }
-                  if (!play.waitingPlay) {
-                    table.log.trace(
+                  if (!data || !play.waitingPlay) {
+                    table.log.warn(
                       { player: player.getPublicPlayer() },
-                      "Tried to play a card but play is not waiting a play"
+                      "Tried to play a card but play is not waiting a play or callback returned empty"
                     )
-                    return reject(
-                      new Error(
-                        EServerEvent.WAITING_PLAY + " was not expecting this player to play"
-                      )
-                    )
+                    return
                   }
                   const { cardIdx, card } = data
                   server
@@ -858,7 +848,12 @@ export const Trucoshi = ({
                       resolve("play")
                       server.sessions.getOrThrow(player.session).reconnect(table.matchSessionId)
                     })
-                    .catch(reject)
+                    .catch((e) =>
+                      table.log.warn(
+                        { message: e.message, card, playerIdx: player.idx },
+                        "Failed to play card"
+                      )
+                    )
                 }
               )
             }
