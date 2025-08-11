@@ -68,6 +68,9 @@ export function MatchTable(
         return EMatchState.FINISHED
       }
       if (table.lobby.started) {
+        if (table.lobby.paused) {
+          return EMatchState.PAUSED
+        }
         return EMatchState.STARTED
       }
       if (table.lobby.ready) {

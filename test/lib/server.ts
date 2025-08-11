@@ -198,7 +198,11 @@ describe("Socket Server", () => {
       promises.push(() => playRandomMatch(clients))
     }
 
-    Promise.all(promises.map((p) => p())).then(() => done())
+    Promise.all(promises.map((p) => p()))
+      .then(() => done())
+      .catch((e) => {
+        done(e)
+      })
   })
 
   it("should play 5 matches in series", async () => {
@@ -207,21 +211,37 @@ describe("Socket Server", () => {
     }
   })
 
-  it("should play 25 bot matches in parallel of 6 players", (done) => {
-    const promises: Array<() => Promise<void>> = []
-    for (let i = 0; i < 25; i++) {
-      promises.push(() => playBotsMatch([clients[0]], 5))
-    }
-
-    Promise.all(promises.map((p) => p())).then(() => done())
+  it("should play a match between 1 abandoning player and 1 bot", (done) => {
+    playBotsMatch([clients[0]], 1)
+      .then(() => done())
+      .catch((e) => {
+        done(e)
+      })
   })
 
-  it("should play 25 bot matches in parallel of 4 players", (done) => {
+  it("should play 100 matches between 1 abandoning player and 3 bots", (done) => {
     const promises: Array<() => Promise<void>> = []
-    for (let i = 0; i < 25; i++) {
+    for (let i = 0; i < 100; i++) {
       promises.push(() => playBotsMatch([clients[0]], 3))
     }
 
-    Promise.all(promises.map((p) => p())).then(() => done())
+    Promise.all(promises.map((p) => p()))
+      .then(() => done())
+      .catch((e) => {
+        done(e)
+      })
+  })
+
+  it("should play 100 matches between 1 abandoning player and 5 bots", (done) => {
+    const promises: Array<() => Promise<void>> = []
+    for (let i = 0; i < 100; i++) {
+      promises.push(() => playBotsMatch([clients[0]], 5))
+    }
+
+    Promise.all(promises.map((p) => p()))
+      .then(() => done())
+      .catch((e) => {
+        done(e)
+      })
   })
 })

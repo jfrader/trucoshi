@@ -2,5 +2,5 @@
   "watch": ["src", "node_modules/lightning-accounts", ".env"],
   "ext": ".ts,.js",
   "ignore": [],
-  "exec": "yarn build && yarn build:dist && node ./bin/trucoshi-server"
+  "exec": "yarn build && yarn build:dist && node --trace-warnings ./bin/trucoshi-server"
 }

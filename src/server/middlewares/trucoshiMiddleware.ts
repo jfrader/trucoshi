@@ -5,6 +5,7 @@ import { getWordsId } from "../../utils/string/getRandomWord"
 import { EClientEvent, EServerEvent } from "../../events"
 import { PLAYER_LOBBY_TIMEOUT } from "../../constants"
 import { PLAYER_ABANDON_TIMEOUT } from "../../lib"
+import { getOpponentTeam } from "../../lib/utils"
 
 const log = logger.child({ middleware: "trucoshiMiddleware" })
 
@@ -198,7 +199,7 @@ export const trucoshiMiddleware = (server: ITrucoshi) => {
 
           socket.join(table.matchSessionId)
           socket.join(table.matchSessionId + player.teamIdx)
-          socket.leave(table.matchSessionId + Number(!player.teamIdx))
+          socket.leave(table.matchSessionId + getOpponentTeam(player.teamIdx))
 
           server.emitMatchUpdate(table).catch(console.error)
           return callback({
@@ -338,6 +339,24 @@ export const trucoshiMiddleware = (server: ITrucoshi) => {
         const userSession = server.sessions.getOrThrow(socket.data.user?.session)
         await server.kickPlayer({ userSession, matchSessionId, key })
         callback({ success: true })
+      } catch (e) {
+        callback({ error: isSocketError(e), success: false })
+      }
+    })
+
+    /**
+     * Fetch match with session
+     */
+    socket.on(EClientEvent.PAUSE_MATCH, async (matchSessionId, pause, callback) => {
+      try {
+        const userSession = server.sessions.getOrThrow(socket.data.user?.session)
+        const paused = await server.pauseMatch({ matchSessionId, userSession, pause })
+        server
+          .emitMatchUpdate(server.tables.getOrThrow(matchSessionId))
+          .catch((e) =>
+            log.error({ message: e.message }, "Failed to emit match update after pause event")
+          )
+        callback({ success: true, paused })
       } catch (e) {
         callback({ error: isSocketError(e), success: false })
       }

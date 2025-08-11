@@ -1,5 +1,5 @@
 import { IHand, IRoundPoints } from "../truco"
-import { ICard } from "../types"
+import { ICard, IPlayer, ITeam } from "../types"
 import { CARDS } from "./constants"
 import memoize from "lodash.memoize"
 import partialRight from "lodash.partialright"
@@ -28,6 +28,18 @@ export function getMinNumberIndex<T = number>(array: Array<T>) {
 
 export function getCardValue(card: ICard) {
   return CARDS[card] !== undefined ? CARDS[card] : -2
+}
+
+export function getOpponentTeam(
+  teamIdx: 0 | 1 | number | Pick<ITeam, "id"> | Pick<IPlayer, "teamIdx"> | null
+): 0 | 1 {
+  if (teamIdx === null) {
+    return 0
+  }
+
+  const idx =
+    typeof teamIdx === "number" ? teamIdx : "teamIdx" in teamIdx ? teamIdx.teamIdx : teamIdx.id
+  return Number(!idx) as 0 | 1
 }
 
 export function checkHandWinner(hand: IHand, forehandTeamIdx: 0 | 1): null | 0 | 1 {

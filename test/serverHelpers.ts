@@ -9,6 +9,7 @@ import {
   ServerToClientEvents,
 } from "../src/events"
 import { EMatchState } from "@prisma/client"
+import { getOpponentTeam } from "../src/lib/utils"
 
 export const playRandomMatch = async (
   clients: Socket<ServerToClientEvents, ClientToServerEvents>[]
@@ -123,7 +124,7 @@ export const playRandomMatch = async (
   let tidx: 0 | 1 = 0
   for (const joinPromise of joinPromises) {
     await joinPromise(tidx)
-    tidx = Number(!tidx) as 0 | 1
+    tidx = getOpponentTeam(tidx) as 0 | 1
   }
 
   clients.forEach((c, i) =>
@@ -137,8 +138,8 @@ export const playRandomMatch = async (
           winningResolve()
         } else {
           if (match.state === EMatchState.FINISHED) {
-            logger.fatal(new Error("FATALITY"), "WTF")
-            process.exit(1)
+            logger.fatal(new Error("FATALITY"), "Match is finished but has no winner")
+            process.abort()
           }
         }
       }
@@ -189,7 +190,6 @@ export const playBotsMatch = async (
         console.error("WTF")
         process.exit(1)
       }
-
 
       c.emit(EClientEvent.LEAVE_MATCH, match.matchSessionId)
     })
@@ -280,7 +280,7 @@ export const playBotsMatch = async (
   let tidx: 0 | 1 = 0
   for (const joinPromise of joinPromises) {
     await joinPromise(tidx)
-    tidx = Number(!tidx) as 0 | 1
+    tidx = getOpponentTeam(tidx) as 0 | 1
   }
 
   clients.forEach((c, i) =>
@@ -311,6 +311,11 @@ export const playBotsMatch = async (
   })
 
   await WinnerPromise
+
+  if (matches[0]?.teams.some((t) => t.players.every((p) => p.abandoned))) {
+    expect(matches[0].winner?.points.buenas).to.be.lessThan(9)
+    return
+  }
 
   expect(matches[0]?.winner?.points.buenas).to.be.greaterThanOrEqual(9)
 }

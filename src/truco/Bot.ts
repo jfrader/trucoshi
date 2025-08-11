@@ -47,7 +47,9 @@ import {
   IPlayedCard,
   ESayCommand,
 } from ".."
+import { getOpponentTeam } from "../lib/utils"
 import { ITrucoshi, PLAYER_TIMEOUT_GRACE } from "../server"
+import logger from "../utils/logger"
 import { IPlayInstance } from "./Play"
 import { calculateEnvidoPointsArray } from "./Player"
 
@@ -507,9 +509,9 @@ function isCertainToWin(context: BotContext): boolean {
   const willWinHand =
     roundsWon[context.bot.teamIdx] >= 1 &&
     ((roundsWon[context.bot.teamIdx] + (winsThisRound ? 1 : 0) >= 2 &&
-      roundsWon[Number(!context.bot.teamIdx) as 0 | 1] < 2) ||
+      roundsWon[getOpponentTeam(context.bot.teamIdx) as 0 | 1] < 2) ||
       (roundsWon[context.bot.teamIdx] + (winsThisRound ? 1 : 0) > 2 &&
-        roundsWon[Number(!context.bot.teamIdx) as 0 | 1] > 2 &&
+        roundsWon[getOpponentTeam(context.bot.teamIdx) as 0 | 1] > 2 &&
         context.bot.teamIdx === forehandTeamIdx) ||
       ((context.play.rounds?.length ?? 0) > 2 &&
         roundsWon.ties > 0 &&
@@ -648,13 +650,15 @@ export async function playBot(
     isLastRound: play.roundIdx === 3,
     previousRoundTie: play.rounds?.[play.roundIdx - 2]?.tie ?? false,
     teamScore: play.teams[bot.teamIdx].points,
-    opponentScore: play.teams[Number(!bot.teamIdx)].points,
+    opponentScore: play.teams[getOpponentTeam(bot.teamIdx)].points,
     matchPoint: play.matchOptions.matchPoint || 15,
     isCloseToWin:
       play.teams[bot.teamIdx].points.buenas >= (play.matchOptions.matchPoint || 15) * 0.7 ||
-      play.teams[Number(!bot.teamIdx)].points.buenas >= (play.matchOptions.matchPoint || 15) * 0.7,
+      play.teams[getOpponentTeam(bot.teamIdx)].points.buenas >=
+        (play.matchOptions.matchPoint || 15) * 0.7,
     scoreDifference:
-      play.teams[bot.teamIdx].points.buenas - play.teams[Number(!bot.teamIdx)].points.buenas,
+      play.teams[bot.teamIdx].points.buenas -
+      play.teams[getOpponentTeam(bot.teamIdx)].points.buenas,
     currentRound: play.rounds?.[play.roundIdx - 1] ?? null,
     activeOpponents: table.players.filter((p) => p.teamIdx !== bot.teamIdx && !p.disabled),
     teammates: table.players.filter(
@@ -708,7 +712,11 @@ export async function playBot(
   }
 
   // **Flor Phase**
-  if (context.play.state === EHandState.WAITING_FLOR_ANSWER && context.bot.hasFlor && context.bot.flor) {
+  if (
+    context.play.state === EHandState.WAITING_FLOR_ANSWER &&
+    context.bot.hasFlor &&
+    context.bot.flor
+  ) {
     if (context.play.flor.stake > 3) {
       return sayCommand({
         command:
@@ -748,7 +756,13 @@ export async function playBot(
     ) {
       return sayCommand({ command: EFlorCommand.ACHICO, play, player: bot, table: table.sessionId })
     }
-    return sayCommand({ command: EFlorCommand.FLOR, play, player: bot, table: table.sessionId })
+
+    if (context.bot._commands.has(EFlorCommand.FLOR)) {
+      return sayCommand({ command: EFlorCommand.FLOR, play, player: bot, table: table.sessionId })
+    } else {
+      logger.fatal(context, "BOT SHOULD HAVE FLOR??? ***")
+      return sayCommand({ command: EFlorCommand.FLOR, play, player: bot, table: table.sessionId })
+    }
   }
 
   if (context.bot._commands.has(EFlorCommand.FLOR)) {

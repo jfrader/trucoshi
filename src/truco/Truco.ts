@@ -1,3 +1,4 @@
+import { getOpponentTeam } from "../lib/utils"
 import { ECommand, ETrucoCommand, IPlayer, ITeam } from "../types"
 import logger from "../utils/logger"
 
@@ -92,7 +93,7 @@ export function Truco(teams: [ITeam, ITeam]) {
       if (teamIdx === null || teamIdx !== playerTeamIdx) {
         truco.waitingAnswer = true
         truco.state++
-        const opponentIdx = Number(!playerTeamIdx) as 0 | 1
+        const opponentIdx = getOpponentTeam(playerTeamIdx) as 0 | 1
         truco.teamIdx = playerTeamIdx
         truco.answer = null
         truco.players = [...teams[opponentIdx].activePlayers].sort((a, b) =>

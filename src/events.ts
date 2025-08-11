@@ -1,6 +1,6 @@
-import { EMatchState } from "@trucoshi/prisma"
 import { SocketError } from "./server"
 import {
+  EMatchState,
   IAccountDetails,
   IChatMessage,
   ILobbyOptions,
@@ -34,6 +34,7 @@ export enum EServerEvent {
   KICK_PLAYER = "PLAYER_KICKED",
   UPDATE_ACTIVE_MATCHES = "UPDATE_ACTIVE_MATCHES",
   UPDATE_PUBLIC_MATCHES = "UPDATE_PUBLIC_MATCHES",
+  PAUSE_MATCH_REQUEST = "PAUSE_MATCH_REQUEST",
   WAITING_POSSIBLE_SAY = "WAITING_POSSIBLE_SAY",
   UPDATE_CHAT = "UPDAET_CHAT",
   UPDATE_STATS = "UPDATE_STATS",
@@ -46,7 +47,12 @@ export interface ServerToClientEvents {
   [EServerEvent.NEW_MESSAGE]: (roomId: string, message?: IChatMessage) => void
   [EServerEvent.UPDATE_ACTIVE_MATCHES]: (activeMatches: IPublicMatchInfo[]) => void
   [EServerEvent.UPDATE_PUBLIC_MATCHES]: (publicMatches: IPublicMatchInfo[]) => void
-  [EServerEvent.UPDATE_MATCH]: (match: IPublicMatch, stats?: IPublicMatchStats, callback?: () => void) => void
+  [EServerEvent.UPDATE_MATCH]: (
+    match: IPublicMatch,
+    stats?: IPublicMatchStats,
+    callback?: () => void
+  ) => void
+  [EServerEvent.PAUSE_MATCH_REQUEST]: (roomId: string, answer: (answer: boolean) => void) => void
   [EServerEvent.KICK_PLAYER]: (match: IPublicMatch, session: string, reason?: string) => void
   [EServerEvent.MATCH_DELETED]: (matchSessionId: string) => void
   [EServerEvent.SET_SESSION]: (
@@ -77,10 +83,11 @@ export enum EClientEvent {
   SET_MATCH_OPTIONS = "SET_MATCH_OPTIONS",
   LIST_MATCHES = "LIST_MATCHES",
   LIST_RANKING = "LIST_RANKING",
+  SET_PLAYER_READY = "SET_PLAYER_READY",
   JOIN_MATCH = "JOIN_MATCH",
   START_MATCH = "START_MATCH",
+  PAUSE_MATCH = "PAUSE_MATCH",
   ADD_BOT = "ADD_BOT",
-  SET_PLAYER_READY = "SET_PLAYER_READY",
   FETCH_MATCH = "FETCH_MATCH",
   FETCH_CHAT_ROOM = "FETCH_CHAT_ROOM",
   KICK_PLAYER = "KICK_PLAYER",
@@ -132,6 +139,11 @@ export interface ClientToServerEvents {
     matchSessionId: string,
     key: string,
     callback: IEventCallback
+  ) => void
+  [EClientEvent.PAUSE_MATCH]: (
+    matchSessionId: string,
+    pause: boolean,
+    callback: IEventCallback<{ paused?: boolean }>
   ) => void
   [EClientEvent.FETCH_MATCH]: (
     matchSessionId: string,

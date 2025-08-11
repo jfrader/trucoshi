@@ -22,7 +22,7 @@ import { IPlayInstance, PlayInstance } from "./Play"
 import { IRound, Round } from "./Round"
 import { ITruco, Truco } from "./Truco"
 import { CARDS_HUMAN_READABLE, PlayedCard, dealCards } from "../lib"
-import { checkHandWinner } from "../lib/utils"
+import { checkHandWinner, getOpponentTeam } from "../lib/utils"
 import { Flor, IFlor } from "./Flor"
 import { getMemoLatestBitcoinBlock } from "../accounts/client"
 
@@ -479,7 +479,7 @@ const setTurnCommands = (match: IMatch, hand: IHand) => {
 
 const handleEnvido = (match: IMatch, hand: IHand, currentPlayer: IPlayer) => {
   const envido = hand.envido
-  const opposingTeamIdx = Number(!envido.teamIdx)
+  const opposingTeamIdx = getOpponentTeam(envido.teamIdx)
 
   if (
     envido.teamIdx !== null &&
@@ -546,7 +546,7 @@ const handleEnvido = (match: IMatch, hand: IHand, currentPlayer: IPlayer) => {
 const handleFlor = (match: IMatch, hand: IHand, currentPlayer: IPlayer) => {
   const flor = hand.flor
   const teamIdx = flor.teamIdx
-  const opposingTeamIdx = Number(!teamIdx)
+  const opposingTeamIdx = getOpponentTeam(teamIdx)
 
   if (
     hand.truco.answer === null &&
@@ -581,7 +581,7 @@ const handleFlor = (match: IMatch, hand: IHand, currentPlayer: IPlayer) => {
 
 const handleTrucoAndMazo = (match: IMatch, hand: IHand, currentPlayer: IPlayer) => {
   const { truco, flor, envido } = hand
-  const opposingTeamIdx = Number(!truco.teamIdx)
+  const opposingTeamIdx = getOpponentTeam(truco.teamIdx)
 
   const envidoInProgress = !envido.finished && envido.started
 

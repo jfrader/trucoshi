@@ -400,7 +400,7 @@ describe("Trucoshi Game", () => {
     })
   }
 
-  it("should play 250 random matches of 2, 4 or 6 players in parallel", (done) => {
+  it("should play 250 random matches of 2, 4 or 6 players in parallel", async () => {
     async function awaitGames() {
       let played = 0
       let playedProm: Promise<any>[] = []
@@ -419,13 +419,10 @@ describe("Trucoshi Game", () => {
       await Promise.allSettled(playedProm)
     }
 
-    ;(async () => {
-      await awaitGames()
-      done()
-    })()
+    await awaitGames()
   })
 
-  it("should play and abandon 250 random matches in parallel", (done) => {
+  it("should play and abandon 250 random matches in parallel", async () => {
     async function awaitGames() {
       let played = 0
       let playedProm: Promise<any>[] = []
@@ -444,9 +441,6 @@ describe("Trucoshi Game", () => {
       await Promise.allSettled(playedProm)
     }
 
-    ;(async () => {
-      await awaitGames()
-      done()
-    })()
+    await awaitGames()
   })
 })

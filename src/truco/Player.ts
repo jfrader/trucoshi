@@ -4,6 +4,8 @@ import { BURNT_CARD, CARDS } from "../lib/constants"
 import { getMaxNumberIndex, getMinNumberIndex } from "../lib/utils"
 import { BotProfile, playBot } from "./Bot"
 import { rng } from "../lib"
+import { PLAYER_TIMEOUT_GRACE } from "../constants"
+import logger from "../utils/logger"
 
 export function Player({
   accountId,
@@ -36,6 +38,7 @@ export function Player({
     teamIdx,
     abandonedTime: 0,
     hand: [],
+    _didSomething: false,
     _commands: new Set(),
     usedHand: [],
     prevHand: [],
@@ -47,7 +50,6 @@ export function Player({
     turnExtensionExpiresAt: null,
     hasFlor: false,
     isEnvidoTurn: false,
-    didSomething: false,
     hasSaidEnvidoPoints: false,
     hasSaidFlor: false,
     hasSaidTruco: false,
@@ -58,6 +60,15 @@ export function Player({
     opponentProfiles: {},
     get commands() {
       return Array.from(player._commands.values())
+    },
+    get didSomething() {
+      return player._didSomething
+    },
+    set didSomething(value) {
+      if (value && player.abandonedTime > PLAYER_TIMEOUT_GRACE) {
+        player.abandonedTime = player.abandonedTime - PLAYER_TIMEOUT_GRACE
+      }
+      player._didSomething = value
     },
     getRandomCard() {
       const randomIdx = Math.floor(Math.random() * player.hand.length)
@@ -111,21 +122,17 @@ export function Player({
       }
       player.isTurn = turn
     },
-    setTurnExpiration(expiresInMs, extensionInMs) {
-      if (expiresInMs && player.turnExpiresAt) {
-        return
+    delayTurnExpiration(ms) {
+      if (player.turnExpiresAt) {
+        player.turnExpiresAt += ms
       }
-
-      const now = Date.now()
-
-      if (expiresInMs) {
-        player.turnExpiresAt = now + expiresInMs
-        player.turnExtensionExpiresAt = player.turnExpiresAt + (extensionInMs || 0)
-        return
+      if (player.turnExtensionExpiresAt) {
+        player.turnExtensionExpiresAt += ms
       }
-
-      player.turnExpiresAt = null
-      player.turnExtensionExpiresAt = null
+    },
+    setTurnExpiration(turnTime: number, abandonTime: number) {
+      this.turnExpiresAt = Date.now() + turnTime
+      this.turnExtensionExpiresAt = this.turnExpiresAt + abandonTime
     },
     setIsOwner(isOwner) {
       player.isOwner = isOwner

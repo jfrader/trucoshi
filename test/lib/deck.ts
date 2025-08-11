@@ -103,7 +103,7 @@ describe("Trucoshi Deck", () => {
       expect(count).to.be.greaterThan(195).lessThan(305)
     }
 
-    console.log("Random integer counts:", counts)
+    // console.log("Random integer counts:", counts)
     done()
   })
 
@@ -126,7 +126,7 @@ describe("Trucoshi Deck", () => {
     const entries = Object.entries(counts)
     expect(entries.length).to.equal(40)
 
-    console.log("Card distribution counts:", entries)
+    // console.log("Card distribution counts:", entries)
     done()
   })
 

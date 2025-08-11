@@ -21,5 +21,5 @@ export const isSocketError = (e: any, code?: keyof typeof GAME_ERROR) =>
     ? e
     : new SocketError(
         code || "UNEXPECTED_ERROR",
-        "message" in e && process.env.NODE_ENV === "development" ? e.message : undefined
+        e && "message" in e && process.env.NODE_ENV === "development" ? e.message : undefined
       )

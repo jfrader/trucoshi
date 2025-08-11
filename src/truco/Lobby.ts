@@ -14,6 +14,7 @@ import {
   TEAM_SIZE_VALUES,
 } from "../lib/constants"
 import { BotProfile } from "./Bot"
+import { getOpponentTeam } from "../lib/utils"
 
 const log = logger.child({ class: "Lobby" })
 
@@ -47,6 +48,8 @@ export interface IPrivateLobby {
   full: boolean
   ready: boolean
   started: boolean
+  paused: boolean
+  pauseRequest?: { accept: () => void; decline: () => void; fromTeamIdx: 0 | 1 }
   addPlayer(args: {
     accountId?: number | undefined
     avatarUrl?: string | undefined | null
@@ -57,6 +60,7 @@ export interface IPrivateLobby {
     isOwner?: boolean
     bot?: BotProfile
   }): Promise<IPlayer>
+  requestPause(fromTeamIdx: 0 | 1, pause: boolean): Promise<void>
   removePlayer(session: string): Promise<ILobby>
   calculateReady(): boolean
   calculateFull(): boolean
@@ -78,6 +82,7 @@ export interface ILobby
     | "ready"
     | "full"
     | "started"
+    | "paused"
     | "teams"
     | "players"
     | "gameLoop"
@@ -85,6 +90,8 @@ export interface ILobby
     | "calculateReady"
     | "hostName"
     | "playerCount"
+    | "requestPause"
+    | "pauseRequest"
   > {}
 
 export function Lobby(
@@ -104,6 +111,7 @@ export function Lobby(
     full: false,
     ready: false,
     started: false,
+    paused: false,
     gameLoop: undefined,
     get playerCount() {
       if (lobby.started) {
@@ -162,6 +170,39 @@ export function Lobby(
       return lobby.queue.queue(async () => {
         return removePlayerFromLobby({ lobby, session })
       })
+    },
+    requestPause(fromTeamIdx, pause) {
+      if (!pause) {
+        lobby.paused = false
+        return Promise.resolve()
+      }
+
+      if (!lobby.started || lobby.paused) {
+        throw new SocketError("FORBIDDEN")
+      }
+
+      if (
+        lobby.teams[getOpponentTeam(fromTeamIdx)].players.find(
+          (opponent) => !opponent.abandoned && !opponent.bot
+        )
+      ) {
+        return new Promise<void>((resolve, reject) => {
+          lobby.pauseRequest = {
+            accept() {
+              lobby.paused = true
+              resolve()
+            },
+            decline() {
+              lobby.paused = false
+              reject()
+            },
+            fromTeamIdx,
+          }
+        })
+      }
+
+      lobby.paused = true
+      return Promise.resolve()
     },
     startMatch() {
       lobby.playersAtStart = lobby.players.length
@@ -278,7 +319,7 @@ const addPlayerToLobby = async ({
   const existing = lobby.players.find((p) => p.session === session)
   const hasMovedSlots = Boolean(existing)
 
-  const resolvedTeamIdx: 0 | 1 = teamIdx ?? (Number(!lobby.lastTeamIdx) as 0 | 1)
+  const resolvedTeamIdx: 0 | 1 = teamIdx ?? (getOpponentTeam(lobby.lastTeamIdx) as 0 | 1)
   const resolvedIsOwner = existing?.isOwner ?? isOwner
 
   if (lobby.started) {

@@ -1,4 +1,4 @@
-import { getMinNumberIndex } from "../lib/utils"
+import { getMinNumberIndex, getOpponentTeam } from "../lib/utils"
 import { EAnswerCommand, EFlorCommand, GAME_ERROR, IPlayer, ITeam, ILobbyOptions } from "../types"
 import { ITable } from "../lib/classes/Table"
 import logger from "../utils/logger"
@@ -73,7 +73,7 @@ export function Flor(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITabl
         throw new Error(GAME_ERROR.NO_FLOR)
       }
       const playerTeamIdx = player.teamIdx as 0 | 1
-      const opponentIdx = Number(!playerTeamIdx) as 0 | 1
+      const opponentIdx = getOpponentTeam(playerTeamIdx) as 0 | 1
 
       player.saidFlor()
       flor.started = true
@@ -178,7 +178,7 @@ export function Flor(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITabl
 
       player.saidFlor()
 
-      const opponentIdx = Number(!playerTeamIdx) as 0 | 1
+      const opponentIdx = getOpponentTeam(playerTeamIdx) as 0 | 1
 
       flor.stake = 6
       flor.declineStake = 4 // Declining CONTRAFLOR gives 4 points
@@ -213,7 +213,7 @@ export function Flor(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITabl
 
       player.saidFlor()
 
-      const opponentIdx = Number(!playerTeamIdx) as 0 | 1
+      const opponentIdx = getOpponentTeam(playerTeamIdx) as 0 | 1
 
       const totals = teams.map((team) => (team.points.malas || 0) + (team.points.buenas || 0))
       const lower = getMinNumberIndex(totals)
@@ -249,7 +249,7 @@ export function Flor(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITabl
       }
       player.saidFlor()
       flor.finished = true
-      flor.winner = teams[Number(!player.teamIdx)]
+      flor.winner = teams[getOpponentTeam(player.teamIdx)]
       flor.stake = 3
       flor.declineStake = 3
       flor.answered = true
@@ -258,7 +258,7 @@ export function Flor(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITabl
     },
     sayAnswer(player, answer) {
       const playerTeamIdx = player.teamIdx as 0 | 1
-      const opponentIdx = Number(!playerTeamIdx) as 0 | 1
+      const opponentIdx = getOpponentTeam(playerTeamIdx) as 0 | 1
       if (playerTeamIdx === flor.teamIdx) {
         throw new Error(GAME_ERROR.INVALID_COMMAND)
       }

@@ -1,5 +1,5 @@
 import { ITable } from "../lib"
-import { getMaxNumberIndex } from "../lib/utils"
+import { getMaxNumberIndex, getOpponentTeam } from "../lib/utils"
 import {
   EAnswerCommand,
   ECommand,
@@ -173,7 +173,7 @@ export function Envido(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITa
       const playerTeamIdx = player.teamIdx as 0 | 1
 
       if (envido.teamIdx !== playerTeamIdx && envido.possibleAnswerCommands.includes(command)) {
-        const opponentIdx = Number(!playerTeamIdx) as 0 | 1
+        const opponentIdx = getOpponentTeam(playerTeamIdx) as 0 | 1
 
         envido.declineStake = envido.stake || 1
 
@@ -229,7 +229,7 @@ export function Envido(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITa
         if (points > envido.winningPointsAnswer) {
           envido.winningPlayer = player
           envido.winningPointsAnswer = points
-          envido.players = teams[Number(!player.teamIdx)].activePlayers.filter(
+          envido.players = teams[getOpponentTeam(player.teamIdx)].activePlayers.filter(
             (p) => !p.hasSaidEnvidoPoints
           )
           log.trace({ playerKey: player.key, points }, "New winning player due to higher points")
@@ -249,7 +249,7 @@ export function Envido(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITa
             },
             "Tie detected, selecting forehand winner"
           )
-          envido.players = teams[Number(!forehandWinner.teamIdx)].activePlayers.filter(
+          envido.players = teams[getOpponentTeam(forehandWinner.teamIdx)].activePlayers.filter(
             (p) => !p.hasSaidEnvidoPoints
           )
           envido.winningPlayer = forehandWinner
@@ -271,7 +271,7 @@ export function Envido(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITa
       return envido
     },
     sayAnswer(player, answer) {
-      const opponentIdx = Number(!player.teamIdx) as 0 | 1
+      const opponentIdx = getOpponentTeam(player.teamIdx) as 0 | 1
       if (answer === null || player.teamIdx === envido.teamIdx) {
         return envido
       }

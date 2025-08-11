@@ -15,6 +15,7 @@ export enum EMatchState {
   READY = "READY",
   STARTED = "STARTED",
   FINISHED = "FINISHED",
+  PAUSED = "PAUSED",
 }
 
 export type IPlayerRanking = Omit<UserStats, "id" | "satsBet" | "satsWon" | "satsLost"> &
@@ -371,7 +372,9 @@ export interface IPlayer {
   turnExtensionExpiresAt: number | null
   hasFlor: boolean
   flor: { value: number; cards: ICard[] } | null
-  didSomething: boolean
+  _didSomething: boolean
+  get didSomething(): boolean
+  set didSomething(value: boolean)
   hasSaidFlor: boolean
   hasSaidEnvidoPoints: boolean
   hasSaidTruco: boolean
@@ -397,6 +400,7 @@ export interface IPlayer {
   setPayRequest(id?: number): void
   setMatchPlayerId(id?: number): void
   setTurn(turn: boolean): void
+  delayTurnExpiration(ms: number): void
   setTurnExpiration(...args: [number, number | null] | [null, null]): void
   setEnvidoTurn(turn: boolean): void
   getPublicPlayer(session?: string | "log"): IPublicPlayer
