@@ -717,20 +717,30 @@ export async function playBot(
     context.bot.hasFlor &&
     context.bot.flor
   ) {
-    if (context.play.flor.stake > 3) {
+    const florValue = context.bot.flor.value
+    const confidence = context.profile.envidoConfidence
+
+    // Use state >=4 to detect answer phase (more reliable than stake >3)
+    if (context.play.flor.state >= 4) {
+      // Adjust threshold based on state/stake for risk assessment
+      let threshold = 30 * confidence // Base for acceptance
+      if (context.play.flor.state === 5) {
+        // Al resto: higher caution
+        threshold = Math.min(35 * confidence, 38) // Cap at max flor value
+        if (context.play.flor.stake <= 3) threshold -= 5 // Lower threshold if small resto (less risk)
+      }
       return sayCommand({
-        command:
-          context.bot.flor.value >= 35 * context.profile.envidoConfidence
-            ? EAnswerCommand.QUIERO
-            : EAnswerCommand.NO_QUIERO,
+        command: florValue >= threshold ? EAnswerCommand.QUIERO : EAnswerCommand.NO_QUIERO,
         play,
         player: bot,
         table: table.sessionId,
       })
     }
+
+    // Initial/early phase escalations (state <4)
     if (
       context.bot._commands.has(EFlorCommand.CONTRAFLOR_AL_RESTO) &&
-      context.bot.flor?.value >= 37 * context.profile.envidoConfidence
+      florValue >= 33 * confidence // Lowered from 37 for more realism (max=38)
     ) {
       return sayCommand({
         command: EFlorCommand.CONTRAFLOR_AL_RESTO,
@@ -741,7 +751,7 @@ export async function playBot(
     }
     if (
       context.bot._commands.has(EFlorCommand.CONTRAFLOR) &&
-      context.bot.flor?.value >= 30 * context.profile.envidoConfidence
+      florValue >= 28 * confidence // Lowered from 30
     ) {
       return sayCommand({
         command: EFlorCommand.CONTRAFLOR,
@@ -752,16 +762,18 @@ export async function playBot(
     }
     if (
       context.bot._commands.has(EFlorCommand.ACHICO) &&
-      context.bot.flor?.value < 27 * context.profile.envidoConfidence
+      florValue < 25 * confidence // Adjusted from 27
     ) {
       return sayCommand({ command: EFlorCommand.ACHICO, play, player: bot, table: table.sessionId })
     }
 
+    // Fallback: Declare flor if available
     if (context.bot._commands.has(EFlorCommand.FLOR)) {
       return sayCommand({ command: EFlorCommand.FLOR, play, player: bot, table: table.sessionId })
     } else {
-      logger.fatal(context, "BOT SHOULD HAVE FLOR??? ***")
-      return sayCommand({ command: EFlorCommand.FLOR, play, player: bot, table: table.sessionId })
+      // If no valid flor command, fold to mazo (safe default, avoid invalid commands)
+      logger.error(new Error("Bot failed to decide on WAITING_FLOR_ANSWER and said MAZO"))
+      return sayCommand({ command: ESayCommand.MAZO, play, player: bot, table: table.sessionId })
     }
   }
 

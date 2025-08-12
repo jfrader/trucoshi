@@ -71,7 +71,7 @@ export function dealCards<
   if (cheat_lots_of_flowers) {
     deck.shuffle(players[0].idx)
     for (const player of players) {
-      if (Math.random() > 0.5) {
+      if (Math.random() > 0.33) {
         const first = deck.takeCard()
         const second = deck.pick(deck.cards.find((c) => c.charAt(1) === first.charAt(1))!)!
         const third = deck.pick(deck.cards.find((c) => c.charAt(1) === first.charAt(1))!)!
