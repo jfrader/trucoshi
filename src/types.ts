@@ -361,6 +361,7 @@ export interface IPlayer {
   session: string
   payRequestId?: number
   abandonedTime: number
+  disconnectedAt: number | null
   hand: Array<ICard>
   usedHand: Array<ICard>
   prevHand: Array<ICard>

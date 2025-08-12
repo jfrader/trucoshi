@@ -35,6 +35,7 @@ export enum EServerEvent {
   UPDATE_ACTIVE_MATCHES = "UPDATE_ACTIVE_MATCHES",
   UPDATE_PUBLIC_MATCHES = "UPDATE_PUBLIC_MATCHES",
   PAUSE_MATCH_REQUEST = "PAUSE_MATCH_REQUEST",
+  UNPAUSE_STARTED = "UNPAUSE_STARTED",
   WAITING_POSSIBLE_SAY = "WAITING_POSSIBLE_SAY",
   UPDATE_CHAT = "UPDAET_CHAT",
   UPDATE_STATS = "UPDATE_STATS",
@@ -52,7 +53,12 @@ export interface ServerToClientEvents {
     stats?: IPublicMatchStats,
     callback?: () => void
   ) => void
-  [EServerEvent.PAUSE_MATCH_REQUEST]: (roomId: string, answer: (answer: boolean) => void) => void
+  [EServerEvent.PAUSE_MATCH_REQUEST]: (
+    roomId: string,
+    requestExpiresAt: number,
+    answer: (answer: boolean) => void
+  ) => void
+  [EServerEvent.UNPAUSE_STARTED]: (roomId: string, unpausesAt: number) => void
   [EServerEvent.KICK_PLAYER]: (match: IPublicMatch, session: string, reason?: string) => void
   [EServerEvent.MATCH_DELETED]: (matchSessionId: string) => void
   [EServerEvent.SET_SESSION]: (
@@ -143,7 +149,7 @@ export interface ClientToServerEvents {
   [EClientEvent.PAUSE_MATCH]: (
     matchSessionId: string,
     pause: boolean,
-    callback: IEventCallback<{ paused?: boolean }>
+    callback?: IEventCallback<{ paused?: boolean }>
   ) => void
   [EClientEvent.FETCH_MATCH]: (
     matchSessionId: string,

@@ -356,9 +356,9 @@ export const trucoshiMiddleware = (server: ITrucoshi) => {
           .catch((e) =>
             log.error({ message: e.message }, "Failed to emit match update after pause event")
           )
-        callback({ success: true, paused })
+        callback?.({ success: true, paused })
       } catch (e) {
-        callback({ error: isSocketError(e), success: false })
+        callback?.({ error: isSocketError(e), success: false })
       }
     })
 

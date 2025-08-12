@@ -1,6 +1,6 @@
 import { ICard, IPlayer, DANGEROUS_COMMANDS, ECommand } from "../types"
 import { maxBy } from "../utils/array"
-import { BURNT_CARD, CARDS } from "../lib/constants"
+import { BURNT_CARD, CARDS, PLAYER_ABANDON_TIMEOUT } from "../lib/constants"
 import { getMaxNumberIndex, getMinNumberIndex } from "../lib/utils"
 import { BotProfile, playBot } from "./Bot"
 import { rng } from "../lib"
@@ -37,6 +37,7 @@ export function Player({
     session: "",
     teamIdx,
     abandonedTime: 0,
+    disconnectedAt: null,
     hand: [],
     _didSomething: false,
     _commands: new Set(),
@@ -65,8 +66,11 @@ export function Player({
       return player._didSomething
     },
     set didSomething(value) {
-      if (value && player.abandonedTime > PLAYER_TIMEOUT_GRACE) {
-        player.abandonedTime = player.abandonedTime - PLAYER_TIMEOUT_GRACE
+      if (value) {
+        player.abandonedTime = Math.max(
+          player.abandonedTime - PLAYER_ABANDON_TIMEOUT * (5 / 100),
+          0
+        )
       }
       player._didSomething = value
     },

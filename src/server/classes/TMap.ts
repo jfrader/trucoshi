@@ -15,7 +15,7 @@ export class TMap<K, V extends { [x: string]: any }> extends Map<K, V> {
     return Array.from(this.values()).filter(finder)
   }
 
-  getOrThrow(key?: K) {
+  getOrThrow(key: K | undefined) {
     const result = key && this.get(key)
     if (!result) {
       throw new Error(`getOrThrow(${key}) not found`)

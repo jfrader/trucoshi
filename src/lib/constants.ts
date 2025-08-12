@@ -1,9 +1,10 @@
 import { ICard } from "../types"
 
-export const PLAYER_ABANDON_TIMEOUT = 1000 * 60 * 0.5
-export const PLAYER_TURN_TIMEOUT = 1000 * 15
+export const PLAYER_ABANDON_TIMEOUT = 1000 * 60 * 2
+export const PLAYER_TURN_TIMEOUT = 1000 * 30
 export const PREVIOUS_HAND_ACK_TIMEOUT = 1000 * 3
 export const PAUSE_REQUEST_TIMEOUT = 1000 * 30
+export const UNPAUSE_TIME = 1000 * 10
 
 export const CARDS = {
   "1e": 13,

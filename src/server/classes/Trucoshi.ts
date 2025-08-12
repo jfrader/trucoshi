@@ -45,7 +45,7 @@ import {
 import { BOT_NAMES } from "../../truco/Bot"
 import { getCommandSound } from "../sounds"
 import { getOpponentTeam } from "../../lib/utils"
-import { PAUSE_REQUEST_TIMEOUT } from "../../lib"
+import { PAUSE_REQUEST_TIMEOUT, PLAYER_ABANDON_TIMEOUT, UNPAUSE_TIME } from "../../lib"
 import { TrucoshiTurn } from "./Turn"
 
 const log = logger.child({ class: "Trucoshi" })
@@ -185,7 +185,7 @@ export interface ITrucoshi {
   }): Promise<void>
   pauseMatch(input: {
     matchSessionId: string
-    userSession: IUserSession
+    userSession?: IUserSession
     pause: boolean
   }): Promise<boolean>
   setTurnTimeout(params: {
@@ -640,7 +640,8 @@ export const Trucoshi = ({
         if (table) {
           const player = table.isSessionPlaying(userSession.session)
           if (player) {
-            userSession.reconnect(matchSessionId, "disconnection")
+            const reconnectType = table.state() === EMatchState.STARTED ? "turn" : "disconnection"
+            userSession.reconnect(matchSessionId, reconnectType)
             socket.join(matchSessionId)
             socket.join(matchSessionId + player.teamIdx)
 
@@ -1067,7 +1068,7 @@ export const Trucoshi = ({
         )
         return
       }
-      table.log.info(
+      table.log.trace(
         {
           matchSessionId: table.matchSessionId,
           player: player.getPublicPlayer("log"),
@@ -1080,17 +1081,6 @@ export const Trucoshi = ({
       )
       const chat = server.chat.rooms.getOrThrow(table.matchSessionId)
       player.setTurnExpiration(table.lobby.options.turnTime, table.lobby.options.abandonTime)
-      table.log.debug(
-        {
-          matchSessionId: table.matchSessionId,
-          player: player.getPublicPlayer("log"),
-          turnExpiresAt: player.turnExpiresAt,
-          turnExtensionExpiresAt: player.turnExtensionExpiresAt,
-          now: Date.now(),
-          isInExtensionPeriod: Date.now() >= (player.turnExpiresAt || 0),
-        },
-        "Set initial turn expiration timers"
-      )
       turn()
       function createTimeout(pausedTime: number) {
         if (!play.player?.turnExpiresAt || !play.player.turnExtensionExpiresAt) {
@@ -1107,11 +1097,12 @@ export const Trucoshi = ({
         }
         const now = Date.now()
         const isInExtensionPeriod = now >= play.player.turnExpiresAt
-        const timeoutDuration = isInExtensionPeriod
-          ? Math.max(play.player.turnExtensionExpiresAt - now, 0)
-          : Math.max(play.player.turnExpiresAt - now + PLAYER_TIMEOUT_GRACE, 0)
+        const timeoutDuration =
+          isInExtensionPeriod && player
+            ? Math.max(play.player.turnExtensionExpiresAt - now - player.abandonedTime, 0)
+            : Math.max(play.player.turnExpiresAt - now + PLAYER_TIMEOUT_GRACE, 0)
 
-        table.log.info(
+        table.log.trace(
           {
             matchSessionId: table.matchSessionId,
             player: play.player.getPublicPlayer("log"),
@@ -1128,7 +1119,7 @@ export const Trucoshi = ({
         )
 
         return setTimeout(() => {
-          const timedOutAt = Date.now()
+          const timedOutAt = play.player?.disconnectedAt || Date.now()
           const tPlayer = play.player
           if (!tPlayer || !tPlayer.turnExtensionExpiresAt) {
             table.log.error(
@@ -1137,33 +1128,15 @@ export const Trucoshi = ({
             )
             return
           }
-          if (tPlayer !== player) {
-            table.log.warn(
-              {
-                matchSessionId: table.matchSessionId,
-                originalPlayer: player?.getPublicPlayer("log"),
-                currentPlayer: tPlayer.getPublicPlayer("log"),
-              },
-              "Turn timeout fired for different player than expected"
-            )
-          }
-          table.log.info(
-            {
-              matchSessionId: table.matchSessionId,
-              player: tPlayer.getPublicPlayer("log"),
-              timedOutAt,
-            },
-            "Turn timed out, disconnecting player"
-          )
           table.playerDisconnected(tPlayer)
+          tPlayer.disconnectedAt = timedOutAt
 
-          // Calculate remaining reconnect time based on turnExtensionExpiresAt
           const reconnectDuration = Math.max(
-            tPlayer.turnExtensionExpiresAt - timedOutAt,
-            PLAYER_TIMEOUT_GRACE
+            tPlayer.turnExtensionExpiresAt - timedOutAt - tPlayer.abandonedTime,
+            PLAYER_TIMEOUT_GRACE * 5
           )
 
-          table.log.debug(
+          table.log.trace(
             {
               matchSessionId: table.matchSessionId,
               player: tPlayer.getPublicPlayer("log"),
@@ -1182,27 +1155,28 @@ export const Trucoshi = ({
             .waitReconnection(table.matchSessionId, reconnectDuration, "turn")
             .then(() => {
               const reconnectTime = Date.now()
-              tPlayer.addDisconnectedTime(reconnectTime - timedOutAt)
-              table.log.debug(
-                {
-                  matchSessionId: table.matchSessionId,
-                  player: tPlayer.getPublicPlayer("log"),
-                  disconnectedTime: reconnectTime - timedOutAt,
-                  abandonedTime: tPlayer.abandonedTime,
-                  timedOutAt,
-                  reconnectTime,
-                },
-                "Added disconnected time after reconnection"
-              )
-              table.log.info(
+              let disconnectedDuration = reconnectTime - timedOutAt
+              const trucoshiTurn = server.turns.getOrThrow(table.matchSessionId)
+              if (
+                table.lobby.paused &&
+                trucoshiTurn.pausedAt &&
+                timedOutAt < trucoshiTurn.pausedAt
+              ) {
+                disconnectedDuration = trucoshiTurn.pausedAt - timedOutAt
+              }
+              tPlayer.addDisconnectedTime(disconnectedDuration)
+              table.log.trace(
                 { matchSessionId: table.matchSessionId, player: tPlayer.getPublicPlayer("log") },
                 "Player reconnected"
               )
               table.playerReconnected(tPlayer, user)
-              turn()
+              tPlayer.disconnectedAt = null
+              if (!table.lobby.paused) {
+                turn()
+              }
             })
             .catch(() => {
-              table.log.info(
+              table.log.trace(
                 { matchSessionId: table.matchSessionId, player: tPlayer.getPublicPlayer("log") },
                 "Player abandoned after reconnection timeout"
               )
@@ -1211,11 +1185,14 @@ export const Trucoshi = ({
               cancel()
             })
             .finally(() => {
-              table.log.debug(
-                { matchSessionId: table.matchSessionId },
-                "Emitting UPDATE_MATCH after turn timeout"
-              )
-              server.emitMatchUpdate(table).catch(log.error)
+              server
+                .emitMatchUpdate(table)
+                .catch((e) =>
+                  log.error(
+                    { message: e.message },
+                    "Failed to emit match update after waitReconnection resolved or rejected"
+                  )
+                )
             })
         }, timeoutDuration)
       }
@@ -1838,76 +1815,110 @@ export const Trucoshi = ({
       await server.emitMatchUpdate(table)
       return table
     },
-    pauseMatch({ matchSessionId, userSession, pause }) {
+    async pauseMatch({ matchSessionId, userSession, pause }) {
       const table = server.tables.getOrThrow(matchSessionId)
-      const player = table.isSessionPlaying(userSession.session)
+      const chat = server.chat.rooms.getOrThrow(matchSessionId)
+
+      const player = userSession
+        ? table.isSessionPlaying(userSession.session)
+        : {
+            teamIdx: 0 as 0 | 1,
+            getPublicPlayer() {
+              return { pausedByAdmin: true }
+            },
+          }
+
       if (!player) {
         table.log.error(
-          { matchSessionId, userSession: userSession.session },
+          { matchSessionId, userSession: userSession?.session },
           "Player not found in match for pause/unpause"
         )
         throw new SocketError("FORBIDDEN")
       }
-      table.log.info(
+
+      table.log.trace(
         { matchSessionId, player: player.getPublicPlayer("log"), pause, state: table.state() },
         "Processing pause/unpause request"
       )
+
       if (pause) {
+        if (table.lobby.pauseRequest) {
+          table.log.warn(
+            { matchSessionId, player: player.getPublicPlayer("log") },
+            "Pause request already pending, ignoring new request"
+          )
+          return false
+        }
+
         const promise = table.lobby
           .requestPause(player.teamIdx, true)
           .then(() => {
+            if (!table.lobby.pauseRequest) {
+              table.log.error({}, "Failed to find pause request in lobby")
+              return false
+            }
+
             const turn = server.turns.getOrThrow(matchSessionId)
-            table.log.debug(
+            table.log.trace(
               {
                 matchSessionId,
                 turnPlayer: turn.play.player?.getPublicPlayer("log"),
                 turnTimeout: !!turn.timeout,
                 pausedAt: turn.pausedAt,
-                currentPlayer: player.getPublicPlayer("log"),
+                pausingPlayer: player.getPublicPlayer("log"),
               },
               "Pausing match, clearing turn timeout"
             )
             turn.timeout && clearTimeout(turn.timeout)
             turn.pausedAt = Date.now()
-            const userTimeout = userSession.timeouts.turn.get(matchSessionId)
-            if (userTimeout?.timeout) {
-              userTimeout.resolve?.()
-              clearTimeout(userTimeout.timeout)
-              table.log.debug(
-                { player: player.getPublicPlayer("log"), matchSessionId },
-                "Cleared reconnection timeout during pause in extension period"
-              )
-            }
+            server.sessions
+              .getOrThrow(turn.play.player?.session)
+              .clearTimeout(matchSessionId, "turn")
             server
               .emitMatchUpdate(table)
               .catch((e) =>
                 table.log.error({ message: e.message }, "Failed to emit UPDATE_MATCH after pause")
               )
+
+            table.lobby.pauseRequest.pauseTimeout = setTimeout(() => {
+              server.pauseMatch({ matchSessionId, pause: false })
+            }, PLAYER_ABANDON_TIMEOUT)
+
+            chat.system("La partida esta en pausa.", "menu0")
+
             return true
           })
           .catch((e) => {
-            table.log.error({ message: e.message, matchSessionId }, "Failed to pause match")
+            table.lobby.pauseRequest = undefined
+            table.log.error({ message: e.message }, "Failed to pause match")
             return false
           })
+
+        const expiresAt = Date.now() + PAUSE_REQUEST_TIMEOUT
+
+        const pauseRequestTimeout = setTimeout(() => {
+          if (table.lobby.pauseRequest) {
+            table.lobby.pauseRequest.decline()
+            table.lobby.pauseRequest = undefined
+          }
+        }, PAUSE_REQUEST_TIMEOUT)
+
         setTimeout(() => {
           server
             .getTableSockets(table, async (socket, socketPlayer) => {
               if (table.lobby.pauseRequest && socketPlayer?.teamIdx === getOpponentTeam(player)) {
-                table.log.debug(
-                  { socketId: socket.id, opponentPlayer: socketPlayer.getPublicPlayer("log") },
-                  "Emitting PAUSE_MATCH_REQUEST to opponent"
-                )
-                socket.emit(EServerEvent.PAUSE_MATCH_REQUEST, table.matchSessionId, (answer) => {
-                  table.log.info(
-                    { matchSessionId, answer, opponentPlayer: socketPlayer.getPublicPlayer("log") },
-                    "Received PAUSE_MATCH_REQUEST response"
-                  )
-                  if (answer) {
-                    table.lobby.pauseRequest?.accept()
-                  } else {
-                    table.lobby.pauseRequest?.decline()
+                socket.emit(
+                  EServerEvent.PAUSE_MATCH_REQUEST,
+                  table.matchSessionId,
+                  expiresAt,
+                  (answer) => {
+                    if (answer) {
+                      table.lobby.pauseRequest?.accept()
+                    } else {
+                      table.lobby.pauseRequest?.decline()
+                    }
                   }
-                })
+                )
               }
             })
             .catch((e) =>
@@ -1917,19 +1928,16 @@ export const Trucoshi = ({
               )
             )
         })
-        const timeout = setTimeout(() => {
-          if (table.lobby.pauseRequest) {
-            table.log.info(
-              { matchSessionId },
-              "PAUSE_REQUEST_TIMEOUT expired, declining pause request"
-            )
-            table.lobby.pauseRequest.decline()
-          }
-        }, PAUSE_REQUEST_TIMEOUT)
-        return promise.finally(() => clearTimeout(timeout))
+
+        return promise.finally(() => clearTimeout(pauseRequestTimeout))
       }
+
       return table.lobby
-        .requestPause(player.teamIdx, false)
+        .requestPause(player.teamIdx, false, (unpausesAt) => {
+          server.getTableSockets(table, async (socket) => {
+            socket.emit(EServerEvent.UNPAUSE_STARTED, table.matchSessionId, unpausesAt)
+          })
+        })
         .then(() => {
           const turn = server.turns.getOrThrow(matchSessionId)
           const pausedTime = turn.pausedAt ? Date.now() - turn.pausedAt : 0
@@ -1938,7 +1946,22 @@ export const Trucoshi = ({
             const previousTurnExpiresAt = turn.play.player.turnExpiresAt
             const previousTurnExtensionExpiresAt = turn.play.player.turnExtensionExpiresAt
             turn.play.player.delayTurnExpiration(pausedTime)
-            table.log.info(
+            if (
+              userSession?.timeouts.turn.has(matchSessionId) &&
+              turn.play.player.turnExtensionExpiresAt
+            ) {
+              if (turn.play.player.disconnectedAt) {
+                turn.play.player.disconnectedAt += pausedTime
+              }
+              const remaining = Math.max(
+                turn.play.player.turnExtensionExpiresAt -
+                  Date.now() -
+                  turn.play.player.abandonedTime,
+                PLAYER_TIMEOUT_GRACE
+              )
+              userSession.resumeTimeout(matchSessionId, "turn", remaining)
+            }
+            table.log.trace(
               {
                 matchSessionId,
                 player: turn.play.player.getPublicPlayer("log"),
@@ -1958,7 +1981,9 @@ export const Trucoshi = ({
               "No player found for turn during unpause"
             )
           }
-          table.log.debug({ matchSessionId, pausedTime }, "Calling turn.retry after unpause")
+
+          chat.system("La partida se ha reanudado...")
+
           turn.retry(pausedTime)
           server
             .emitMatchUpdate(table)
@@ -1970,6 +1995,9 @@ export const Trucoshi = ({
         .catch((e) => {
           table.log.error({ message: e.message, matchSessionId }, "Failed to unpause match")
           return false
+        })
+        .finally(() => {
+          table.lobby.pauseRequest = undefined
         })
     },
     async kickPlayer({ matchSessionId, userSession, key }) {

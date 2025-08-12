@@ -26,6 +26,8 @@ export interface IUserSession extends IUserData {
   getPublicInfo(): IPublicUserSession
   waitReconnection(room: string, timeout: number, type: "disconnection" | "turn"): Promise<void>
   resolveWaitingPromises(room: string, type?: "disconnection" | "turn"): void
+  clearTimeout(room: string, type: "disconnection" | "turn"): void // NEW: Add clearTimeout
+  resumeTimeout(room: string, type: "disconnection" | "turn", duration: number): void // NEW: Add resumeTimeout
   connect(): void
   disconnect(): void
   reconnect(room: string, type?: "disconnection" | "turn"): void
@@ -93,6 +95,34 @@ export function UserSession(key: string, username: string, session: string) {
           }, timeout + PLAYER_TIMEOUT_GRACE),
         })
       })
+    },
+    clearTimeout(room, type) {
+      const reconnecTimeout = userSession.timeouts[type].get(room)
+      if (reconnecTimeout && reconnecTimeout.timeout) {
+        clearTimeout(reconnecTimeout.timeout)
+        reconnecTimeout.timeout = undefined
+        log.trace(
+          userSession.getPublicInfo(),
+          `Cleared ${type} timeout for room ${room} without resolving`
+        )
+      }
+    },
+    resumeTimeout(room, type, duration) {
+      const reconnecTimeout = userSession.timeouts[type].get(room)
+      if (reconnecTimeout && reconnecTimeout.reject) {
+        reconnecTimeout.timeout = setTimeout(() => {
+          reconnecTimeout.reject?.()
+          userSession.timeouts[type].delete(room)
+          log.trace(
+            userSession.getPublicInfo(),
+            `Resumed ${type} timeout for room ${room} timed out after ${duration}ms`
+          )
+        }, duration)
+        log.trace(
+          userSession.getPublicInfo(),
+          `Resumed ${type} timeout for room ${room} with ${duration}ms`
+        )
+      }
     },
     resolveWaitingPromises(room, type) {
       if (!type) {

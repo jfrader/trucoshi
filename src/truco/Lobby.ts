@@ -12,6 +12,7 @@ import {
   PLAYER_TURN_TIMEOUT,
   PREVIOUS_HAND_ACK_TIMEOUT,
   TEAM_SIZE_VALUES,
+  UNPAUSE_TIME,
 } from "../lib/constants"
 import { BotProfile } from "./Bot"
 import { getOpponentTeam } from "../lib/utils"
@@ -49,7 +50,13 @@ export interface IPrivateLobby {
   ready: boolean
   started: boolean
   paused: boolean
-  pauseRequest?: { accept: () => void; decline: () => void; fromTeamIdx: 0 | 1 }
+  pauseRequest?: {
+    accept: () => void
+    decline: () => void
+    fromTeamIdx: 0 | 1
+    unpausesAt?: number
+    pauseTimeout?: NodeJS.Timeout
+  }
   addPlayer(args: {
     accountId?: number | undefined
     avatarUrl?: string | undefined | null
@@ -60,7 +67,11 @@ export interface IPrivateLobby {
     isOwner?: boolean
     bot?: BotProfile
   }): Promise<IPlayer>
-  requestPause(fromTeamIdx: 0 | 1, pause: boolean): Promise<void>
+  requestPause(
+    fromTeamIdx: 0 | 1,
+    pause: boolean,
+    callback?: (unpausesAt: number) => void
+  ): Promise<void>
   removePlayer(session: string): Promise<ILobby>
   calculateReady(): boolean
   calculateFull(): boolean
@@ -171,21 +182,35 @@ export function Lobby(
         return removePlayerFromLobby({ lobby, session })
       })
     },
-    requestPause(fromTeamIdx, pause) {
+    requestPause(fromTeamIdx, pause, callback) {
+      const playerNotAlone = lobby.teams[getOpponentTeam(fromTeamIdx)].players.find(
+        (opponent) => !opponent.abandoned && !opponent.bot
+      )
+
       if (!pause) {
-        lobby.paused = false
-        return Promise.resolve()
+        const unpausesAt = playerNotAlone ? Date.now() + UNPAUSE_TIME : Date.now()
+        if (lobby.pauseRequest) {
+          clearTimeout(lobby.pauseRequest.pauseTimeout)
+          lobby.pauseRequest.unpausesAt = unpausesAt
+        }
+
+        if (playerNotAlone) {
+          callback?.(unpausesAt)
+        }
+
+        return new Promise<void>((resolve) =>
+          setTimeout(() => {
+            lobby.paused = false
+            resolve()
+          }, Math.max(unpausesAt - Date.now(), 0))
+        )
       }
 
-      if (!lobby.started || lobby.paused) {
+      if (!lobby.started || lobby.paused || lobby.gameLoop?.winner) {
         throw new SocketError("FORBIDDEN")
       }
 
-      if (
-        lobby.teams[getOpponentTeam(fromTeamIdx)].players.find(
-          (opponent) => !opponent.abandoned && !opponent.bot
-        )
-      ) {
+      if (playerNotAlone) {
         return new Promise<void>((resolve, reject) => {
           lobby.pauseRequest = {
             accept() {
