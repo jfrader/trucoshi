@@ -24,6 +24,7 @@ export interface IMatchTable {
   spectatorSockets: string[]
   log: Logger<never, boolean>
   state(): EMatchState
+  playing(): boolean
   setBusy(busy: boolean): void
   isSessionPlaying(session: string): IPlayer | null
   getPreviousHand(hand: IHand): IMatchPreviousHand
@@ -53,6 +54,9 @@ export function MatchTable(
     playerSockets: [],
     spectatorSockets: [],
     log: matchLog,
+    playing() {
+      return [EMatchState.FINISHED, EMatchState.PAUSED, EMatchState.STARTED].includes(table.state())
+    },
     setAwardedPerPlayer(award) {
       table.awardedSatsPerPlayer = award
     },
@@ -85,7 +89,7 @@ export function MatchTable(
       player.setReady(false)
     },
     playerReconnected(player, userSession) {
-      if (table.state() !== EMatchState.STARTED) {
+      if (!table.playing()) {
         player.name = userSession.name
         player.avatarUrl = userSession.account?.avatarUrl
       }
@@ -93,7 +97,7 @@ export function MatchTable(
       if (player.abandoned) {
         return
       }
-      if (table.state() === EMatchState.STARTED) {
+      if (table.playing()) {
         player.setReady(true)
       }
     },

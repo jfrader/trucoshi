@@ -1,3 +1,4 @@
+import { IPlayInstance } from "../truco"
 import {
   ECommand,
   EEnvidoAnswerCommand,
@@ -5,6 +6,7 @@ import {
   EFlorCommand,
   EHandState,
   ESayCommand,
+  ICard,
   IPlayer,
 } from "../types"
 
@@ -45,4 +47,18 @@ export function getCommandSound({
   }
 
   return "chat"
+}
+
+export function getCardSound({ card, play }: { card: ICard; play: IPlayInstance }) {
+  if (play.roundIdx === 3 || play.rounds?.[play.roundIdx - 2]?.tie) {
+    if (card === "1e") {
+      return "espada"
+    }
+
+    if (card === "1b") {
+      return "hit2"
+    }
+  }
+
+  return "play"
 }

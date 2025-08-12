@@ -106,15 +106,7 @@ export const trucoshiMiddleware = (server: ITrucoshi) => {
 
         log.trace(userSession.getPublicInfo(), "User creating new match...")
 
-        let matchSessionId = getWordsId()
-        while (server.tables.get(matchSessionId)) {
-          matchSessionId = getWordsId()
-        }
-
-        const table = await server.createMatchTable(matchSessionId, userSession)
-
-        server.chat.create(matchSessionId)
-        socket.join(matchSessionId)
+        const table = await server.createMatchTable(userSession, socket)
 
         return callback({
           success: true,
@@ -135,7 +127,7 @@ export const trucoshiMiddleware = (server: ITrucoshi) => {
       try {
         const userSession = server.sessions.getOrThrow(socket.data.user?.session)
         const table = await server.setMatchOptions({
-          identityJwt: socket.data.identity || "",
+          socket,
           matchSessionId,
           userSession,
           options,
@@ -190,18 +182,8 @@ export const trucoshiMiddleware = (server: ITrucoshi) => {
         log.trace(userSession.getPublicInfo(), "User joining match...")
 
         if (table) {
-          const player = await server.joinMatch(
-            table,
-            userSession,
-            socket.data.identity || null,
-            teamIdx
-          )
+          await server.joinMatch(table, userSession, socket, teamIdx)
 
-          socket.join(table.matchSessionId)
-          socket.join(table.matchSessionId + player.teamIdx)
-          socket.leave(table.matchSessionId + getOpponentTeam(player.teamIdx))
-
-          server.emitMatchUpdate(table).catch(console.error)
           return callback({
             success: true,
             match: table.getPublicMatch(userSession.session),
@@ -345,7 +327,7 @@ export const trucoshiMiddleware = (server: ITrucoshi) => {
     })
 
     /**
-     * Fetch match with session
+     * Pause match
      */
     socket.on(EClientEvent.PAUSE_MATCH, async (matchSessionId, pause, callback) => {
       try {
@@ -357,6 +339,19 @@ export const trucoshiMiddleware = (server: ITrucoshi) => {
             log.error({ message: e.message }, "Failed to emit match update after pause event")
           )
         callback?.({ success: true, paused })
+      } catch (e) {
+        callback?.({ error: isSocketError(e), success: false })
+      }
+    })
+
+    /**
+     * Play another match
+     */
+    socket.on(EClientEvent.PLAY_AGAIN, async (matchSessionId, callback) => {
+      try {
+        const userSession = server.sessions.getOrThrow(socket.data.user?.session)
+        const newMatchSessionId = await server.playAgain({ matchSessionId, userSession, socket })
+        callback?.({ success: !!newMatchSessionId, newMatchSessionId })
       } catch (e) {
         callback?.({ error: isSocketError(e), success: false })
       }

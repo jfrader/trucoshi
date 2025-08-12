@@ -57,6 +57,10 @@ export interface IPrivateLobby {
     unpausesAt?: number
     pauseTimeout?: NodeJS.Timeout
   }
+  playAgainRequest?: {
+    acceptedBySessions: Set<string>
+    newMatchSessionId: string
+  }
   addPlayer(args: {
     accountId?: number | undefined
     avatarUrl?: string | undefined | null
@@ -103,6 +107,7 @@ export interface ILobby
     | "playerCount"
     | "requestPause"
     | "pauseRequest"
+    | "playAgainRequest"
   > {}
 
 export function Lobby(
