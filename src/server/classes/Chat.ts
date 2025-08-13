@@ -188,6 +188,13 @@ export const Chat = (io?: TrucoshiServer, tables?: TMap<string, IMatchTable>) =>
     })
 
     socket.on(EClientEvent.CHAT, (matchId, message, callback) => {
+      log.debug({
+        matchId,
+        message,
+        name: socket.data.user?.name,
+        account: socket.data.user?.account?.id,
+      })
+
       if (matchId !== chat.rooms.get(matchId)?.id || !socket.data.user) {
         log.warn(
           { socketId: socket.id, matchId },
