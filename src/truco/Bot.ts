@@ -15,7 +15,7 @@
  * - Resolved an issue where the bot called "truco" on the first round every hand, misjudging hand wins. Now, it usually escalates after a round win with a guaranteed hand, with rare first-round "truco" calls for very strong hands or bluffs, tightened to occur 1-2 times per match.
  * - Addressed a game hanging issue (repeating turns) by ensuring playBot always returns a valid action (playCard or sayCommand) when it’s the bot’s turn, handling edge cases like null play.rounds or unexpected states.
  * - Corrected TypeScript errors related to 'disabled' property by using p.player.disabled for IPlayedCard objects instead of p.disabled, ensuring type safety.
- * - Adjusted flor phase thresholds to align with the maximum flor value of 38 (e.g., CONTRAFLOR_AL_RESTO at 20 + (18 * envidoConfidence)), correcting previous overestimations (e.g., 37).
+ * - Adjusted flor and envido thresholds to use dynamic ranges with mapConfidenceToRange, ensuring realistic decisions (e.g., CONTRAFLOR_AL_RESTO requires 30–38 points based on envidoConfidence), correcting previous issues like low thresholds (e.g., 17.5 for CONTRAFLOR_AL_RESTO).
  *
  * Desired Behavior:
  * - The bot should feel like a player at an Argentinian Truco table, blending strategy and cultural spirit. For example, "Bender" might call a rare first-round "truco" with a weak hand to rattle opponents, while "Hodlbot" waits for rock-solid envido points, driven by traits.
@@ -27,9 +27,9 @@
  * Tasks for Improvement:
  * - Fine-Tune Escalation: Test hands like 1e vs. 7e on the first round (no escalation unless very strong or bluffing) and 1b vs. 3s after a win (escalate) to match Argentinian Truco’s timing, with first-round "truco" calls limited to 1-2 per match.
  * - Balance Personalities: Tweak traits (e.g., Hodlbot’s patience, Nick’s balanced bluffing) for distinct, authentic styles using personality factors.
- * - Sharpen Opponent Insight: Enhance inferOpponentHand and estimateOpponentStrength for better bluff/fold decisions.
- * - Polish Realism: Ensure varied, trait-driven responses and no game hangs by always returning a valid action.
- * - Validate flor thresholds across all personality profiles to ensure consistency with the maximum value of 38.
+ * - Sharpen Opponent Insight: Enhance inferOpponentHand and estimateOpponentStrength for better bluff/fold decisions, incorporating envidoConfidence.
+ * - Polish Realism: Ensure varied, trait-driven responses with slight random threshold variability for human-like behavior, and no game hangs by always returning a valid action.
+ * - Validate flor and envido thresholds across all personality profiles to ensure consistency with the maximum flor value of 38.
  */
 
 import {
@@ -445,8 +445,13 @@ function inferOpponentHand(
   const remainingCards = Object.keys(CARDS).filter(
     (card) => !allKnownCards.includes(card as ICard)
   ) as ICard[]
+  // Adjust card estimation based on envidoConfidence
+  const confidence = context.profile.envidoConfidence
+  const cardThreshold = confidence < 0.5 ? 6 : 8 // Cautious bots assume stronger opponent cards
   const estimatedRemaining =
-    playedCardAvg < 6 ? remainingCards.filter((c) => CARDS[c] < 8) : remainingCards
+    playedCardAvg < cardThreshold
+      ? remainingCards.filter((c) => CARDS[c] < cardThreshold)
+      : remainingCards
   const testHand = [...playedCards, ...estimatedRemaining.slice(0, 3 - playedCards.length)]
 
   if (opponent.hasSaidEnvidoPoints && context.play.envido.winningPointsAnswer) {
@@ -534,30 +539,51 @@ function isCertainToWin(context: BotContext): boolean {
   return (winsThisRound && willWinHand) || strongHandEscalation || bluffEscalation
 }
 
+function mapConfidenceToRange(
+  confidence: number,
+  minThreshold: number,
+  maxThreshold: number
+): number {
+  // Linear interpolation: threshold = min + (max - min) * confidence
+  const baseThreshold = Math.max(
+    minThreshold,
+    Math.min(maxThreshold, minThreshold + (maxThreshold - minThreshold) * confidence)
+  )
+  // Add ±1 point randomness for human-like variability
+  return baseThreshold + (Math.random() - 0.5) * 2
+}
+
 function shouldCallEnvido(context: BotContext): EEnvidoCommand | null {
   if (!context.isFirstRound || !isLastTeamPlayer(context) || context.play.envido.stake > 0)
     return null
   const pointsToWin =
     context.matchPoint - Math.max(context.teamScore.buenas, context.opponentScore.buenas)
   const teamEnvido = estimateTeamEnvido(context)
+  const confidence = context.profile.envidoConfidence
   const isLastTablePlayer =
     context.table.getPlayerPosition(context.bot.key, true) ===
     context.table.players.filter((p) => !p.disabled).length - 1
 
-  if (isLastTablePlayer && teamEnvido >= 15 * context.profile.envidoConfidence) {
+  if (
+    isLastTablePlayer &&
+    teamEnvido >= mapConfidenceToRange(confidence, 20, 28) // Range: 20–28 for ENVIDO
+  ) {
     return EEnvidoCommand.ENVIDO
   }
   if (
     pointsToWin <= context.matchPoint * 0.3 &&
-    teamEnvido >= 30 * context.profile.envidoConfidence
+    teamEnvido >= mapConfidenceToRange(confidence, 28, 33) // Range: 28–33 for FALTA_ENVIDO
   ) {
     return EEnvidoCommand.FALTA_ENVIDO
   }
-  if (teamEnvido >= 25 && Math.random() > 0.3) {
+  if (
+    teamEnvido >= mapConfidenceToRange(confidence, 25, 31) && // Range: 25–31 for ENVIDO
+    Math.random() > 0.3
+  ) {
     return EEnvidoCommand.ENVIDO
   }
   if (
-    teamEnvido >= 33 * context.profile.envidoConfidence &&
+    teamEnvido >= mapConfidenceToRange(confidence, 27, 33) && // Range: 27–33 for REAL_ENVIDO
     Math.random() > 0.7 * (1 - context.profile.riskTolerance)
   ) {
     return EEnvidoCommand.REAL_ENVIDO
@@ -677,7 +703,7 @@ export async function playBot(
 
   // Calculate delay based on personality, game momentum, and player count
   const totalPlayers = context.table.players.filter((p) => !p.disabled).length
-  const playerMultiplier = totalPlayers === 2 ? 0.55 : totalPlayers === 4 ? 0.7 : 0.8 // Scale delay by player count
+  const playerMultiplier = totalPlayers === 2 ? 0.55 : totalPlayers === 4 ? 0.7 : 0.8
   let baseDelay = PLAYER_TIMEOUT_GRACE * playerMultiplier * (1 + context.profile.patience)
   let momentumFactor = 1
 
@@ -698,13 +724,13 @@ export async function playBot(
     momentumFactor += 0.1 // Last team player, strategic weight
   }
   if (context.play.handIdx === 1 && context.isFirstRound && !context.play.player?.didSomething) {
-    baseDelay += PLAYER_TIMEOUT_GRACE * (3 - context.bot.idx) // First-hand delay, reduced multiplier
+    baseDelay += PLAYER_TIMEOUT_GRACE * (3 - context.bot.idx)
   }
 
   // Apply momentum and add randomness for variability
   const delay = Math.max(
-    PLAYER_TIMEOUT_GRACE * 0.8, // Minimum 450ms
-    baseDelay * momentumFactor * (0.5 + Math.random() * 0.4) // 20% randomness
+    PLAYER_TIMEOUT_GRACE,
+    baseDelay * momentumFactor * (0.5 + Math.random() * 0.4)
   )
 
   if (process.env.NODE_ENV !== "test") {
@@ -720,28 +746,50 @@ export async function playBot(
     const florValue = context.bot.flor.value
     const confidence = context.profile.envidoConfidence
 
-    // Use state >=4 to detect answer phase (more reliable than stake >3)
+    // Answer phase (state >= 4)
     if (context.play.flor.state >= 4) {
-      // Adjust threshold based on state/stake for risk assessment
-      let threshold = 30 * confidence // Base for acceptance
+      const acceptThreshold = mapConfidenceToRange(confidence, 25, 33) // Range: 25–33
       if (context.play.flor.state === 5) {
-        // Al resto: higher caution
-        threshold = Math.min(35 * confidence, 38) // Cap at max flor value
-        if (context.play.flor.stake <= 3) threshold -= 5 // Lower threshold if small resto (less risk)
+        const pointsToWin =
+          context.matchPoint - Math.max(context.teamScore.buenas, context.opponentScore.buenas)
+        const alRestoThreshold = mapConfidenceToRange(confidence, 30, 38) // Range: 30–38
+        const adjustedThreshold = pointsToWin <= 3 ? alRestoThreshold - 3 : alRestoThreshold
+        logger.trace(
+          `Bot ${bot.bot} deciding on CONTRAFLOR_AL_RESTO response: flor=${florValue}, threshold=${adjustedThreshold}`
+        )
+        return sayCommand({
+          command:
+            florValue >= adjustedThreshold ? EAnswerCommand.QUIERO : EAnswerCommand.NO_QUIERO,
+          play,
+          player: bot,
+          table: table.sessionId,
+        })
       }
+      logger.trace(
+        `Bot ${bot.bot} deciding on flor response: flor=${florValue}, threshold=${acceptThreshold}`
+      )
       return sayCommand({
-        command: florValue >= threshold ? EAnswerCommand.QUIERO : EAnswerCommand.NO_QUIERO,
+        command: florValue >= acceptThreshold ? EAnswerCommand.QUIERO : EAnswerCommand.NO_QUIERO,
         play,
         player: bot,
         table: table.sessionId,
       })
     }
 
-    // Initial/early phase escalations (state <4)
+    // Escalation phase (state < 4)
     if (
       context.bot._commands.has(EFlorCommand.CONTRAFLOR_AL_RESTO) &&
-      florValue >= 33 * confidence // Lowered from 37 for more realism (max=38)
+      florValue >= mapConfidenceToRange(confidence, 31, 38) // Range: 30–38
     ) {
+      logger.trace(
+        `Bot ${
+          bot.bot
+        } chose CONTRAFLOR_AL_RESTO: flor=${florValue}, threshold=${mapConfidenceToRange(
+          confidence,
+          30,
+          38
+        )}`
+      )
       return sayCommand({
         command: EFlorCommand.CONTRAFLOR_AL_RESTO,
         play,
@@ -751,8 +799,15 @@ export async function playBot(
     }
     if (
       context.bot._commands.has(EFlorCommand.CONTRAFLOR) &&
-      florValue >= 28 * confidence // Lowered from 30
+      florValue >= mapConfidenceToRange(confidence, 27, 35) // Range: 27–33
     ) {
+      logger.trace(
+        `Bot ${bot.bot} chose CONTRAFLOR: flor=${florValue}, threshold=${mapConfidenceToRange(
+          confidence,
+          27,
+          33
+        )}`
+      )
       return sayCommand({
         command: EFlorCommand.CONTRAFLOR,
         play,
@@ -761,23 +816,41 @@ export async function playBot(
       })
     }
     if (
-      context.bot._commands.has(EFlorCommand.ACHICO) &&
-      florValue < 25 * confidence // Adjusted from 27
+      context.bot._commands.has(EFlorCommand.FLOR) &&
+      florValue >= mapConfidenceToRange(confidence, 24, 30) // Range: 20–30
     ) {
-      return sayCommand({ command: EFlorCommand.ACHICO, play, player: bot, table: table.sessionId })
+      return sayCommand({
+        command: EFlorCommand.FLOR,
+        play,
+        player: bot,
+        table: table.sessionId,
+      })
+    }
+
+    if (
+      context.bot._commands.has(EFlorCommand.FLOR) &&
+      !context.bot._commands.has(EFlorCommand.ACHICO)
+    ) {
+      return sayCommand({
+        command: EFlorCommand.FLOR,
+        play,
+        player: bot,
+        table: table.sessionId,
+      })
     }
 
     // Fallback: Declare flor if available
-    if (context.bot._commands.has(EFlorCommand.FLOR)) {
-      return sayCommand({ command: EFlorCommand.FLOR, play, player: bot, table: table.sessionId })
+    if (context.bot._commands.has(EFlorCommand.ACHICO)) {
+      logger.trace(`Bot ${bot.bot} chose FLOR: flor=${florValue}`)
+      return sayCommand({ command: EFlorCommand.ACHICO, play, player: bot, table: table.sessionId })
     } else {
-      // If no valid flor command, fold to mazo (safe default, avoid invalid commands)
-      logger.error(new Error("Bot failed to decide on WAITING_FLOR_ANSWER and said MAZO"))
+      logger.warn(`Bot ${bot.bot} failed to decide on WAITING_FLOR_ANSWER, defaulting to MAZO`)
       return sayCommand({ command: ESayCommand.MAZO, play, player: bot, table: table.sessionId })
     }
   }
 
   if (context.bot._commands.has(EFlorCommand.FLOR)) {
+    logger.trace(`Bot ${bot.bot} chose FLOR (initial declaration)`)
     return sayCommand({ command: EFlorCommand.FLOR, play, player: bot, table: table.sessionId })
   }
 
@@ -785,16 +858,19 @@ export async function playBot(
   if (context.play.state === EHandState.WAITING_PLAY) {
     const envidoCommand = shouldCallEnvido(context)
     if (envidoCommand && context.bot._commands.has(envidoCommand)) {
+      logger.trace(`Bot ${bot.bot} chose envido command: ${envidoCommand}`)
       return sayCommand({ command: envidoCommand, play, player: bot, table: table.sessionId })
     }
 
     const trucoCommand = shouldCallTruco(context)
     if (trucoCommand) {
+      logger.trace(`Bot ${bot.bot} chose truco command: ${trucoCommand}`)
       return sayCommand({ command: trucoCommand, play, player: bot, table: table.sessionId })
     }
 
     // Fallback to play a card
     const [cardIdx, card] = selectCard(context)
+    logger.trace(`Bot ${bot.bot} played card: ${card} (index ${cardIdx})`)
     return playCard({ card, cardIdx, play, player: bot, table: table.sessionId })
   }
 
@@ -816,14 +892,24 @@ export async function playBot(
       noEnvidoCalled &&
       context.bot._commands.has(EEnvidoCommand.ENVIDO)
     ) {
+      const confidence = context.profile.envidoConfidence
       if (
-        teamEnvido >= 15 * context.profile.envidoConfidence ||
+        teamEnvido >= mapConfidenceToRange(confidence, 20, 28) ||
         (shouldBluff(context) && Math.random() < context.profile.bluffing * 0.3)
       ) {
         if (
           pointsToWin <= context.matchPoint * 0.3 &&
-          teamEnvido >= 30 * context.profile.envidoConfidence
+          teamEnvido >= mapConfidenceToRange(confidence, 28, 33)
         ) {
+          logger.trace(
+            `Bot ${
+              bot.bot
+            } chose FALTA_ENVIDO: envido=${teamEnvido}, threshold=${mapConfidenceToRange(
+              confidence,
+              28,
+              33
+            )}`
+          )
           return sayCommand({
             command: EEnvidoCommand.FALTA_ENVIDO,
             play,
@@ -832,9 +918,18 @@ export async function playBot(
           })
         }
         if (
-          teamEnvido >= 33 * context.profile.envidoConfidence &&
+          teamEnvido >= mapConfidenceToRange(confidence, 27, 33) &&
           Math.random() > 0.7 * (1 - context.profile.riskTolerance)
         ) {
+          logger.trace(
+            `Bot ${
+              bot.bot
+            } chose REAL_ENVIDO: envido=${teamEnvido}, threshold=${mapConfidenceToRange(
+              confidence,
+              27,
+              33
+            )}`
+          )
           return sayCommand({
             command: EEnvidoCommand.REAL_ENVIDO,
             play,
@@ -842,6 +937,13 @@ export async function playBot(
             table: table.sessionId,
           })
         }
+        logger.trace(
+          `Bot ${bot.bot} chose ENVIDO: envido=${teamEnvido}, threshold=${mapConfidenceToRange(
+            confidence,
+            20,
+            28
+          )}`
+        )
         return sayCommand({
           command: EEnvidoCommand.ENVIDO,
           play,
@@ -871,6 +973,7 @@ export async function playBot(
       ) {
         if (context.play.player && !context.play.player.disabled)
           updateOpponentProfile(context, context.play.player, "bluff")
+        logger.trace(`Bot ${bot.bot} chose truco escalation: ${nextTrucoCommand}`)
         return sayCommand({ command: nextTrucoCommand, play, player: bot, table: table.sessionId })
       }
     }
@@ -885,6 +988,7 @@ export async function playBot(
           Math.sqrt(getTeammates(context).length + 1) *
           (1 - context.profile.riskTolerance)
     ) {
+      logger.trace(`Bot ${bot.bot} chose QUIERO for truco: teamStrength=${teamStrength}`)
       return sayCommand({
         command: EAnswerCommand.QUIERO,
         play,
@@ -894,6 +998,7 @@ export async function playBot(
     }
     if (context.play.player && !context.play.player.disabled)
       updateOpponentProfile(context, context.play.player, "fold")
+    logger.trace(`Bot ${bot.bot} chose NO_QUIERO for truco: teamStrength=${teamStrength}`)
     return sayCommand({
       command: EAnswerCommand.NO_QUIERO,
       play,
@@ -904,6 +1009,7 @@ export async function playBot(
 
   // **Envido Answer**
   if (context.play.state === EHandState.WAITING_ENVIDO_ANSWER) {
+    const confidence = context.profile.envidoConfidence
     const teamEnvido = estimateTeamEnvido(context)
     const possibleCommands = context.play.envido.possibleAnswerCommands.filter((cmd) =>
       context.bot._commands.has(cmd)
@@ -920,35 +1026,24 @@ export async function playBot(
 
     const commandScores = possibleCommands.map((command) => {
       if (command === EAnswerCommand.QUIERO) {
-        const threshold = context.isCloseToWin
-          ? 24
-          : pointsToWin <= context.matchPoint * 0.3
-          ? 23
-          : 25
+        const threshold = mapConfidenceToRange(confidence, 24, 30)
         return {
           command,
           score:
-            teamEnvido >= threshold * context.profile.envidoConfidence
+            teamEnvido >= threshold
               ? 0.8 * context.profile.envidoConfidence
               : 0.4 * (1 - context.profile.caution),
         }
       }
       if (command === EAnswerCommand.NO_QUIERO) {
-        const threshold = context.isCloseToWin
-          ? 24
-          : pointsToWin <= context.matchPoint * 0.3
-          ? 23
-          : 25
+        const threshold = mapConfidenceToRange(confidence, 24, 30)
         return {
           command,
-          score:
-            teamEnvido < threshold * context.profile.envidoConfidence
-              ? 0.9 * context.profile.caution
-              : 0.2,
+          score: teamEnvido < threshold ? 0.9 * context.profile.caution : 0.2,
         }
       }
       const stake = envidoStakes[command as EEnvidoCommand] || context.play.envido.stake
-      const envidoThreshold = 25 + stake * 3 * (1 - context.profile.envidoConfidence)
+      const envidoThreshold = mapConfidenceToRange(confidence, 25 + stake * 2, 31 + stake * 2)
       const bluffFactor =
         shouldBluff(context) && opponentAggression < 0.5 ? 0.2 * context.profile.bluffing : 0
       return {
@@ -971,6 +1066,13 @@ export async function playBot(
     ) {
       updateOpponentProfile(context, context.play.player, "bluff")
     }
+    logger.trace(
+      `Bot ${bot.bot} chose envido answer: ${
+        bestCommand.command
+      }, envido=${teamEnvido}, threshold=${
+        commandScores.find((c) => c.command === bestCommand.command)?.score
+      }`
+    )
     return sayCommand({ command: bestCommand.command, play, player: bot, table: table.sessionId })
   }
 
@@ -992,6 +1094,7 @@ export async function playBot(
         (!forehandWins && context.play.envido.winningPointsAnswer >= highestEnvido)) &&
       (context.profile.caution > 0.6 || Math.random() < 0.7 * context.profile.caution)
     ) {
+      logger.trace(`Bot ${bot.bot} chose PASO: envido=${highestEnvido}`)
       return sayCommand({
         command: ESayCommand.PASO,
         play,
@@ -1005,6 +1108,7 @@ export async function playBot(
       opponentIsWinner &&
       (opponentWins || !forehandWins)
     ) {
+      logger.trace(`Bot ${bot.bot} chose SON_BUENAS: envido=${highestEnvido}`)
       return sayCommand({
         command: EEnvidoAnswerCommand.SON_BUENAS,
         play,
@@ -1013,6 +1117,7 @@ export async function playBot(
       })
     }
 
+    logger.trace(`Bot ${bot.bot} declared envido points: ${highestEnvido}`)
     return sayCommand({
       command: highestEnvido,
       play,
@@ -1023,5 +1128,6 @@ export async function playBot(
 
   // **Default Case**
   const [cardIdx, card] = selectCard(context)
+  logger.trace(`Bot ${bot.bot} played card: ${card} (index ${cardIdx})`)
   return playCard({ card, cardIdx, play, player: bot, table: table.sessionId })
 }

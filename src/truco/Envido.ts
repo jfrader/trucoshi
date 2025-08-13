@@ -219,13 +219,18 @@ export function Envido(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITa
       )
 
       player.saidEnvidoPoints()
+      envido.turn = 0
 
       if (!envido.winningPlayer || envido.winningPointsAnswer === -1) {
         envido.winningPlayer = player
         envido.winningPointsAnswer = points
+
+        envido.players = teams[getOpponentTeam(player.teamIdx)].activePlayers.filter(
+          (p) => !p.hasSaidEnvidoPoints
+        )
+
         log.trace({ playerKey: player.key, points }, "Set as first winning player")
       } else {
-        envido.turn = 0
         if (points > envido.winningPointsAnswer) {
           envido.winningPlayer = player
           envido.winningPointsAnswer = points

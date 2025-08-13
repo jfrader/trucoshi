@@ -51,7 +51,7 @@ export function checkHandWinner(hand: IHand, forehandTeamIdx: 0 | 1): null | 0 |
 
   const rounds = hand.rounds
 
-  if (hand.flor.winner && hand.flor.state === 5) {
+  if (hand.flor.winner && hand.flor.state === 5 && hand.flor.answer === true) {
     return hand.flor.winner.id
   }
 

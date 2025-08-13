@@ -223,7 +223,10 @@ const getPublicMatch = (
         : null,
     florBattle:
       (!skipCurrentHand && currentHand?.displayingFlorBattle()) ||
-      (currentHand?.displayingPreviousHand() && currentHand.flor.state === 5)
+      (currentHand?.displayingPreviousHand() &&
+        currentHand.flor.state === 5 &&
+        currentHand.flor.answered &&
+        currentHand.flor.answer)
         ? table.getFlorBattle(currentHand)
         : null,
     busy: table.busy,

@@ -21,7 +21,7 @@ import { IMatch } from "./Match"
 import { IPlayInstance, PlayInstance } from "./Play"
 import { IRound, Round } from "./Round"
 import { ITruco, Truco } from "./Truco"
-import { CARDS_HUMAN_READABLE, PlayedCard, dealCards } from "../lib"
+import { PlayedCard, dealCards } from "../lib"
 import { checkHandWinner, getOpponentTeam } from "../lib/utils"
 import { Flor, IFlor } from "./Flor"
 import { getMemoLatestBitcoinBlock } from "../accounts/client"
@@ -552,7 +552,8 @@ const handleFlor = (match: IMatch, hand: IHand, currentPlayer: IPlayer) => {
     hand.truco.answer === null &&
     hand.envido.answer === null &&
     teamIdx !== null &&
-    !flor.answered
+    !flor.answered &&
+    !flor.winner
   ) {
     if (flor.state < 4) {
       match.teams[teamIdx].activePlayers
@@ -567,7 +568,13 @@ const handleFlor = (match: IMatch, hand: IHand, currentPlayer: IPlayer) => {
       })
   }
 
-  if (hand.rounds.length <= 1 && !hand.truco.answer && !hand.envido.answer && flor.state < 4) {
+  if (
+    hand.rounds.length <= 1 &&
+    !hand.truco.answer &&
+    !hand.envido.answer &&
+    flor.state < 4 &&
+    !flor.winner
+  ) {
     if (
       !currentPlayer.hasSaidFlor &&
       !currentPlayer.disabled &&
@@ -778,7 +785,11 @@ const commands: IHandCommands = {
     const currentFlor = hand.flor.sayFlor(player)
 
     if (currentFlor.finished) {
-      hand.setState(EHandState.DISPLAY_FLOR_BATTLE)
+      if (currentFlor.candidates.length > 1) {
+        hand.setState(EHandState.DISPLAY_FLOR_BATTLE)
+      } else {
+        hand.endEnvido()
+      }
     } else {
       hand.setState(EHandState.WAITING_FLOR_ANSWER)
     }

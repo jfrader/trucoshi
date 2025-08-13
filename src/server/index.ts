@@ -28,7 +28,7 @@ export default () => {
   const PORT = process.env.APP_PORT || 2992
   const ORIGIN = process.env.APP_ORIGIN || "http://localhost:2991"
 
-  const server = Trucoshi({ port: Number(PORT), origin: [ORIGIN], serverVersion: version })
+  const server = Trucoshi({ port: Number(PORT), origin: ORIGIN.split(","), serverVersion: version })
 
   log.info("Starting Trucoshi " + process.env.NODE_ENV + " server version " + version)
 

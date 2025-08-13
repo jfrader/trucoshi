@@ -12,6 +12,7 @@ import {
 import { sessionMiddleware, trucoshiMiddleware } from "../../src/server"
 import * as sinon from "sinon"
 import logger from "../../src/utils/logger"
+import { Logger } from "pino"
 
 describe("Socket Server", () => {
   let clients: Socket<ServerToClientEvents, ClientToServerEvents>[] = []
@@ -265,13 +266,15 @@ describe("Socket Server", () => {
       info: sinon.stub().callsFake(() => {}),
       debug: sinon.stub().callsFake(() => {}),
       trace: sinon.stub().callsFake(() => {}),
+      fatal: sinon.stub().callsFake(() => {}),
+      silent: sinon.stub().callsFake(() => {}),
     }
 
     before(() => {
       warnStub = sinon.stub(logger, "warn").callsFake(() => {})
       errorStub = sinon.stub(logger, "error").callsFake(() => {})
-      childStub = sinon.stub(logger, "child").callsFake((bindings) => {
-        return childLogger
+      childStub = sinon.stub(logger, "child").callsFake(() => {
+        return childLogger as unknown as Logger<string, boolean>
       })
     })
 
