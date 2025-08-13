@@ -1,6 +1,6 @@
 {
   "name": "trucoshi",
-  "version": "10.0.0-rc2",
+  "version": "10.0.0-rc3",
   "description": "Truco Game Server",
   "main": "dist/types.js",
   "license": "GPL-3.0",
@@ -52,6 +52,7 @@
     "mocha": "^11.7.1",
     "nodemon": "^3.1.10",
     "prisma": "^6.13.0",
+    "sinon": "^21.0.0",
     "socket.io-client": "4.8.1",
     "ts-mocha": "^11.1.0"
   },

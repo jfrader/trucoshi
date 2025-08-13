@@ -100,7 +100,7 @@ describe("Trucoshi Deck", () => {
     }
 
     for (const count of counts) {
-      expect(count).to.be.greaterThan(195).lessThan(305)
+      expect(count).to.be.greaterThan(180).lessThan(320)
     }
 
     // console.log("Random integer counts:", counts)

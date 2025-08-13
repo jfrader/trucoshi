@@ -6,8 +6,6 @@ import { IRound } from "./Round"
 import { ITruco } from "./Truco"
 import { IFlor } from "./Flor"
 
-const log = logger.child({ class: "Play" })
-
 type PlayArgs<TType> = TType extends (...args: infer U extends any[]) => any ? U : never
 type PlayReturn<TType> = (TType extends (...args: any[]) => infer U ? U : never) | null
 
@@ -39,6 +37,8 @@ export function PlayInstance(
   forehandIdx: number,
   options: ILobbyOptions
 ) {
+  const log = logger.child({ class: "Play", handIdx: hand.idx, rounds: hand.roundsLogFlatten })
+
   function play<TFnType extends ((...args: any[]) => any) | undefined>(
     fn?: TFnType,
     ...args: PlayArgs<TFnType>
@@ -92,6 +92,8 @@ export function PlayInstance(
       const result = play(hand.use, idx, card)
       if (result) {
         instance.lastCard = result
+      } else {
+        busy = false
       }
       return result
     },
@@ -129,6 +131,7 @@ export function PlayInstance(
         }
         return result
       } catch (e) {
+        busy = false
         log.error(e, "Error trying to say command " + command)
         return null
       }

@@ -6,7 +6,7 @@ dotenv.config()
 
 const transport = pino.transport({
   target: "pino-pretty",
-  options: { colorize: true },
+  options: { colorize: true, sync: process.env.NODE_ENV === "test" },
 })
 
 const logger = pino({ level: process.env.APP_DEBUG_LEVEL }, transport)

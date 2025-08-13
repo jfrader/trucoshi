@@ -749,7 +749,7 @@ export const Trucoshi = ({
     },
     async emitWaitingPossibleSay({ play, table, onlyThisSocket }) {
       table.log.trace({ handIdx: play.handIdx }, "Emitting match possible players say")
-      return new Promise<void>((resolve) => {
+      return new Promise<void>((resolve, reject) => {
         return server
           .getTableSockets(table, async (playerSocket, player) => {
             if (onlyThisSocket && playerSocket.id !== onlyThisSocket) {
@@ -793,11 +793,14 @@ export const Trucoshi = ({
               table.getPublicMatch(player.session, play.freshHand || false),
               (data) => {
                 if (!data || !play.waitingPlay) {
-                  table.log.warn(
-                    { player: player.getPublicPlayer() },
+                  const message =
                     "Tried to say something but someone said something already or callback data came empty"
-                  )
-                  return
+                  table.log.warn({ player: player.getPublicPlayer() }, message)
+                  if (!play.waitingPlay) {
+                    return resolve()
+                  }
+
+                  return reject(new Error(message))
                 }
                 const { command } = data
                 server
@@ -806,12 +809,14 @@ export const Trucoshi = ({
                     resolve()
                     server.sessions.getOrThrow(player.session).reconnect(table.matchSessionId)
                   })
-                  .catch((e) =>
+                  .catch((e) => {
                     table.log.warn(
                       { message: e.message, command, playerIdx: player.idx },
                       "Failed to say commmand"
                     )
-                  )
+
+                    reject(e)
+                  })
               }
             )
           })
@@ -819,13 +824,14 @@ export const Trucoshi = ({
       })
     },
     async emitWaitingForPlay({ play, table, onlyThisSocket }) {
-      return new Promise<"say" | "play">((resolve) => {
+      return new Promise<"say" | "play">((resolve, reject) => {
         server
           .emitWaitingPossibleSay({ play, table, onlyThisSocket })
           .then(() => resolve("say"))
-          .catch((e) =>
+          .catch((e) => {
             table.log.error(e, "Error on emitWaitingForPlay, rejected waitingPossibleSay")
-          )
+            reject(e)
+          })
         return server
           .getTableSockets(table, async (playerSocket, player) => {
             if (onlyThisSocket && playerSocket.id !== onlyThisSocket) {
@@ -845,7 +851,7 @@ export const Trucoshi = ({
               return
             }
 
-            if (player.session === play.player?.session) {
+            if (player.key === play.player?.key) {
               table.log.trace(
                 {
                   handIdx: play.handIdx,
@@ -859,11 +865,22 @@ export const Trucoshi = ({
                 table.getPublicMatch(player.session),
                 (data: IWaitingPlayData) => {
                   if (!data || !play.waitingPlay) {
-                    table.log.warn(
-                      { player: player.getPublicPlayer() },
+                    const message =
                       "Tried to play a card but play is not waiting a play or callback returned empty"
+                    table.log.warn(
+                      {
+                        player: player.getPublicPlayer(),
+                        waitingPlay: play.waitingPlay,
+                        round: play.roundIdx,
+                        turn: play.getHand().turn,
+                      },
+                      message
                     )
-                    return
+
+                    if (!play.waitingPlay) {
+                      return resolve("play")
+                    }
+                    return reject(new Error(message))
                   }
                   const { cardIdx, card } = data
                   server
@@ -872,12 +889,13 @@ export const Trucoshi = ({
                       resolve("play")
                       server.sessions.getOrThrow(player.session).reconnect(table.matchSessionId)
                     })
-                    .catch((e) =>
+                    .catch((e) => {
                       table.log.warn(
                         { message: e.message, card, playerIdx: player.idx },
                         "Failed to play card"
                       )
-                    )
+                      reject(e)
+                    })
                 }
               )
             }
@@ -1268,7 +1286,7 @@ export const Trucoshi = ({
             })
             .catch((e) => {
               table.log.error(e, "ONTURN CALLBACK ERROR")
-              turn()
+              setTimeout(turn, PLAYER_TIMEOUT_GRACE)
             })
 
         server.setTurnTimeout({
@@ -1299,7 +1317,7 @@ export const Trucoshi = ({
             .then(() => resolve())
             .catch((e) => {
               table.log.error(e, "ONTRUCO CALLBACK ERROR")
-              turn()
+              setTimeout(turn, PLAYER_TIMEOUT_GRACE)
             })
 
         const player = play.player
@@ -1341,7 +1359,7 @@ export const Trucoshi = ({
             .then(() => resolve())
             .catch((e) => {
               table.log.error(e, "ONFLOR CALLBACK ERROR")
-              turn()
+              setTimeout(turn, PLAYER_TIMEOUT_GRACE)
             })
 
         const player = play.player
@@ -1408,7 +1426,7 @@ export const Trucoshi = ({
             .then(() => resolve())
             .catch((e) => {
               table.log.error(e, "ONENVIDO CALLBACK ERROR")
-              turn()
+              setTimeout(turn, PLAYER_TIMEOUT_GRACE)
             })
 
         const player = play.player
@@ -2555,13 +2573,17 @@ export const Trucoshi = ({
           newMatchSessionId: newTable.matchSessionId,
         }
 
-        await server.setMatchOptions({
-          matchSessionId: newTable.matchSessionId,
-          options: table.lobby.options,
-          socket,
-          userSession,
-          emitChat: false,
-        })
+        try {
+          await server.setMatchOptions({
+            matchSessionId: newTable.matchSessionId,
+            options: table.lobby.options,
+            socket,
+            userSession,
+            emitChat: false,
+          })
+        } catch (e) {
+          newTable.log.error(e, "Failed to set match options")
+        }
 
         server.getTableSockets(table, async (playerSocket, player) => {
           if (player && player.session !== userSession.session) {
