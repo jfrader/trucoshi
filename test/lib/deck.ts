@@ -198,6 +198,9 @@ describe("Trucoshi Deck", () => {
       ["7b", "1b", "5b"], // player4
     ])
 
+    const previousCheatFlowers = process.env.APP_CHEAT_LOTS_OF_FLOWERS_FOR_TESTING
+    process.env.APP_CHEAT_LOTS_OF_FLOWERS_FOR_TESTING = "0"
+
     dealCards(table, deck)
 
     expect(player1.hand).to.deep.equal(["7c", "6c", "5c"])
@@ -222,6 +225,7 @@ describe("Trucoshi Deck", () => {
     ])
 
     delete process.env.APP_CHEAT_CARDS
+    process.env.APP_CHEAT_LOTS_OF_FLOWERS_FOR_TESTING = previousCheatFlowers
   })
 
   it("should throw invalid APP_CHEAT_CARDS", () => {
