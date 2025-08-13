@@ -26,6 +26,107 @@ describe("Trucoshi Deck", () => {
     table.forehandIdx = 0
   })
 
+  it("should generate distributed random integers", (done) => {
+    const random = Random()
+    random.clients[0] = "test-client-seed"
+    random.secret = rng.generateServerSeed()
+    random.bitcoinHash = "test-bitcoin-hash"
+    random.nonce = 0
+
+    const counts = Array(40).fill(0)
+    for (let i = 0; i < 10000; i++) {
+      const index = rng.generateInteger(
+        random.clients[0],
+        random.secret,
+        random.bitcoinHash,
+        random.nonce,
+        0,
+        39
+      )
+      counts[index]++
+      random.nonce++
+    }
+
+    for (const count of counts) {
+      expect(count).to.be.greaterThan(180).lessThan(320)
+    }
+
+    // console.log("Random integer counts:", counts)
+    done()
+  })
+
+  it("should produce deterministic and provably fair shuffle with same seed inputs", (done) => {
+    // Initialize deck and set random seed inputs
+    const deck1 = Deck()
+    const deck2 = Deck()
+
+    // Set identical seed inputs for both decks
+    const clientSeed = "test-client-seed"
+    const serverSeed = rng.generateServerSeed()
+    const bitcoinHash = "test-bitcoin-hash"
+
+    deck1.random.clients[0] = clientSeed
+    deck1.random.secret = serverSeed
+    deck1.random.bitcoinHash = bitcoinHash
+    deck1.random.nonce = 0
+
+    deck2.random.clients[0] = clientSeed
+    deck2.random.secret = serverSeed
+    deck2.random.bitcoinHash = bitcoinHash
+    deck2.random.nonce = 0
+
+    // Shuffle both decks
+    deck1.shuffle(0)
+    deck2.shuffle(0)
+
+    // Verify both decks produce identical card order
+    expect(deck1.cards).to.deep.equal(deck2.cards)
+    expect(deck1.cards).to.have.lengthOf(40)
+    expect(deck2.cards).to.have.lengthOf(40)
+    expect(deck1.usedCards).to.be.empty
+    expect(deck2.usedCards).to.be.empty
+
+    // Verify different seed produces different shuffle
+    const deck3 = Deck()
+    deck3.random.clients[0] = "different-client-seed"
+    deck3.random.secret = serverSeed
+    deck3.random.bitcoinHash = bitcoinHash
+    deck3.random.nonce = 0
+
+    deck3.shuffle(0)
+    expect(deck3.cards).to.not.deep.equal(deck1.cards)
+
+    // Verify all cards are still present after shuffle
+    expect(Object.keys(CARDS)).to.include.members(deck1.cards)
+    expect(Object.keys(CARDS)).to.include.members(deck2.cards)
+    expect(Object.keys(CARDS)).to.include.members(deck3.cards)
+
+    done()
+  })
+
+  it("should shuffle deck with proper distributed randomness", (done) => {
+    deck.random.bitcoinHash = "test-bitcoin-hash"
+    deck.random.clients[0] = rng.generateServerSeed()
+
+    const counts: Record<ICard, number> = {} as any
+    for (let i = 0; i < 10000; i++) {
+      deck.shuffle(0)
+      const card = deck.cards[0]
+      counts[card] = (counts[card] || 0) + 1
+      deck.random.next()
+    }
+
+    for (const count of Object.values(counts)) {
+      expect(count).to.be.greaterThan(180).lessThan(320)
+    }
+
+    const entries = Object.entries(counts)
+    expect(entries.length).to.equal(40)
+
+    // console.log("Card distribution counts:", entries)
+    done()
+  })
+
   it("should initialize deck with 40 cards", () => {
     expect(deck.cards).to.have.lengthOf(40)
     expect(deck.usedCards).to.be.empty
@@ -76,58 +177,6 @@ describe("Trucoshi Deck", () => {
     // Verify order is different
     const originalCards = Object.keys(CARDS)
     expect(deck.cards).to.not.deep.equal(originalCards)
-  })
-
-  it("should generate distributed random integers", (done) => {
-    const random = Random()
-    random.clients[0] = "test-client-seed"
-    random.secret = rng.generateServerSeed()
-    random.bitcoinHash = "test-bitcoin-hash"
-    random.nonce = 0
-
-    const counts = Array(40).fill(0)
-    for (let i = 0; i < 10000; i++) {
-      const index = rng.generateInteger(
-        random.clients[0],
-        random.secret,
-        random.bitcoinHash,
-        random.nonce,
-        0,
-        39
-      )
-      counts[index]++
-      random.nonce++
-    }
-
-    for (const count of counts) {
-      expect(count).to.be.greaterThan(180).lessThan(320)
-    }
-
-    // console.log("Random integer counts:", counts)
-    done()
-  })
-
-  it("should shuffle deck with proper distributed randomness", (done) => {
-    deck.random.bitcoinHash = "test-bitcoin-hash"
-    deck.random.clients[0] = rng.generateServerSeed()
-
-    const counts: Record<ICard, number> = {} as any
-    for (let i = 0; i < 10000; i++) {
-      deck.shuffle(0)
-      const card = deck.cards[0]
-      counts[card] = (counts[card] || 0) + 1
-      deck.random.next()
-    }
-
-    for (const count of Object.values(counts)) {
-      expect(count).to.be.greaterThan(180).lessThan(320)
-    }
-
-    const entries = Object.entries(counts)
-    expect(entries.length).to.equal(40)
-
-    // console.log("Card distribution counts:", entries)
-    done()
   })
 
   it("should deal three cards to each player", () => {
