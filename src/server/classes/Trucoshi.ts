@@ -677,7 +677,7 @@ export const Trucoshi = ({
       const playerSockets: RemoteSocket<ServerToClientEvents, SocketData>[] = []
       const spectatorSockets: RemoteSocket<ServerToClientEvents, SocketData>[] = []
 
-      if (!allSockets || !("length" in allSockets) || !allSockets.length) {
+      if (!allSockets || !allSockets.length) {
         table.log.debug(
           table.getPublicMatchInfo(),
           "Nobody is here? No sockets for this match table..."
@@ -710,11 +710,11 @@ export const Trucoshi = ({
       return { sockets: playerSockets, spectators: spectatorSockets, players }
     },
     async emitMatchUpdate(table, skipSocketIds = [], skipPreviousHand = false) {
-      table.log.debug(table.getPublicMatchInfo(), "Preparing to emit match update to all sockets")
+      table.log.trace(table.getPublicMatchInfo(), "Preparing to emit match update to all sockets")
       const { spectators, sockets } = await server.getTableSockets(table)
       const stats: IPublicMatchStats = { spectators: spectators.length || 0 }
       const publicMatch = table.getPublicMatch(undefined, undefined, skipPreviousHand)
-      table.log.info(
+      table.log.trace(
         {
           matchSessionId: table.matchSessionId,
           state: publicMatch.state,
@@ -735,14 +735,14 @@ export const Trucoshi = ({
         const playerMatch = socket.data.user
           ? table.getPublicMatch(socket.data.user.session, false, skipPreviousHand)
           : publicMatch
-        table.log.debug(
+        table.log.trace(
           { socketId: socket.id, userSession: socket.data.user?.session },
           "Emitting UPDATE_MATCH to player socket"
         )
         socket.emit(EServerEvent.UPDATE_MATCH, playerMatch, stats)
       })
       spectators.filter(filterFn).forEach((socket) => {
-        table.log.debug({ socketId: socket.id }, "Emitting UPDATE_MATCH to spectator socket")
+        table.log.trace({ socketId: socket.id }, "Emitting UPDATE_MATCH to spectator socket")
         socket.emit(EServerEvent.UPDATE_MATCH, publicMatch, stats)
       })
       return publicMatch
@@ -1239,7 +1239,7 @@ export const Trucoshi = ({
             "Retry called with different current player"
           )
         }
-        table.log.info(
+        table.log.trace(
           {
             matchSessionId: table.matchSessionId,
             player: player.getPublicPlayer("log"),
@@ -1259,7 +1259,7 @@ export const Trucoshi = ({
         timeout: createTimeout(0),
       })
       server.turns.set(table.matchSessionId, trucoshiTurn)
-      table.log.debug(
+      table.log.trace(
         { matchSessionId: table.matchSessionId, turnCreatedAt: trucoshiTurn.createdAt },
         "Turn timeout set"
       )
@@ -2212,7 +2212,7 @@ export const Trucoshi = ({
         throw new SocketError("UNEXPECTED_ERROR", "Failed to set player ready")
       } finally {
         if (table.busy) {
-          table.log.debug({ matchSessionId: table.matchSessionId }, "Resetting busy flag")
+          table.log.trace({ matchSessionId: table.matchSessionId }, "Resetting busy flag")
           table.setBusy(false)
         }
       }
@@ -2503,7 +2503,7 @@ export const Trucoshi = ({
                       description: `Awarding match prize ID: ${table.matchId}`,
                     })
 
-                    log.info(
+                    table.log.info(
                       { pool, tax, prize, amountInSats, winnersLength, rake },
                       "Match winner received award"
                     )

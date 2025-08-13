@@ -162,8 +162,6 @@ export const Chat = (io?: TrucoshiServer, tables?: TMap<string, IMatchTable>) =>
   const adapter = io.of("/").adapter
 
   io.on("connection", (socket) => {
-    log.debug({ socketId: socket.id }, "Socket connected")
-
     const sayHandler = throttle(
       (message, toTeamIdx, fromUser, matchId) => {
         const chatroom = chat.rooms.get(matchId)
@@ -171,7 +169,7 @@ export const Chat = (io?: TrucoshiServer, tables?: TMap<string, IMatchTable>) =>
           log.warn({ socketId: socket.id, matchId }, `Chat room not found for SAY event`)
           return
         }
-        log.debug(
+        log.trace(
           { socketId: socket.id, matchId, message },
           `Processing throttled SAY event for ${fromUser.name}`
         )
@@ -184,15 +182,12 @@ export const Chat = (io?: TrucoshiServer, tables?: TMap<string, IMatchTable>) =>
     socket.data.throttler = sayHandler
 
     socket.on("disconnect", () => {
-      log.debug({ socketId: socket.id }, "Socket disconnected, clearing listeners and throttler")
       socket.removeAllListeners(EClientEvent.CHAT)
       socket.removeAllListeners(EClientEvent.SAY)
       socket.data.throttler = undefined
     })
 
     socket.on(EClientEvent.CHAT, (matchId, message, callback) => {
-      log.debug({ socketId: socket.id, matchId, message }, "Received CHAT event")
-
       if (matchId !== chat.rooms.get(matchId)?.id || !socket.data.user) {
         log.warn(
           { socketId: socket.id, matchId },
@@ -233,8 +228,6 @@ export const Chat = (io?: TrucoshiServer, tables?: TMap<string, IMatchTable>) =>
     })
 
     socket.on(EClientEvent.SAY, (matchId, message, callback) => {
-      log.debug({ socketId: socket.id, matchId, message }, `Received SAY event`)
-
       if (matchId !== chat.rooms.get(matchId)?.id || !socket.data.user) {
         log.warn(
           { socketId: socket.id, matchId },
@@ -283,7 +276,7 @@ export const Chat = (io?: TrucoshiServer, tables?: TMap<string, IMatchTable>) =>
           matchingSockets.length <= 1 ||
           matchingSockets.filter((s) => s.data.user?.key === key).length <= 1
         ) {
-          log.debug({ socketId, room }, `${name} entro a la sala ${room}`)
+          log.info({ socketId, room }, `${name} entro a la sala ${room}`)
           chatroom.system(`${name} entro a la sala`, true)
         }
       })
@@ -318,7 +311,7 @@ export const Chat = (io?: TrucoshiServer, tables?: TMap<string, IMatchTable>) =>
           const { name } = userSocket.data.user
           const chatroom = chat.rooms.get(room)
           if (chatroom) {
-            log.debug({ socketId, room }, `${name} salió de la sala ${room}`)
+            log.info({ socketId, room }, `${name} salió de la sala ${room}`)
             chatroom.system(`${name} salió de la sala`, "leave")
           }
         }

@@ -253,6 +253,24 @@ describe("Socket Server", () => {
           done(e)
         })
     })
+
+    it("should play 100 matches with lots of flowers and 5 bots", (done) => {
+      const previousCheatFlowers = process.env.APP_CHEAT_LOTS_OF_FLOWERS_FOR_TESTING
+      process.env.APP_CHEAT_LOTS_OF_FLOWERS_FOR_TESTING = "1"
+
+      const promises: Array<() => Promise<void>> = []
+      for (let i = 0; i < 100; i++) {
+        promises.push(() => playBotsMatch([clients[0]], 5))
+      }
+
+      Promise.all(promises.map((p) => p()))
+        .then(() => done())
+        .catch((e) => {
+          done(e)
+        })
+
+      process.env.APP_CHEAT_LOTS_OF_FLOWERS_FOR_TESTING = previousCheatFlowers
+    })
   })
 
   describe("Invalid paths", () => {

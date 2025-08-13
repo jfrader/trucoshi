@@ -384,7 +384,7 @@ const addPlayerToLobby = async ({
     (slot) => !slot.name && slot.teamIdx === resolvedTeamIdx
   )
   if (slotIndex === -1) {
-    log.debug(
+    log.warn(
       {
         ...playerParams,
         slotIndex,
