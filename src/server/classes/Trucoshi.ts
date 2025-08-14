@@ -1113,7 +1113,7 @@ export const Trucoshi = ({
         turn()
       }
 
-      function createTimeout(setTurnExpiration: boolean, pausedTime: number) {
+      function createTimeout(pausedTime: number) {
         if (!player) {
           table.log.error(
             { matchSessionId: table.matchSessionId },
@@ -1123,7 +1123,6 @@ export const Trucoshi = ({
         }
 
         if (
-          setTurnExpiration ||
           !play.player?.turnExpiresAt ||
           !play.player.turnExtensionExpiresAt
         ) {
@@ -1273,7 +1272,7 @@ export const Trucoshi = ({
           "Retrying turn"
         )
         turn()
-        trucoshiTurn.timeout = createTimeout(false, pausedTime)
+        trucoshiTurn.timeout = createTimeout(pausedTime)
       }
 
       const trucoshiTurn = new TrucoshiTurn({
@@ -1282,7 +1281,7 @@ export const Trucoshi = ({
         cancel,
         retry,
         createdAt: Date.now(),
-        timeout: isPaused ? null : createTimeout(true, 0),
+        timeout: isPaused ? null : createTimeout(0),
       })
       server.turns.set(table.matchSessionId, trucoshiTurn)
       table.log.trace(
