@@ -16,6 +16,7 @@ import {
 } from "../lib/constants"
 import { BotProfile } from "./Bot"
 import { getOpponentTeam } from "../lib/utils"
+import EventEmitter from "events"
 
 const log = logger.child({ class: "Lobby" })
 
@@ -56,6 +57,7 @@ export interface IPrivateLobby {
     fromTeamIdx: 0 | 1
     unpausesAt?: number
     pauseTimeout?: NodeJS.Timeout
+    emitter: EventEmitter
   }
   playAgainRequest?: {
     acceptedBySessions: Set<string>
@@ -75,7 +77,7 @@ export interface IPrivateLobby {
     fromTeamIdx: 0 | 1,
     pause: boolean,
     callback?: (unpausesAt: number) => void
-  ): Promise<void>
+  ): Promise<{ emitter: EventEmitter; playerNotAlone: boolean }>
   removePlayer(session: string): Promise<ILobby>
   calculateReady(): boolean
   calculateFull(): boolean
@@ -188,9 +190,13 @@ export function Lobby(
       })
     },
     requestPause(fromTeamIdx, pause, callback) {
-      const playerNotAlone = lobby.teams[getOpponentTeam(fromTeamIdx)].players.find(
-        (opponent) => !opponent.abandoned && !opponent.bot
+      const playerNotAlone = Boolean(
+        lobby.teams[getOpponentTeam(fromTeamIdx)].players.find(
+          (opponent) => !opponent.abandoned && !opponent.bot
+        )
       )
+
+      const emitter = new EventEmitter()
 
       if (!pause) {
         const unpausesAt = playerNotAlone ? Date.now() + UNPAUSE_TIME : Date.now()
@@ -203,10 +209,10 @@ export function Lobby(
           callback?.(unpausesAt)
         }
 
-        return new Promise<void>((resolve) =>
+        return new Promise<{ emitter: EventEmitter; playerNotAlone: boolean }>((resolve) =>
           setTimeout(() => {
             lobby.paused = false
-            resolve()
+            resolve({ emitter, playerNotAlone })
           }, Math.max(unpausesAt - Date.now(), 0))
         )
       }
@@ -216,23 +222,28 @@ export function Lobby(
       }
 
       if (playerNotAlone) {
-        return new Promise<void>((resolve, reject) => {
-          lobby.pauseRequest = {
-            accept() {
-              lobby.paused = true
-              resolve()
-            },
-            decline() {
-              lobby.paused = false
-              reject()
-            },
-            fromTeamIdx,
+        return new Promise<{ emitter: EventEmitter; playerNotAlone: boolean }>(
+          (resolve, reject) => {
+            lobby.pauseRequest = {
+              accept() {
+                lobby.paused = true
+                resolve({ emitter, playerNotAlone })
+              },
+              decline() {
+                lobby.paused = false
+                reject()
+              },
+              fromTeamIdx,
+              emitter,
+            }
           }
-        })
+        )
       }
 
+      lobby.pauseRequest = { accept() {}, decline() {}, fromTeamIdx, emitter }
+
       lobby.paused = true
-      return Promise.resolve()
+      return Promise.resolve({ emitter, playerNotAlone })
     },
     startMatch() {
       lobby.playersAtStart = lobby.players.length

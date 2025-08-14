@@ -45,11 +45,6 @@ interface UserTimeout {
 
 const WAIT_RECONNECTION_ABANDON_DEBUG_MSG = `User disconnected from match or was inactive and timed out with no reconnection`
 
-export interface ISocketMatchState {
-  isWaitingForPlay: boolean
-  isWaitingForSay: boolean
-}
-
 export function UserSession(key: string, username: string, session: string) {
   const emitter = new EventEmitter()
 

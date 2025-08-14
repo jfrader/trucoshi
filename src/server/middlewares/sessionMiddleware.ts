@@ -50,7 +50,7 @@ export const sessionMiddleware = (server: ITrucoshi) => {
         socket.data.identity = handshakeID
 
         if (!socket.data.matches) {
-          socket.data.matches = new TMap()
+          socket.data.matches = new Set()
         }
 
         logger.debug("Socket %s connected to guest session %s", socket.id, sessionID)

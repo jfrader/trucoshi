@@ -26,7 +26,7 @@ import {
 } from "../../types"
 import { Chat, IChat } from "./Chat"
 import { IMatchTable, MatchTable } from "./MatchTable"
-import { IUserSession, ISocketMatchState, UserSession } from "./UserSession"
+import { IUserSession, UserSession } from "./UserSession"
 import logger from "../../utils/logger"
 import { PayRequest, User } from "lightning-accounts"
 import { createAdapter } from "@socket.io/redis-adapter"
@@ -74,7 +74,7 @@ interface InterServerEvents {}
 interface SocketData {
   user?: IUserData
   identity?: string
-  matches: TMap<string, ISocketMatchState>
+  matches: Set<string>
   throttler?: (...any: any[]) => any
 }
 
@@ -549,12 +549,9 @@ export const Trucoshi = ({
           const info = match.getPublicMatchInfo()
           if (socket) {
             if (!socket.data.matches) {
-              socket.data.matches = new TMap()
+              socket.data.matches = new Set()
             }
-            socket.data.matches.set(match.matchSessionId, {
-              isWaitingForPlay: false,
-              isWaitingForSay: false,
-            })
+            socket.data.matches.add(match.matchSessionId)
           }
           return info
         })
@@ -572,7 +569,7 @@ export const Trucoshi = ({
       const key = randomUUID()
       const userSession = UserSession(key, id || "Satoshi", session)
       socket.data.user = userSession.getUserData()
-      socket.data.matches = new TMap()
+      socket.data.matches = new Set()
       server.sessions.set(session, userSession)
 
       userSession.on("connect", () => {
@@ -607,7 +604,7 @@ export const Trucoshi = ({
       socket.data.identity = identityJwt
 
       if (!socket.data.matches) {
-        socket.data.matches = new TMap()
+        socket.data.matches = new Set()
       }
 
       log.debug(
@@ -650,8 +647,7 @@ export const Trucoshi = ({
         if (table) {
           const player = table.isSessionPlaying(userSession.session)
           if (player) {
-            const reconnectType = table.state() === EMatchState.STARTED ? "turn" : "disconnection"
-            userSession.reconnect(matchSessionId, reconnectType)
+            userSession.reconnect(matchSessionId, "disconnection")
             socket.join(matchSessionId)
             socket.join(matchSessionId + player.teamIdx)
 
@@ -765,7 +761,7 @@ export const Trucoshi = ({
               return
             }
 
-            if (playerSocket.data.matches.get(table.matchSessionId)?.isWaitingForSay) {
+            if (!playerSocket.data.matches.has(table.matchSessionId)) {
               return
             }
 
@@ -795,7 +791,15 @@ export const Trucoshi = ({
                 if (!data || !play.waitingPlay) {
                   const message =
                     "Tried to say something but someone said something already or callback data came empty"
-                  table.log.warn({ player: player.getPublicPlayer() }, message)
+                  table.log.warn(
+                    {
+                      player: player.getPublicPlayer(),
+                      waitingPlay: play.waitingPlay,
+                      round: play.roundIdx,
+                      turn: play.getHand().turn,
+                    },
+                    message
+                  )
                   if (!play.waitingPlay) {
                     return resolve()
                   }
@@ -847,7 +851,7 @@ export const Trucoshi = ({
               return
             }
 
-            if (playerSocket.data.matches.get(table.matchSessionId)?.isWaitingForPlay) {
+            if (!playerSocket.data.matches.has(table.matchSessionId)) {
               return
             }
 
@@ -989,10 +993,7 @@ export const Trucoshi = ({
             "Player socket doesn't have data.matches!!!"
           )
         }
-        playerSocket.data.matches.set(table.matchSessionId, {
-          isWaitingForPlay: false,
-          isWaitingForSay: false,
-        })
+        playerSocket.data.matches.add(table.matchSessionId)
       })
     },
     async emitFlorBattle(hand, table) {
@@ -1078,8 +1079,8 @@ export const Trucoshi = ({
       })
     },
     clearTurnTimeout(matchSessionId) {
-      const turn = server.turns.getOrThrow(matchSessionId)
-      if (turn.timeout) {
+      const turn = server.turns.get(matchSessionId)
+      if (turn?.timeout) {
         clearTimeout(turn.timeout)
       }
     },
@@ -1105,9 +1106,30 @@ export const Trucoshi = ({
         "Starting new player turn timeout"
       )
       const chat = server.chat.rooms.getOrThrow(table.matchSessionId)
-      player.setTurnExpiration(table.lobby.options.turnTime, table.lobby.options.abandonTime)
-      turn()
-      function createTimeout(pausedTime: number) {
+
+      const isPaused = table.lobby.paused
+
+      if (!isPaused) {
+        turn()
+      }
+
+      function createTimeout(setTurnExpiration: boolean, pausedTime: number) {
+        if (!player) {
+          table.log.error(
+            { matchSessionId: table.matchSessionId },
+            "Setting turn on turn play with no current player set"
+          )
+          return null
+        }
+
+        if (
+          setTurnExpiration ||
+          !play.player?.turnExpiresAt ||
+          !play.player.turnExtensionExpiresAt
+        ) {
+          player.setTurnExpiration(table.lobby.options.turnTime, table.lobby.options.abandonTime)
+        }
+
         if (!play.player?.turnExpiresAt || !play.player.turnExtensionExpiresAt) {
           table.log.error(
             {
@@ -1120,6 +1142,7 @@ export const Trucoshi = ({
           )
           return null
         }
+
         const now = Date.now()
         const isInExtensionPeriod = now >= play.player.turnExpiresAt
         const timeoutDuration =
@@ -1143,6 +1166,7 @@ export const Trucoshi = ({
           }ms)`
         )
 
+        server.clearTurnTimeout(table.matchSessionId)
         return setTimeout(() => {
           const timedOutAt = play.player?.disconnectedAt || Date.now()
           const tPlayer = play.player
@@ -1210,6 +1234,7 @@ export const Trucoshi = ({
               cancel()
             })
             .finally(() => {
+              server.clearTurnTimeout(table.matchSessionId)
               server
                 .emitMatchUpdate(table)
                 .catch((e) =>
@@ -1248,15 +1273,16 @@ export const Trucoshi = ({
           "Retrying turn"
         )
         turn()
-        trucoshiTurn.timeout = createTimeout(pausedTime)
+        trucoshiTurn.timeout = createTimeout(false, pausedTime)
       }
+
       const trucoshiTurn = new TrucoshiTurn({
         play,
         resolve,
         cancel,
         retry,
         createdAt: Date.now(),
-        timeout: createTimeout(0),
+        timeout: isPaused ? null : createTimeout(true, 0),
       })
       server.turns.set(table.matchSessionId, trucoshiTurn)
       table.log.trace(
@@ -1881,7 +1907,8 @@ export const Trucoshi = ({
 
         const promise = table.lobby
           .requestPause(player.teamIdx, true)
-          .then(() => {
+          .then(({ emitter, playerNotAlone }) => {
+            emitter.emit("pause")
             if (!table.lobby.pauseRequest) {
               table.log.error({}, "Failed to find pause request in lobby")
               return false
@@ -1909,9 +1936,11 @@ export const Trucoshi = ({
                 table.log.error({ message: e.message }, "Failed to emit UPDATE_MATCH after pause")
               )
 
-            table.lobby.pauseRequest.pauseTimeout = setTimeout(() => {
-              server.pauseMatch({ matchSessionId, pause: false })
-            }, PLAYER_ABANDON_TIMEOUT)
+            if (playerNotAlone) {
+              table.lobby.pauseRequest.pauseTimeout = setTimeout(() => {
+                server.pauseMatch({ matchSessionId, pause: false })
+              }, PLAYER_ABANDON_TIMEOUT)
+            }
 
             chat.system("La partida esta en pausa.", "menu0")
 
@@ -1927,6 +1956,7 @@ export const Trucoshi = ({
 
         const pauseRequestTimeout = setTimeout(() => {
           if (table.lobby.pauseRequest) {
+            clearTimeout(table.lobby.pauseRequest.pauseTimeout)
             table.lobby.pauseRequest.decline()
             table.lobby.pauseRequest = undefined
           }
@@ -1935,7 +1965,7 @@ export const Trucoshi = ({
         setTimeout(() => {
           server
             .getTableSockets(table, async (socket, socketPlayer) => {
-              if (socketPlayer && table.lobby.pauseRequest) {
+              if (socketPlayer && table.lobby.pauseRequest && !table.lobby.paused) {
                 socket.emit(
                   EServerEvent.PAUSE_MATCH_REQUEST,
                   table.matchSessionId,
@@ -1977,7 +2007,8 @@ export const Trucoshi = ({
             socket.emit(EServerEvent.UNPAUSE_STARTED, table.matchSessionId, unpausesAt)
           })
         })
-        .then(() => {
+        .then(({ emitter }) => {
+          emitter.emit("unpause")
           const turn = server.turns.getOrThrow(matchSessionId)
           const pausedTime = turn.pausedAt ? Date.now() - turn.pausedAt : 0
           turn.pausedAt = undefined
@@ -2021,7 +2052,7 @@ export const Trucoshi = ({
             )
           }
 
-          chat.system("La partida se ha reanudado...")
+          chat.system("La partida se ha reanudado...", "menu1")
 
           turn.retry(pausedTime)
           server
@@ -2036,6 +2067,9 @@ export const Trucoshi = ({
           return false
         })
         .finally(() => {
+          if (table.lobby.pauseRequest?.pauseTimeout) {
+            clearTimeout(table.lobby.pauseRequest.pauseTimeout)
+          }
           table.lobby.pauseRequest = undefined
         })
     },
@@ -2384,6 +2418,10 @@ export const Trucoshi = ({
 
       table.lobby
         .startMatch()
+        .onBeforeStarts(async () => {
+          await server.emitMatchUpdate(table)
+          await new Promise((resolve) => setTimeout(resolve, PLAYER_TIMEOUT_GRACE * 3))
+        })
         .onHandFinished(async (hand) => {
           if (server.store && hand) {
             await server.store.matchHand.create({
@@ -2553,17 +2591,25 @@ export const Trucoshi = ({
       const table = server.tables.getOrThrow(matchSessionId)
 
       if (!socket.data.user) {
-        return
+        throw new SocketError("FORBIDDEN")
+      }
+
+      const isPlayer = table.lobby.players.find((p) => p.session === userSession.session)
+
+      if (!isPlayer) {
+        return table.lobby.playAgainRequest?.newMatchSessionId
       }
 
       if (table.lobby.playAgainRequest) {
-        table.lobby.playAgainRequest.acceptedBySessions.add(userSession.session)
-        const match = server.tables.getOrThrow(table.lobby.playAgainRequest.newMatchSessionId)
+        const newMatch = server.tables.getOrThrow(table.lobby.playAgainRequest.newMatchSessionId)
+        const possible = _getPossiblePlayingMatch(newMatch.matchSessionId, userSession.session)
 
-        const possible = _getPossiblePlayingMatch(match.matchSessionId, socket.data.user.session)
+        if (!possible?.player) {
+          await server.joinMatch(newMatch, userSession, socket)
+        }
 
-        if (!possible?.player && !match.playing()) {
-          await server.joinMatch(match, userSession, socket)
+        if (!table.lobby.playAgainRequest.acceptedBySessions.has(userSession.session)) {
+          table.lobby.playAgainRequest.acceptedBySessions.add(userSession.session)
         }
       } else {
         const newTable = await server.createMatchTable(userSession, socket)
@@ -2618,10 +2664,7 @@ export const Trucoshi = ({
         }
 
         if (socket.data.matches) {
-          socket.data.matches.set(table.matchSessionId, {
-            isWaitingForPlay: false,
-            isWaitingForSay: false,
-          })
+          socket.data.matches.add(table.matchSessionId)
         }
 
         const userSession = server.sessions.get(socket.data.user.session)
@@ -2633,38 +2676,13 @@ export const Trucoshi = ({
 
         userSession.reconnect(table.matchSessionId, "disconnection")
 
-        const { play, resolve } = server.turns.get(table.matchSessionId) || {}
+        const { play, retry } = server.turns.get(table.matchSessionId) || {}
         const player = table.isSessionPlaying(socket.data.user.session)
         if (play && play.player && player) {
           socket.join(table.matchSessionId + player.teamIdx)
 
-          if (
-            play.state === EHandState.WAITING_PLAY &&
-            socket.data.user.session === play.player.session
-          ) {
-            log.trace(
-              {
-                ...socket.data.user,
-                socket: socket.id,
-              },
-              "Emitting user's socket current playing match: waiting for play"
-            )
-            server
-              .emitWaitingForPlay({ play, table, onlyThisSocket: socket.id })
-              .then(resolve)
-              .catch(log.error)
-          } else {
-            log.trace(
-              {
-                ...socket.data.user,
-                socket: socket.id,
-              },
-              "Emitting user's socket current playing match: waiting possible say"
-            )
-            server
-              .emitWaitingPossibleSay({ play, table, onlyThisSocket: socket.id })
-              .then(resolve)
-              .catch(log.error)
+          if (play.player.key === player.key) {
+            retry?.(0)
           }
         }
 
