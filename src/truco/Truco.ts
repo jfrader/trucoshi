@@ -38,11 +38,18 @@ const TRUCO_STATE_MAP = {
 
 function* trucoTurnGeneratorSequence(truco: ITruco): Generator<ITruco, void, ITruco> {
   while (truco.answer === null) {
+    truco.players = truco.players.filter((p) => !p.disabled && !p.abandoned)
+
     if (!truco.players.length) {
       truco.setCurrentPlayer(null)
       truco.waitingAnswer = false
       truco.answer = false
       yield truco
+      continue
+    }
+
+    if (truco.turn >= truco.players.length) {
+      truco.setTurn(0)
     }
 
     let player = truco.players[truco.turn]
@@ -54,8 +61,9 @@ function* trucoTurnGeneratorSequence(truco: ITruco): Generator<ITruco, void, ITr
     }
 
     truco.setCurrentPlayer(player)
-    if (!player || player.disabled) {
+    if (!player || player.disabled || player.abandoned) {
       truco.setCurrentPlayer(null)
+      continue
     }
 
     yield truco

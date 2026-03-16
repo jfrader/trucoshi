@@ -13,3 +13,4 @@ processed*.txt
 !.env*.test
 
 prisma/client
+*.log

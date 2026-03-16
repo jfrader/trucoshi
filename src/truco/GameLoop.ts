@@ -203,9 +203,11 @@ export const GameLoop = (match: IMatch) => {
               match.table.sessionId +
               " ended because an error was thrown in the game loop!"
           )
-          process.exit(1)
-          match.setWinner(match.teams[0])
-          winner = match.teams[0]
+          // Never terminate the whole server due to a single match failure.
+          if (!match.winner) {
+            match.setWinner(match.teams[0])
+          }
+          winner = match.winner
         }
 
         break

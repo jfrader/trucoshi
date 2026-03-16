@@ -3,7 +3,7 @@ import { IDeck, IHandPoints, ILobbyOptions, IPlayer, ITeam } from "../types"
 
 import { Hand, IHand } from "./Hand"
 import { IPlayInstance } from "./Play"
-import { Deck, ITable } from "../lib"
+import { Deck, ITable, PICA_PICA_TEAM_SIZE, PICA_PICA_TRIGGER_PERCENT } from "../lib"
 
 const log = logger.child({ class: "Match" })
 
@@ -26,8 +26,29 @@ export interface IMatch {
 }
 
 const playerAbandoned = (player: IPlayer) => player.abandoned
+type IPicaPair = [IPlayer, IPlayer]
+
+const getPicaPairs = (players: IPlayer[]): IPicaPair[] => {
+  if (players.length !== PICA_PICA_TEAM_SIZE) {
+    return []
+  }
+
+  const half = players.length / 2
+  const pairs: IPicaPair[] = []
+  for (let i = 0; i < half; i++) {
+    pairs.push([players[i], players[i + half]])
+  }
+
+  return pairs
+}
 
 async function* matchTurnGeneratorSequence(match: IMatch) {
+  const picaPairs = getPicaPairs(match.table.players)
+  const picaTriggerPoints = Math.ceil(match.options.matchPoint * PICA_PICA_TRIGGER_PERCENT)
+  let picaActivated = false
+  let picaEnded = false
+  let nextModeIsPica = false
+
   while (!match.winner) {
     if (match.teams[0].players.every(playerAbandoned)) {
       match.setWinner(match.teams[1])
@@ -39,40 +60,92 @@ async function* matchTurnGeneratorSequence(match: IMatch) {
       break
     }
 
-    match.setCurrentHand(null)
+    if (!picaEnded && match.table.players.some((player) => player.abandoned)) {
+      picaEnded = true
+      if (picaActivated) {
+        log.info({ matchId: match.id }, "Pica-pica ended: a player abandoned")
+      }
+    }
 
-    yield match
+    if (
+      !picaActivated &&
+      !picaEnded &&
+      match.table.players.length === PICA_PICA_TEAM_SIZE &&
+      match.teams.some(
+        (team) => Math.max(team.points.malas, team.points.buenas) >= picaTriggerPoints
+      )
+    ) {
+      picaActivated = true
+      nextModeIsPica = true
+      log.info(
+        { matchId: match.id, trigger: picaTriggerPoints, pairs: picaPairs.map((pair) => pair.map((p) => p.idx)) },
+        "Pica-pica mode activated"
+      )
+    }
 
-    const newHand = Hand(match, match.hands.length + 1)
-    const hand = match.setCurrentHand(await newHand.init()) as IHand
-    match.pushHand(hand)
+    const picaHand = picaActivated && !picaEnded && nextModeIsPica
+    if (picaActivated && !picaEnded) {
+      nextModeIsPica = !nextModeIsPica
+    }
 
-    while (!hand.finished()) {
-      const { value } = hand.getNextTurn()
-      if (value) {
-        if (value.currentPlayer && value.currentPlayer.disabled && !hand.displayingPreviousHand()) {
-          value.nextTurn()
-          continue
-        }
-        if (value.finished()) {
-          break
+    const handsToPlay: Array<IPicaPair | null> = picaHand ? picaPairs : [null]
+
+    for (const pair of handsToPlay) {
+      match.setCurrentHand(null)
+      yield match
+
+      const newHand = Hand(match, match.hands.length + 1)
+      const hand = match.setCurrentHand(await newHand.init()) as IHand
+
+      if (pair) {
+        const pairPlayers = new Set(pair.map((player) => player.key))
+        for (const player of match.table.players) {
+          if (!pairPlayers.has(player.key)) {
+            player.disable()
+          }
         }
       }
-      match.setCurrentHand(value as IHand)
-      yield match
+
+      match.pushHand(hand)
+
+      if (pair) {
+        log.trace(
+          { matchId: match.id, handIdx: hand.idx, pair: pair.map((player) => player.idx) },
+          "Pica-pica mini-hand started"
+        )
+      }
+
+      while (!hand.finished()) {
+        const { value } = hand.getNextTurn()
+        if (value) {
+          if (value.currentPlayer && value.currentPlayer.disabled && !hand.displayingPreviousHand()) {
+            value.nextTurn()
+            continue
+          }
+          if (value.finished()) {
+            break
+          }
+        }
+        match.setCurrentHand(value as IHand)
+        yield match
+      }
+
+      match.setCurrentHand(null)
+
+      const teams = match.addPoints(hand.points)
+      const winner = teams.find((team) => team.points.winner)
+
+      if (winner) {
+        match.setWinner(winner)
+        match.setCurrentHand(null)
+        break
+      }
+      match.table.nextHand()
     }
 
-    match.setCurrentHand(null)
-
-    const teams = match.addPoints(hand.points)
-    const winner = teams.find((team) => team.points.winner)
-
-    if (winner) {
-      match.setWinner(winner)
-      match.setCurrentHand(null)
+    if (match.winner) {
       break
     }
-    match.table.nextHand()
   }
   yield match
 }

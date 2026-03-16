@@ -911,12 +911,26 @@ export const Trucoshi = ({
       const matchTable = typeof table === "string" ? server.tables.getOrThrow(table) : table
       return new Promise<void>((resolve, reject) => {
         if (command || command === 0) {
+          const hand = play.getHand()
+          if (!play.waitingPlay) {
+            matchTable.log.trace(
+              {
+                matchSessionId: matchTable.matchSessionId,
+                player: player.getPublicPlayer("log"),
+                command,
+                state: hand.state,
+                waitingPlay: play.waitingPlay,
+              },
+              "Ignoring stale say command action"
+            )
+            return resolve()
+          }
+
           matchTable.log.trace(
             { player: player.getPublicPlayer("log"), command },
             "Attempt to say command"
           )
 
-          const hand = play.getHand()
           const currentState = hand.state
 
           const saidCommand = play.say(command, player, force)
@@ -963,6 +977,27 @@ export const Trucoshi = ({
       const matchTable = typeof table === "string" ? server.tables.getOrThrow(table) : table
       return new Promise<void>((resolve, reject) => {
         if (cardIdx !== undefined && card) {
+          const hand = play.getHand()
+          if (
+            !play.waitingPlay ||
+            hand.state !== EHandState.WAITING_PLAY ||
+            play.player?.key !== player.key
+          ) {
+            matchTable.log.trace(
+              {
+                matchSessionId: matchTable.matchSessionId,
+                player: player.getPublicPlayer("log"),
+                card,
+                cardIdx,
+                state: hand.state,
+                waitingPlay: play.waitingPlay,
+                currentPlayer: play.player?.getPublicPlayer("log"),
+              },
+              "Ignoring stale play card action"
+            )
+            return resolve()
+          }
+
           matchTable.log.trace(
             { card, cardIdx, player: player.getPublicPlayer("log") },
             "Attempt to play card"
@@ -1047,21 +1082,89 @@ export const Trucoshi = ({
     },
     async onBotTurn(table, play) {
       return new Promise(async (resolve, reject) => {
+        let settled = false
+
+        const resolveOnce = () => {
+          if (settled) {
+            return
+          }
+          settled = true
+          resolve()
+        }
+
+        const rejectOnce = (e?: unknown) => {
+          if (settled) {
+            return
+          }
+          settled = true
+          reject(e)
+        }
+
+        const guardedPlayCard: ITrucoshi["playCard"] = (input) => {
+          if (settled || !play.waitingPlay) {
+            table.log.trace(
+              {
+                matchSessionId: table.matchSessionId,
+                player: input.player.getPublicPlayer("log"),
+                card: input.card,
+                cardIdx: input.cardIdx,
+                waitingPlay: play.waitingPlay,
+                settled,
+              },
+              "Ignoring stale bot card action"
+            )
+            return Promise.resolve()
+          }
+
+          return server.playCard(input)
+        }
+
+        const guardedSayCommand: ITrucoshi["sayCommand"] = (input, force) => {
+          if (settled || !play.waitingPlay) {
+            table.log.trace(
+              {
+                matchSessionId: table.matchSessionId,
+                player: input.player.getPublicPlayer("log"),
+                command: input.command,
+                waitingPlay: play.waitingPlay,
+                settled,
+              },
+              "Ignoring stale bot command action"
+            )
+            return Promise.resolve()
+          }
+
+          return server.sayCommand(input, force)
+        }
+
         server
           .emitWaitingPossibleSay({ play, table })
-          .then(() => resolve())
+          .then(() => resolveOnce())
           .catch((e) => table.log.error(e, "Error onBotTurn, rejected waitingPossibleSay"))
 
         const player = play.player
         if (!player || !player.bot || !table.lobby.table) {
-          return reject()
+          return rejectOnce()
         }
 
         const turn = () =>
           player
-            .playBot(table.lobby.table!, play, server.playCard, server.sayCommand)
-            .then(resolve)
-            .catch(reject)
+            .playBot(table.lobby.table!, play, guardedPlayCard, guardedSayCommand)
+            .then(() => resolveOnce())
+            .catch((e) => {
+              if (settled) {
+                table.log.trace(
+                  {
+                    matchSessionId: table.matchSessionId,
+                    player: player.getPublicPlayer("log"),
+                    message: (e as Error)?.message,
+                  },
+                  "Ignored bot action error after turn settled"
+                )
+                return resolveOnce()
+              }
+              rejectOnce(e)
+            })
 
         turn()
 
@@ -1069,9 +1172,9 @@ export const Trucoshi = ({
           table.matchSessionId,
           new TrucoshiTurn({
             play,
-            resolve,
+            resolve: resolveOnce,
             retry: turn,
-            cancel: reject,
+            cancel: rejectOnce,
             createdAt: Date.now(),
             timeout: null,
           })
@@ -1112,6 +1215,10 @@ export const Trucoshi = ({
       if (!isPaused) {
         turn()
       }
+
+      let trucoshiTurn: TrucoshiTurn
+
+      const isActiveTurn = () => server.turns.get(table.matchSessionId) === trucoshiTurn
 
       function createTimeout(pausedTime: number) {
         if (!player) {
@@ -1167,6 +1274,14 @@ export const Trucoshi = ({
 
         server.clearTurnTimeout(table.matchSessionId)
         return setTimeout(() => {
+          if (!isActiveTurn()) {
+            table.log.trace(
+              { matchSessionId: table.matchSessionId, player: play.player?.getPublicPlayer("log") },
+              "Ignoring stale turn timeout callback"
+            )
+            return
+          }
+
           const timedOutAt = play.player?.disconnectedAt || Date.now()
           const tPlayer = play.player
           if (!tPlayer || !tPlayer.turnExtensionExpiresAt) {
@@ -1202,15 +1317,30 @@ export const Trucoshi = ({
           user
             .waitReconnection(table.matchSessionId, reconnectDuration, "turn")
             .then(() => {
+              if (!isActiveTurn()) {
+                table.log.trace(
+                  { matchSessionId: table.matchSessionId, player: tPlayer.getPublicPlayer("log") },
+                  "Ignoring stale turn reconnection success callback"
+                )
+                return
+              }
+
               const reconnectTime = Date.now()
               let disconnectedDuration = reconnectTime - timedOutAt
-              const trucoshiTurn = server.turns.getOrThrow(table.matchSessionId)
+              const currentTurn = server.turns.get(table.matchSessionId)
+              if (!currentTurn) {
+                table.log.trace(
+                  { matchSessionId: table.matchSessionId, player: tPlayer.getPublicPlayer("log") },
+                  "Skipping reconnection continuation because turn no longer exists"
+                )
+                return
+              }
               if (
                 table.lobby.paused &&
-                trucoshiTurn.pausedAt &&
-                timedOutAt < trucoshiTurn.pausedAt
+                currentTurn.pausedAt &&
+                timedOutAt < currentTurn.pausedAt
               ) {
-                disconnectedDuration = trucoshiTurn.pausedAt - timedOutAt
+                disconnectedDuration = currentTurn.pausedAt - timedOutAt
               }
               tPlayer.addDisconnectedTime(disconnectedDuration)
               table.log.trace(
@@ -1224,6 +1354,14 @@ export const Trucoshi = ({
               }
             })
             .catch(() => {
+              if (!isActiveTurn()) {
+                table.log.trace(
+                  { matchSessionId: table.matchSessionId, player: tPlayer.getPublicPlayer("log") },
+                  "Ignoring stale turn reconnection timeout callback"
+                )
+                return
+              }
+
               table.log.trace(
                 { matchSessionId: table.matchSessionId, player: tPlayer.getPublicPlayer("log") },
                 "Player abandoned after reconnection timeout"
@@ -1233,15 +1371,17 @@ export const Trucoshi = ({
               cancel()
             })
             .finally(() => {
-              server.clearTurnTimeout(table.matchSessionId)
-              server
-                .emitMatchUpdate(table)
-                .catch((e) =>
-                  log.error(
-                    { message: e.message },
-                    "Failed to emit match update after waitReconnection resolved or rejected"
+              if (isActiveTurn()) {
+                server.clearTurnTimeout(table.matchSessionId)
+                server
+                  .emitMatchUpdate(table)
+                  .catch((e) =>
+                    log.error(
+                      { message: e.message },
+                      "Failed to emit match update after waitReconnection resolved or rejected"
+                    )
                   )
-                )
+              }
             })
         }, timeoutDuration)
       }
@@ -1271,11 +1411,18 @@ export const Trucoshi = ({
           },
           "Retrying turn"
         )
+        if (!isActiveTurn()) {
+          table.log.trace(
+            { matchSessionId: table.matchSessionId, player: player.getPublicPlayer("log"), pausedTime },
+            "Ignoring stale turn retry"
+          )
+          return
+        }
         turn()
         trucoshiTurn.timeout = createTimeout(pausedTime)
       }
 
-      const trucoshiTurn = new TrucoshiTurn({
+      trucoshiTurn = new TrucoshiTurn({
         play,
         resolve,
         cancel,
@@ -1297,7 +1444,16 @@ export const Trucoshi = ({
       return new Promise<void>((resolve) => {
         const session = play.player?.session
         if (!session || !play || !play.player) {
-          throw new Error("No session, play instance or player found")
+          table.log.error(
+            {
+              matchSessionId: table.matchSessionId,
+              session,
+              hasPlay: !!play,
+              hasPlayer: !!play?.player,
+            },
+            "Skipping onTurn: missing session, play instance or player"
+          )
+          return resolve()
         }
 
         const player = play.player
@@ -1333,7 +1489,16 @@ export const Trucoshi = ({
       return new Promise<void>((resolve) => {
         const session = play.player?.session
         if (!session || !play || !play.player) {
-          throw new Error("No session, play instance or player found")
+          table.log.error(
+            {
+              matchSessionId: table.matchSessionId,
+              session,
+              hasPlay: !!play,
+              hasPlayer: !!play?.player,
+            },
+            "Skipping onTruco: missing session, play instance or player"
+          )
+          return resolve()
         }
 
         const turn = () =>
@@ -1375,7 +1540,16 @@ export const Trucoshi = ({
       return new Promise<void>((resolve) => {
         const session = play.player?.session as string
         if (!session || !play || !play.player) {
-          throw new Error("No session, play instance or player found")
+          table.log.error(
+            {
+              matchSessionId: table.matchSessionId,
+              session,
+              hasPlay: !!play,
+              hasPlayer: !!play?.player,
+            },
+            "Skipping onFlor: missing session, play instance or player"
+          )
+          return resolve()
         }
 
         const turn = () =>
@@ -1442,7 +1616,17 @@ export const Trucoshi = ({
       return new Promise<void>((resolve) => {
         const session = play.player?.session as string
         if (!session || !play || !play.player) {
-          throw new Error("No session, play instance or player found")
+          table.log.error(
+            {
+              matchSessionId: table.matchSessionId,
+              session,
+              hasPlay: !!play,
+              hasPlayer: !!play?.player,
+              isPointsRound,
+            },
+            "Skipping onEnvido: missing session, play instance or player"
+          )
+          return resolve()
         }
 
         const turn = () =>
@@ -2414,6 +2598,8 @@ export const Trucoshi = ({
       table.log.info(table.getPublicMatchInfo(), "Match started")
 
       await server.cleanupUserTables(userSession)
+      let announcedFirstTurn = false
+      let announcedPicaPica = false
 
       table.lobby
         .startMatch()
@@ -2447,7 +2633,26 @@ export const Trucoshi = ({
 
           return server.onHandFinished(table, hand)
         })
-        .onTurn(server.onTurn.bind(null, table))
+        .onTurn(async (play) => {
+          const isHandStart = play.roundIdx === 1 && play.getHand().playedCards.length === 0
+          const chat = server.chat.rooms.get(table.matchSessionId)
+
+          if (!announcedFirstTurn && isHandStart && play.player) {
+            chat?.system(`Es el turno de ${play.player.name}`)
+            announcedFirstTurn = true
+          }
+
+          const enabledPlayers = table.lobby.players.filter((player) => !player.disabled)
+          const isPicaPicaMiniHand =
+            table.lobby.players.length === 6 && enabledPlayers.length === 2 && isHandStart
+
+          if (!announcedPicaPica && isPicaPicaMiniHand) {
+            chat?.system("Empezo el Pica-Pica")
+            announcedPicaPica = true
+          }
+
+          return server.onTurn(table, play)
+        })
         .onBotTurn(server.onBotTurn.bind(null, table))
         .onEnvido(server.onEnvido.bind(null, table))
         .onTruco(server.onTruco.bind(null, table))

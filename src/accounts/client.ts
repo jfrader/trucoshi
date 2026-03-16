@@ -56,6 +56,8 @@ const validateJwt = (identityJwt: string, account: Pick<User, "id">): JwtPayload
   }
 }
 
-const getMemoLatestBitcoinBlock = memoizeMinute(api.wallet.getLatestBitcoinBlock)
+const getMemoLatestBitcoinBlock: typeof api.wallet.getLatestBitcoinBlock = memoizeMinute(
+  api.wallet.getLatestBitcoinBlock
+) as typeof api.wallet.getLatestBitcoinBlock
 
 export { api as accountsApi, getMemoLatestBitcoinBlock, validateJwt, getCookieName }

@@ -329,6 +329,23 @@ export function Flor(teams: [ITeam, ITeam], options: ILobbyOptions, table: ITabl
 
 function* florTurnGeneratorSequence(flor: IFlor) {
   while (!flor.finished && !flor.winner) {
+    flor.players = flor.players.filter((p) => !p.disabled && !p.abandoned)
+
+    if (!flor.players.length) {
+      flor.setCurrentPlayer(null)
+      if (flor.teamIdx !== null) {
+        flor.winner = flor.teams[flor.teamIdx]
+      }
+      flor.answer = false
+      flor.finished = true
+      yield flor
+      continue
+    }
+
+    if (flor.turn >= flor.players.length) {
+      flor.setTurn(0)
+    }
+
     const player = flor.players[flor.turn]
 
     if (flor.turn >= flor.players.length - 1) {
@@ -338,8 +355,9 @@ function* florTurnGeneratorSequence(flor: IFlor) {
     }
 
     flor.setCurrentPlayer(player)
-    if (!player || player.disabled) {
+    if (!player || player.disabled || player.abandoned) {
       flor.setCurrentPlayer(null)
+      continue
     }
 
     yield flor

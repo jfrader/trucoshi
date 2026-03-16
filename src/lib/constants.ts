@@ -102,3 +102,5 @@ export const SUITS_HUMAN_READABLE = {
 }
 
 export const TEAM_SIZE_VALUES = [1, 2, 3]
+export const PICA_PICA_TRIGGER_PERCENT = 0.5
+export const PICA_PICA_TEAM_SIZE = 6

@@ -126,26 +126,46 @@ function* handTurnGeneratorSequence(match: IMatch, hand: IHand) {
         hand.state === EHandState.WAITING_ENVIDO_ANSWER ||
         hand.state === EHandState.WAITING_ENVIDO_POINTS_ANSWER
       ) {
-        const { value } = hand.envido.getNextPlayer()
+        const { value, done } = hand.envido.getNextPlayer()
         if (value && value.currentPlayer) {
           hand.setCurrentPlayer(value.currentPlayer)
           yield hand
+          continue
+        }
+
+        if (done || hand.envido.finished || hand.envido.answer === false || hand.envido.winner) {
+          hand.endEnvido()
+          break
         }
       }
 
       while (hand.state === EHandState.WAITING_FLOR_ANSWER) {
-        const { value } = hand.flor.getNextPlayer()
+        const { value, done } = hand.flor.getNextPlayer()
         if (value && value.currentPlayer) {
           hand.setCurrentPlayer(value.currentPlayer)
           yield hand
+          continue
+        }
+
+        if (done || hand.flor.finished || hand.flor.winner) {
+          hand.endEnvido()
+          break
         }
       }
 
       while (hand.state === EHandState.WAITING_FOR_TRUCO_ANSWER) {
-        const { value } = hand.truco.getNextPlayer()
+        const { value, done } = hand.truco.getNextPlayer()
         if (value && value.currentPlayer) {
           hand.setCurrentPlayer(value.currentPlayer)
           yield hand
+          continue
+        }
+
+        if (done || hand.truco.answer !== null || !hand.truco.waitingAnswer) {
+          if (hand.truco.answer === true) {
+            hand.setState(EHandState.WAITING_PLAY)
+          }
+          break
         }
       }
 

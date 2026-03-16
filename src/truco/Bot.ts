@@ -216,6 +216,7 @@ interface BotContext {
   bot: IPlayer
   play: IPlayInstance
   profile: BotPersonality
+  isPicaPicaMiniHand: boolean
   botHandStrength: number
   isFirstRound: boolean
   isLastRound: boolean
@@ -229,6 +230,8 @@ interface BotContext {
   activeOpponents: IPlayer[]
   teammates: IPlayer[]
 }
+
+const PICA_PICA_RISK_TOLERANCE_MULTIPLIER = 0.65
 
 // Helper Functions
 function getTeammates(context: BotContext): IPlayer[] {
@@ -666,11 +669,25 @@ export async function playBot(
 ) {
   if (!play.player || !bot.isTurn || play.player.idx !== bot.idx) return
 
+  const baseProfile = bot.bot ? PERSONALITY_PROFILES[bot.bot] : PERSONALITY_PROFILES["Nick"]
+  const enabledPlayers = table.players.filter((p) => !p.disabled)
+  const isPicaPicaMiniHand = table.players.length === 6 && enabledPlayers.length === 2
+  const profile: BotPersonality = isPicaPicaMiniHand
+    ? {
+        ...baseProfile,
+        riskTolerance: Math.max(
+          0.05,
+          Math.min(1, baseProfile.riskTolerance * PICA_PICA_RISK_TOLERANCE_MULTIPLIER)
+        ),
+      }
+    : baseProfile
+
   const context: BotContext = {
     table,
     bot,
     play,
-    profile: bot.bot ? PERSONALITY_PROFILES[bot.bot] : PERSONALITY_PROFILES["Nick"],
+    profile,
+    isPicaPicaMiniHand,
     botHandStrength: bot.hand.reduce((sum, card) => sum + CARDS[card], 0),
     isFirstRound: play.roundIdx === 1,
     isLastRound: play.roundIdx === 3,

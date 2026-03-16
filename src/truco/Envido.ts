@@ -113,12 +113,21 @@ export const EnvidoCalculator: IEnvidoCalculator = {
 
 function* envidoTurnGeneratorSequence(envido: IEnvido) {
   while (envido.answer === null || envido.winner === null) {
+    envido.players = envido.players.filter((p) => !p.disabled && !p.abandoned)
+
     if (!envido.players.length) {
       envido.setCurrentPlayer(null)
-      envido.winner = envido.winner || envido.teams[envido.teamIdx!]
+      if (envido.teamIdx !== null) {
+        envido.winner = envido.winner || envido.teams[envido.teamIdx]
+      }
       envido.answer = false
       envido.finished = true
       yield envido
+      continue
+    }
+
+    if (envido.turn >= envido.players.length) {
+      envido.setTurn(0)
     }
 
     const player = envido.players[envido.turn]
@@ -131,8 +140,9 @@ function* envidoTurnGeneratorSequence(envido: IEnvido) {
 
     envido.setCurrentPlayer(player)
 
-    if (!player || player.disabled) {
+    if (!player || player.disabled || player.abandoned) {
       envido.setCurrentPlayer(null)
+      continue
     }
 
     yield envido
