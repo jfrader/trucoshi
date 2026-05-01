@@ -185,7 +185,7 @@ const PERSONALITY_PROFILES: Record<BotProfile, BotPersonality> = {
     caution: 0.7,
     envidoConfidence: 0.7,
     riskTolerance: 0.5,
-    patience: 0.5,
+    patience: 0.1,
   },
   Neo: {
     aggression: 0.7,
