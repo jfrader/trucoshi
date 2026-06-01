@@ -10,6 +10,9 @@ import {
   IPublicMatch,
   IPublicMatchInfo,
   IPublicMatchStats,
+  IJoinQueueOptions,
+  IQueueMatchFound,
+  IQueueStatus,
   ITrucoshiStats,
   IUserData,
   IWaitingPlayData,
@@ -40,12 +43,16 @@ export enum EServerEvent {
   WAITING_POSSIBLE_SAY = "WAITING_POSSIBLE_SAY",
   UPDATE_CHAT = "UPDAET_CHAT",
   UPDATE_STATS = "UPDATE_STATS",
+  QUEUE_UPDATE = "QUEUE_UPDATE",
+  QUEUE_MATCH_FOUND = "QUEUE_MATCH_FOUND",
 }
 
 export interface ServerToClientEvents {
   [EServerEvent.PONG]: (serverTime: number, clientTime: number) => void
   [EServerEvent.UPDATE_CHAT]: (room: IPublicChatRoom) => void
   [EServerEvent.UPDATE_STATS]: (room: ITrucoshiStats) => void
+  [EServerEvent.QUEUE_UPDATE]: (status: IQueueStatus) => void
+  [EServerEvent.QUEUE_MATCH_FOUND]: (match: IQueueMatchFound) => void
   [EServerEvent.NEW_MESSAGE]: (roomId: string, message?: IChatMessage) => void
   [EServerEvent.UPDATE_ACTIVE_MATCHES]: (activeMatches: IPublicMatchInfo[]) => void
   [EServerEvent.UPDATE_PUBLIC_MATCHES]: (publicMatches: IPublicMatchInfo[]) => void
@@ -97,6 +104,8 @@ export enum EClientEvent {
   START_MATCH = "START_MATCH",
   PAUSE_MATCH = "PAUSE_MATCH",
   PLAY_AGAIN = "PLAY_AGAIN",
+  JOIN_QUEUE = "JOIN_QUEUE",
+  LEAVE_QUEUE = "LEAVE_QUEUE",
   ADD_BOT = "ADD_BOT",
   FETCH_MATCH = "FETCH_MATCH",
   FETCH_CHAT_ROOM = "FETCH_CHAT_ROOM",
@@ -159,6 +168,11 @@ export interface ClientToServerEvents {
     matchSessionId: string,
     callback?: IEventCallback<{ newMatchSessionId?: string }>
   ) => void
+  [EClientEvent.JOIN_QUEUE]: (
+    options: IJoinQueueOptions,
+    callback: IEventCallback<{ status?: IQueueStatus }>
+  ) => void
+  [EClientEvent.LEAVE_QUEUE]: (callback?: IEventCallback<{}>) => void
   [EClientEvent.FETCH_MATCH]: (
     matchSessionId: string,
     callback: IEventCallback<{ match: IPublicMatch | null }>

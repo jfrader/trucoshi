@@ -17,6 +17,7 @@ model UserStats {
   accountId Int? @unique
   win       Int  @default(0)
   loss      Int  @default(0)
+  elo       Int  @default(1000)
   satsBet   Int  @default(0)
   satsWon   Int  @default(0)
   satsLost  Int  @default(0)

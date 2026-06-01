@@ -1,6 +1,6 @@
 import { io as Client, Socket } from "socket.io-client"
 import { assert, expect } from "chai"
-import { ESayCommand, ICard, IPublicMatch } from "../../src/types"
+import { ESayCommand, ICard, IPublicMatch, IQueueMatchFound } from "../../src/types"
 import { ITrucoshi, Trucoshi } from "../../src/server/classes"
 import { playBotsMatch, playRandomMatch } from "../serverHelpers"
 import {
@@ -17,6 +17,22 @@ import { Logger } from "pino"
 describe("Socket Server", () => {
   let clients: Socket<ServerToClientEvents, ClientToServerEvents>[] = []
   let server: ITrucoshi
+
+  const waitForQueueMatch = (
+    client: Socket<ServerToClientEvents, ClientToServerEvents>,
+    timeout = 7000
+  ) =>
+    new Promise<IQueueMatchFound>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        client.off(EServerEvent.QUEUE_MATCH_FOUND, handleMatchFound)
+        reject(new Error("Timed out waiting for queue match"))
+      }, timeout)
+      const handleMatchFound = (match: IQueueMatchFound) => {
+        clearTimeout(timer)
+        resolve(match)
+      }
+      client.once(EServerEvent.QUEUE_MATCH_FOUND, handleMatchFound)
+    })
 
   const handleError = (error: unknown, message: string): Error => {
     const err = error instanceof Error ? error : new Error(message)
@@ -75,6 +91,98 @@ describe("Socket Server", () => {
         done()
       })
       clients[0].emit(EClientEvent.PING, 123)
+    })
+
+    it("should match two queued humans", async () => {
+      const player0Match = waitForQueueMatch(clients[0])
+      const player1Match = waitForQueueMatch(clients[1])
+
+      await new Promise<void>((resolve, reject) => {
+        clients[0].emit(EClientEvent.JOIN_QUEUE, { maxPlayers: 2, allowBots: false }, ({ success, error }) => {
+          if (success) return resolve()
+          reject(handleError(error, "Player 0 failed to join queue"))
+        })
+      })
+
+      await new Promise<void>((resolve, reject) => {
+        clients[1].emit(EClientEvent.JOIN_QUEUE, { maxPlayers: 2, allowBots: false }, ({ success, error }) => {
+          if (success) return resolve()
+          reject(handleError(error, "Player 1 failed to join queue"))
+        })
+      })
+
+      const [match0, match1] = await Promise.all([player0Match, player1Match])
+      expect(match0.matchSessionId).to.equal(match1.matchSessionId)
+      expect(match0.maxPlayers).to.equal(2)
+      expect(match0.humanPlayers).to.equal(2)
+      expect(match0.botPlayers).to.equal(0)
+      expect(match0.filledWithBots).to.equal(false)
+    })
+
+    it("should fill a queued 1v1 with a bot after fallback", async () => {
+      const queuedMatch = waitForQueueMatch(clients[2])
+
+      await new Promise<void>((resolve, reject) => {
+        clients[2].emit(EClientEvent.JOIN_QUEUE, { maxPlayers: 2, allowBots: true }, ({ success, error }) => {
+          if (success) return resolve()
+          reject(handleError(error, "Player failed to join bot fallback queue"))
+        })
+      })
+
+      const match = await queuedMatch
+      expect(match.maxPlayers).to.equal(2)
+      expect(match.humanPlayers).to.equal(1)
+      expect(match.botPlayers).to.equal(1)
+      expect(match.filledWithBots).to.equal(true)
+    })
+
+    it("should keep waiting when bot fallback is disabled", async () => {
+      let matched = false
+      clients[3].once(EServerEvent.QUEUE_MATCH_FOUND, () => {
+        matched = true
+      })
+
+      await new Promise<void>((resolve, reject) => {
+        clients[3].emit(EClientEvent.JOIN_QUEUE, { maxPlayers: 2, allowBots: false }, ({ success, error }) => {
+          if (success) return resolve()
+          reject(handleError(error, "Player failed to join humans-only queue"))
+        })
+      })
+
+      await new Promise((resolve) => setTimeout(resolve, 5500))
+      expect(matched).to.equal(false)
+
+      await new Promise<void>((resolve, reject) => {
+        clients[3].emit(EClientEvent.LEAVE_QUEUE, ({ success, error }) => {
+          if (success) return resolve()
+          reject(handleError(error, "Player failed to leave humans-only queue"))
+        })
+      })
+    })
+
+    it("should fill a partial 2v2 queue with bots after fallback", async () => {
+      const player4Match = waitForQueueMatch(clients[4])
+      const player5Match = waitForQueueMatch(clients[5])
+
+      await new Promise<void>((resolve, reject) => {
+        clients[4].emit(EClientEvent.JOIN_QUEUE, { maxPlayers: 4, allowBots: true }, ({ success, error }) => {
+          if (success) return resolve()
+          reject(handleError(error, "Player 4 failed to join partial queue"))
+        })
+      })
+      await new Promise<void>((resolve, reject) => {
+        clients[5].emit(EClientEvent.JOIN_QUEUE, { maxPlayers: 4, allowBots: true }, ({ success, error }) => {
+          if (success) return resolve()
+          reject(handleError(error, "Player 5 failed to join partial queue"))
+        })
+      })
+
+      const [match4, match5] = await Promise.all([player4Match, player5Match])
+      expect(match4.matchSessionId).to.equal(match5.matchSessionId)
+      expect(match4.maxPlayers).to.equal(4)
+      expect(match4.humanPlayers).to.equal(2)
+      expect(match4.botPlayers).to.equal(2)
+      expect(match4.filledWithBots).to.equal(true)
     })
 
     it("should play an entire match", async () => {

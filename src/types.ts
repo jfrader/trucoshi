@@ -18,7 +18,12 @@ export enum EMatchState {
   PAUSED = "PAUSED",
 }
 
-export type IPlayerRanking = Omit<UserStats, "id" | "satsBet" | "satsWon" | "satsLost"> &
+export type IPublicUserStats = Omit<UserStats, "elo">
+
+export type IPlayerRanking = Omit<
+  IPublicUserStats,
+  "id" | "satsBet" | "satsWon" | "satsLost"
+> &
   Pick<User, "name" | "avatarUrl">
 
 export interface IMatchDetails extends Match {
@@ -26,7 +31,7 @@ export interface IMatchDetails extends Match {
   hands: Array<MatchHand>
 }
 export interface IAccountDetails {
-  stats: UserStats | null
+  stats: IPublicUserStats | null
   matches: Array<
     Match & {
       players: Pick<MatchPlayer, "accountId" | "idx" | "teamIdx" | "bot" | "name">[]
@@ -52,6 +57,28 @@ export interface ILobbyOptions {
   turnTime: number
   abandonTime: number
   satsPerPlayer: number
+}
+
+export interface IJoinQueueOptions {
+  maxPlayers: 2 | 4 | 6
+  allowBots: boolean
+}
+
+export interface IQueueStatus {
+  requestId: string
+  maxPlayers: 2 | 4 | 6
+  queuedPlayers: number
+  requiredPlayers: number
+  position: number
+  botFallbackAt?: number
+}
+
+export interface IQueueMatchFound {
+  matchSessionId: string
+  maxPlayers: 2 | 4 | 6
+  humanPlayers: number
+  botPlayers: number
+  filledWithBots: boolean
 }
 
 export interface ISaidCommand {

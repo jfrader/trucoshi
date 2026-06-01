@@ -18,8 +18,8 @@
     ]
   },
   "scripts": {
-    "build": "yarn prisma generate --generator distClient && yarn run rimraf ./build && yarn run tsc --project .",
-    "build:dist": "yarn run rimraf ./dist && yarn prisma generate --generator distClient && yarn run tsc --project ./tsconfig.dist.json",
+    "build": "yarn prisma generate && yarn run rimraf ./build && yarn run tsc --project .",
+    "build:dist": "yarn run rimraf ./dist && yarn prisma generate && yarn run tsc --project ./tsconfig.dist.json",
     "start": "nodemon",
     "start:migrate": "prisma db push && yarn start",
     "start:prod": "node bin/trucoshi-server",

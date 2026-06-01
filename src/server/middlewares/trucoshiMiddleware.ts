@@ -58,6 +58,9 @@ export const trucoshiMiddleware = (server: ITrucoshi) => {
 
           const userSession = server.sessions.get(socket.data.user.session)
           if (userSession) {
+            server
+              .leaveQueue(userSession)
+              .catch((e) => logger.error({ message: e.message }, "Failed to leave match queue"))
             userSession.disconnect()
             userSession
               .waitReconnection(userSession.session, PLAYER_LOBBY_TIMEOUT, "disconnection")
@@ -93,6 +96,34 @@ export const trucoshiMiddleware = (server: ITrucoshi) => {
     socket.on(EClientEvent.LEAVE_ROOM, async (room) => {
       log.debug("Leaving room %s", room)
       socket.leave(room)
+    })
+
+    /**
+     * Join matchmaking queue
+     */
+    socket.on(EClientEvent.JOIN_QUEUE, async (options, callback) => {
+      try {
+        const userSession = server.sessions.getOrThrow(socket.data.user?.session)
+        const status = await server.joinQueue({ socket, userSession, options })
+        callback({ success: true, status })
+      } catch (e) {
+        log.error(e, "Client event JOIN_QUEUE error")
+        callback({ success: false, error: isSocketError(e) })
+      }
+    })
+
+    /**
+     * Leave matchmaking queue
+     */
+    socket.on(EClientEvent.LEAVE_QUEUE, async (callback) => {
+      try {
+        const userSession = server.sessions.getOrThrow(socket.data.user?.session)
+        await server.leaveQueue(userSession)
+        callback?.({ success: true })
+      } catch (e) {
+        log.error(e, "Client event LEAVE_QUEUE error")
+        callback?.({ success: false, error: isSocketError(e) })
+      }
     })
 
     /**
