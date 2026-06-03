@@ -1,6 +1,7 @@
 import { IHand, ILobby, Lobby } from "../../truco"
 import {
   EMatchState,
+  IJoinQueueOptions,
   ILobbyOptions,
   IMatchFlorBattle,
   IMatchPreviousHand,
@@ -17,6 +18,8 @@ export interface IMatchTable {
   matchId?: number
   ownerSession: string
   matchSessionId: string
+  createdFromQueue: boolean
+  queueOptionsBySession: Map<string, IJoinQueueOptions>
   lobby: ILobby
   busy: boolean
   awardedSatsPerPlayer: number
@@ -31,7 +34,7 @@ export interface IMatchTable {
   getFlorBattle(hand: IHand): IMatchFlorBattle
   getHandRounds(hand: IHand): IPlayedCard[][]
   getPublicMatch(session?: string, freshHand?: boolean, skipPreviousHand?: boolean): IPublicMatch
-  getPublicMatchInfo(): IPublicMatchInfo
+  getPublicMatchInfo(session?: string): IPublicMatchInfo
   playerDisconnected(player: IPlayer): void
   playerReconnected(player: IPlayer, userSession: IUserSession): void
   setAwardedPerPlayer(award: number): void
@@ -41,13 +44,15 @@ export interface IMatchTable {
 export function MatchTable(
   matchSessionId: string,
   ownerSession: IUserSession,
-  options: Partial<ILobbyOptions> = {}
+  options: Partial<ILobbyOptions> & { createdFromQueue?: boolean } = {}
 ) {
   const matchLog = logger.child({ matchSessionId })
 
   const table: IMatchTable = {
     ownerSession: ownerSession.session,
     matchSessionId,
+    createdFromQueue: Boolean(options.createdFromQueue),
+    queueOptionsBySession: new Map(),
     busy: false,
     lobby: Lobby(matchSessionId, ownerSession.name, options),
     awardedSatsPerPlayer: 0,
@@ -101,7 +106,7 @@ export function MatchTable(
         player.setReady(true)
       }
     },
-    getPublicMatchInfo() {
+    getPublicMatchInfo(session) {
       const {
         matchSessionId,
         state,
@@ -114,6 +119,8 @@ export function MatchTable(
         players: playerCount,
         state: state(),
         winnerTeamIdx: gameLoop?.winner?.id,
+        createdFromQueue: table.createdFromQueue,
+        queueOptions: session ? table.queueOptionsBySession.get(session) : undefined,
       }
     },
     getHandRounds(hand) {
@@ -206,6 +213,8 @@ const getPublicMatch = (
     winner,
     forehandIdx: lobby.table?.forehandIdx || 0,
     options: lobby.options,
+    createdFromQueue: table.createdFromQueue,
+    queueOptions: userSession ? table.queueOptionsBySession.get(userSession) : undefined,
     matchSessionId: table.matchSessionId,
     state: table.state(),
     teams: publicTeams,

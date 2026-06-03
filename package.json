@@ -25,6 +25,8 @@
     "start:prod": "node bin/trucoshi-server",
     "start:prod:migrate": "prisma migrate deploy && yarn start:prod",
     "docker": "NODE_ENV=development ./init-dev.sh",
+    "dev:all": "NODE_ENV=development ./init-dev-all.sh",
+    "dev:all:sudo-docker": "DEV_ALL_DOCKER_SUDO=1 NODE_ENV=development ./init-dev-all.sh",
     "docker:exec": "docker compose exec -i server yarn",
     "docker:prod": "NODE_ENV=production && docker compose -f docker-compose.prod.yml down && docker compose -f docker-compose.prod.yml --env-file .env up --build",
     "docker:staging": "docker compose -f docker-compose.staging.yml down && docker compose -f docker-compose.staging.yml --env-file .env up --build",

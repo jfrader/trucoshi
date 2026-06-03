@@ -96,9 +96,13 @@ describe("Socket Server", () => {
     it("should match two queued humans", async () => {
       const player0Match = waitForQueueMatch(clients[0])
       const player1Match = waitForQueueMatch(clients[1])
+      let player0QueuedAt = 0
 
       await new Promise<void>((resolve, reject) => {
-        clients[0].emit(EClientEvent.JOIN_QUEUE, { maxPlayers: 2, allowBots: false }, ({ success, error }) => {
+        clients[0].emit(EClientEvent.JOIN_QUEUE, { maxPlayers: 2, allowBots: false }, ({ success, status, error }) => {
+          if (status?.queuedAt) {
+            player0QueuedAt = status.queuedAt
+          }
           if (success) return resolve()
           reject(handleError(error, "Player 0 failed to join queue"))
         })
@@ -117,13 +121,23 @@ describe("Socket Server", () => {
       expect(match0.humanPlayers).to.equal(2)
       expect(match0.botPlayers).to.equal(0)
       expect(match0.filledWithBots).to.equal(false)
+      expect(player0QueuedAt).to.be.greaterThan(0)
+      const player0Session = server.sessions.find((session) => session.name === "player0")?.session
+      const player1Session = server.sessions.find((session) => session.name === "player1")?.session
+      expect(server.getSessionActiveMatches(player0Session)[0]?.createdFromQueue).to.equal(true)
+      expect(
+        server.tables.get(match0.matchSessionId)?.getPublicMatch(player0Session).queueOptions
+      ).to.deep.equal({ maxPlayers: 2, allowBots: false })
+      expect(
+        server.tables.get(match1.matchSessionId)?.getPublicMatch(player1Session).queueOptions
+      ).to.deep.equal({ maxPlayers: 2, allowBots: false })
     })
 
-    it("should fill a queued 1v1 with a bot after fallback", async () => {
+    it("should fill a queued any-size match with a bot after fallback", async () => {
       const queuedMatch = waitForQueueMatch(clients[2])
 
       await new Promise<void>((resolve, reject) => {
-        clients[2].emit(EClientEvent.JOIN_QUEUE, { maxPlayers: 2, allowBots: true }, ({ success, error }) => {
+        clients[2].emit(EClientEvent.JOIN_QUEUE, { maxPlayers: 0, allowBots: true }, ({ success, error }) => {
           if (success) return resolve()
           reject(handleError(error, "Player failed to join bot fallback queue"))
         })
@@ -134,6 +148,10 @@ describe("Socket Server", () => {
       expect(match.humanPlayers).to.equal(1)
       expect(match.botPlayers).to.equal(1)
       expect(match.filledWithBots).to.equal(true)
+      const player2Session = server.sessions.find((session) => session.name === "player2")?.session
+      expect(
+        server.tables.get(match.matchSessionId)?.getPublicMatch(player2Session).queueOptions
+      ).to.deep.equal({ maxPlayers: 0, allowBots: true })
     })
 
     it("should keep waiting when bot fallback is disabled", async () => {
@@ -231,8 +249,14 @@ describe("Socket Server", () => {
       })
 
       await new Promise<void>((res) => {
-        clients[0].emit(EClientEvent.CREATE_MATCH, ({ match }) => {
+        clients[0].emit(EClientEvent.CREATE_MATCH, ({ match, activeMatches }) => {
           expect(Boolean(match?.matchSessionId)).to.equal(true)
+          expect(match?.createdFromQueue).to.equal(false)
+          expect(match?.queueOptions).to.equal(undefined)
+          expect(
+            activeMatches?.find((activeMatch) => activeMatch.matchSessionId === match?.matchSessionId)
+              ?.createdFromQueue
+          ).to.equal(false)
           matchId = match?.matchSessionId
           match0 = match
           res()

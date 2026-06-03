@@ -60,16 +60,17 @@ export interface ILobbyOptions {
 }
 
 export interface IJoinQueueOptions {
-  maxPlayers: 2 | 4 | 6
+  maxPlayers: 0 | 2 | 4 | 6
   allowBots: boolean
 }
 
 export interface IQueueStatus {
   requestId: string
-  maxPlayers: 2 | 4 | 6
+  maxPlayers: 0 | 2 | 4 | 6
   queuedPlayers: number
   requiredPlayers: number
   position: number
+  queuedAt: number
   botFallbackAt?: number
 }
 
@@ -107,6 +108,8 @@ export interface IMatchPreviousHand {
 export interface IPublicMatch {
   id?: number
   options: ILobbyOptions
+  createdFromQueue: boolean
+  queueOptions?: IJoinQueueOptions
   busy: boolean
   state: EMatchState
   handState: EHandState | null
@@ -137,6 +140,8 @@ export interface IPublicMatchInfo {
   options: ILobbyOptions
   state: EMatchState
   winnerTeamIdx: 0 | 1 | undefined
+  createdFromQueue: boolean
+  queueOptions?: IJoinQueueOptions
 }
 
 export type IPublicChatRoom = Pick<IChatRoom, "id" | "messages">

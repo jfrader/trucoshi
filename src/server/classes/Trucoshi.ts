@@ -58,12 +58,15 @@ const log = logger.child({ class: "Trucoshi" })
 const DEFAULT_ELO = 1000
 const ELO_K_FACTOR = 32
 const QUEUE_BOT_FALLBACK_TIMEOUT = 5000
+const MATCH_QUEUE_SIZES = [2, 4, 6] as const
+type MatchQueueSize = (typeof MATCH_QUEUE_SIZES)[number]
+type QueueRequestSize = 0 | MatchQueueSize
 
 interface IMatchQueueEntry {
   requestId: string
   userSession: IUserSession
   socket: TrucoshiSocket
-  maxPlayers: 2 | 4 | 6
+  maxPlayers: QueueRequestSize
   allowBots: boolean
   rating: number
   queuedAt: number
@@ -112,10 +115,13 @@ export type TrucoshiSocket = Socket<
   SocketData
 >
 
-const getQueueEntries = (queue: TMap<string, IMatchQueueEntry>, maxPlayers: 2 | 4 | 6) =>
+const getQueueEntries = (queue: TMap<string, IMatchQueueEntry>, maxPlayers: MatchQueueSize) =>
   queue
-    .findAll((entry) => entry.maxPlayers === maxPlayers)
+    .findAll((entry) => entry.maxPlayers === maxPlayers || entry.maxPlayers === 0)
     .sort((a, b) => a.queuedAt - b.queuedAt)
+
+const getAllQueueEntries = (queue: TMap<string, IMatchQueueEntry>) =>
+  Array.from(queue.values()).sort((a, b) => a.queuedAt - b.queuedAt)
 
 const selectClosestQueueEntries = (
   entries: IMatchQueueEntry[],
@@ -177,10 +183,15 @@ export interface ITrucoshi {
   }): Promise<IQueueStatus | undefined>
   leaveQueue(userSession: IUserSession): Promise<void>
   removeQueueEntry(session: string): IMatchQueueEntry | undefined
-  emitQueueStatuses(maxPlayers?: 2 | 4 | 6): void
+  emitQueueStatuses(maxPlayers?: QueueRequestSize): void
   getQueueStatus(entry: IMatchQueueEntry): IQueueStatus
-  resolveMatchQueue(maxPlayers: 2 | 4 | 6, allowBotFallback?: boolean): Promise<void>
-  createQueueMatch(entries: IMatchQueueEntry[], filledWithBots: boolean): Promise<void>
+  resolveMatchQueue(maxPlayers: MatchQueueSize, allowBotFallback?: boolean): Promise<void>
+  resolveMatchQueues(maxPlayers?: QueueRequestSize, allowBotFallback?: boolean): Promise<void>
+  createQueueMatch(
+    entries: IMatchQueueEntry[],
+    filledWithBots: boolean,
+    maxPlayers: MatchQueueSize
+  ): Promise<void>
   createUserSession(socket: TrucoshiSocket, username?: string, token?: string): IUserSession
   getTableSockets(
     table: IMatchTable,
@@ -230,7 +241,7 @@ export interface ITrucoshi {
   createMatchTable(
     userSession: IUserSession,
     socket: TrucoshiSocket | RemoteSocket<ServerToClientEvents, SocketData>,
-    options?: Partial<ILobbyOptions>
+    options?: Partial<ILobbyOptions> & { createdFromQueue?: boolean }
   ): Promise<IMatchTable>
   setMatchOptions(input: {
     socket: TrucoshiSocket | RemoteSocket<ServerToClientEvents, SocketData>
@@ -365,7 +376,7 @@ export const Trucoshi = ({
     async joinQueue({ socket, userSession, options }) {
       return server.matchmakingQueue.queue(async () => {
         const maxPlayers = options.maxPlayers
-        if (![2, 4, 6].includes(maxPlayers)) {
+        if (![0, ...MATCH_QUEUE_SIZES].includes(maxPlayers)) {
           throw new SocketError("FORBIDDEN", "Invalid queue size")
         }
 
@@ -396,14 +407,14 @@ export const Trucoshi = ({
         if (botFallbackAt) {
           entry.fallbackTimeout = setTimeout(() => {
             server.matchmakingQueue
-              .queue(() => server.resolveMatchQueue(maxPlayers, true))
+              .queue(() => server.resolveMatchQueues(maxPlayers, true))
               .catch((e) => log.error(e, "Failed to resolve match queue bot fallback"))
           }, Math.max(botFallbackAt - Date.now(), 0))
         }
 
         server.matchQueue.set(userSession.session, entry)
         server.emitQueueStatuses(maxPlayers)
-        await server.resolveMatchQueue(maxPlayers)
+        await server.resolveMatchQueues(maxPlayers)
 
         const current = server.matchQueue.get(userSession.session)
         return current ? server.getQueueStatus(current) : undefined
@@ -428,32 +439,46 @@ export const Trucoshi = ({
       return entry
     },
     emitQueueStatuses(maxPlayers) {
-      const queueSizes = maxPlayers ? [maxPlayers] : ([2, 4, 6] as const)
-      queueSizes.forEach((queueSize) => {
-        getQueueEntries(server.matchQueue, queueSize).forEach((entry) => {
-          entry.socket.emit(EServerEvent.QUEUE_UPDATE, server.getQueueStatus(entry))
-        })
+      const entries =
+        maxPlayers !== undefined && maxPlayers !== 0
+          ? getQueueEntries(server.matchQueue, maxPlayers)
+          : getAllQueueEntries(server.matchQueue)
+
+      entries.forEach((entry) => {
+        entry.socket.emit(EServerEvent.QUEUE_UPDATE, server.getQueueStatus(entry))
       })
     },
     getQueueStatus(entry) {
-      const entries = getQueueEntries(server.matchQueue, entry.maxPlayers)
+      const entries =
+        entry.maxPlayers === 0
+          ? getAllQueueEntries(server.matchQueue)
+          : getQueueEntries(server.matchQueue, entry.maxPlayers)
       return {
         requestId: entry.requestId,
         maxPlayers: entry.maxPlayers,
         queuedPlayers: entries.length,
-        requiredPlayers: entry.maxPlayers,
+        requiredPlayers: entry.maxPlayers || MATCH_QUEUE_SIZES[0],
         position: Math.max(
           entries.findIndex((candidate) => candidate.requestId === entry.requestId) + 1,
           1
         ),
+        queuedAt: entry.queuedAt,
         botFallbackAt: entry.botFallbackAt,
+      }
+    },
+    async resolveMatchQueues(maxPlayers, allowBotFallback = false) {
+      const queueSizes =
+        maxPlayers !== undefined && maxPlayers !== 0 ? ([maxPlayers] as const) : MATCH_QUEUE_SIZES
+
+      for (const queueSize of queueSizes) {
+        await server.resolveMatchQueue(queueSize, allowBotFallback)
       }
     },
     async resolveMatchQueue(maxPlayers, allowBotFallback = false) {
       let entries = getQueueEntries(server.matchQueue, maxPlayers)
       while (entries.length >= maxPlayers) {
         const selected = selectClosestQueueEntries(entries, entries[0], maxPlayers)
-        await server.createQueueMatch(selected, false)
+        await server.createQueueMatch(selected, false, maxPlayers)
         entries = getQueueEntries(server.matchQueue, maxPlayers)
       }
 
@@ -467,13 +492,13 @@ export const Trucoshi = ({
             botCandidates[0],
             Math.min(maxPlayers, botCandidates.length)
           )
-          await server.createQueueMatch(selected, true)
+          await server.createQueueMatch(selected, true, maxPlayers)
         }
       }
 
       server.emitQueueStatuses(maxPlayers)
     },
-    async createQueueMatch(entries, filledWithBots) {
+    async createQueueMatch(entries, filledWithBots, maxPlayers) {
       const selectedEntries = [...entries].sort((a, b) => a.queuedAt - b.queuedAt)
       const ownerEntry = selectedEntries[0]
       if (!ownerEntry) {
@@ -482,7 +507,6 @@ export const Trucoshi = ({
 
       selectedEntries.forEach((entry) => server.removeQueueEntry(entry.userSession.session))
 
-      const maxPlayers = ownerEntry.maxPlayers
       const teamSize = maxPlayers / 2
       const teamCounts: Record<0 | 1, number> = { 0: 1, 1: 0 }
       const teamRatings: Record<0 | 1, number> = { 0: ownerEntry.rating, 1: 0 }
@@ -491,6 +515,13 @@ export const Trucoshi = ({
       const table = await server.createMatchTable(ownerEntry.userSession, ownerEntry.socket, {
         maxPlayers,
         satsPerPlayer: 0,
+        createdFromQueue: true,
+      })
+      selectedEntries.forEach((entry) => {
+        table.queueOptionsBySession.set(entry.userSession.session, {
+          maxPlayers: entry.maxPlayers,
+          allowBots: entry.allowBots,
+        })
       })
 
       const challengers = selectedEntries
@@ -814,7 +845,7 @@ export const Trucoshi = ({
           return Boolean(table.isSessionPlaying(session))
         })
         .map((match) => {
-          const info = match.getPublicMatchInfo()
+          const info = match.getPublicMatchInfo(session)
           if (socket) {
             if (!socket.data.matches) {
               socket.data.matches = new Set()
