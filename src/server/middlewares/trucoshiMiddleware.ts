@@ -127,6 +127,160 @@ export const trucoshiMiddleware = (server: ITrucoshi) => {
     })
 
     /**
+     * Fetch card skin inventory
+     */
+    socket.on(EClientEvent.FETCH_INVENTORY, async (callback) => {
+      try {
+        const accountId = socket.data.user?.account?.id
+
+        if (!accountId) {
+          throw new SocketError("GAME_REQUIRES_ACCOUNT", "Necesitas iniciar sesion")
+        }
+
+        if (!server.inventory) {
+          throw new SocketError("NOT_FOUND", "Este server no soporta inventario")
+        }
+
+        const inventory = await server.inventory.getInventory(accountId)
+        const equippedDeck = await server.inventory.getEffectiveDeck(accountId)
+
+        callback({ success: true, inventory, equippedDeck })
+      } catch (e) {
+        log.error(e, "Client event FETCH_INVENTORY error")
+        callback({ success: false, inventory: [], equippedDeck: {}, error: isSocketError(e) })
+      }
+    })
+
+    /**
+     * Equip or clear one card skin
+     */
+    socket.on(EClientEvent.SET_DECK_CARD_SKIN, async (card, cardSkinId, callback) => {
+      try {
+        const accountId = socket.data.user?.account?.id
+
+        if (!accountId) {
+          throw new SocketError("GAME_REQUIRES_ACCOUNT", "Necesitas iniciar sesion")
+        }
+
+        if (!server.inventory) {
+          throw new SocketError("NOT_FOUND", "Este server no soporta inventario")
+        }
+
+        await server.inventory.setDeckCardSkin(accountId, card, cardSkinId)
+
+        const inventory = await server.inventory.getInventory(accountId)
+        const equippedDeck = await server.inventory.getEffectiveDeck(accountId)
+
+        callback({ success: true, inventory, equippedDeck })
+      } catch (e) {
+        log.error(e, "Client event SET_DECK_CARD_SKIN error")
+        callback({ success: false, inventory: [], equippedDeck: {}, error: isSocketError(e) })
+      }
+    })
+
+    /**
+     * Fetch treasure chest progress
+     */
+    socket.on(EClientEvent.FETCH_TREASURE_STATUS, async (callback) => {
+      try {
+        const accountId = socket.data.user?.account?.id
+
+        if (!accountId) {
+          throw new SocketError("GAME_REQUIRES_ACCOUNT", "Necesitas iniciar sesion")
+        }
+
+        if (!server.treasure) {
+          throw new SocketError("NOT_FOUND", "Este server no soporta tesoros")
+        }
+
+        const treasureStatus = await server.treasure.getTreasureStatus(accountId)
+
+        callback({ success: true, treasureStatus })
+      } catch (e) {
+        log.error(e, "Client event FETCH_TREASURE_STATUS error")
+        callback({
+          success: false,
+          treasureStatus: { progress: 0, threshold: 3, unopenedChests: [] },
+          error: isSocketError(e),
+        })
+      }
+    })
+
+    /**
+     * Open one treasure chest
+     */
+    socket.on(EClientEvent.OPEN_TREASURE_CHEST, async (chestId, callback) => {
+      try {
+        const accountId = socket.data.user?.account?.id
+
+        if (!accountId) {
+          throw new SocketError("GAME_REQUIRES_ACCOUNT", "Necesitas iniciar sesion")
+        }
+
+        if (!server.treasure || !server.inventory) {
+          throw new SocketError("NOT_FOUND", "Este server no soporta tesoros")
+        }
+
+        const treasureResult = await server.treasure.openChest(accountId, chestId)
+        const [treasureStatus, inventory, equippedDeck] = await Promise.all([
+          server.treasure.getTreasureStatus(accountId),
+          server.inventory.getInventory(accountId),
+          server.inventory.getEffectiveDeck(accountId),
+        ])
+
+        callback({ success: true, treasureStatus, treasureResult, inventory, equippedDeck })
+      } catch (e) {
+        log.error(e, "Client event OPEN_TREASURE_CHEST error")
+        callback({
+          success: false,
+          treasureStatus: { progress: 0, threshold: 3, unopenedChests: [] },
+          treasureResult: {
+            chestId,
+            rarity: null,
+            cardSkin: null,
+            duplicate: false,
+            granted: false,
+          },
+          inventory: [],
+          equippedDeck: {},
+          error: isSocketError(e),
+        })
+      }
+    })
+
+    /**
+     * Grant one unopened treasure chest to the current account in local/dev servers.
+     */
+    socket.on(EClientEvent.DEV_GRANT_TREASURE_CHEST, async (callback) => {
+      try {
+        const accountId = socket.data.user?.account?.id
+
+        if (process.env.NODE_ENV === "production") {
+          throw new SocketError("FORBIDDEN", "No disponible en produccion")
+        }
+
+        if (!accountId) {
+          throw new SocketError("GAME_REQUIRES_ACCOUNT", "Necesitas iniciar sesion")
+        }
+
+        if (!server.treasure) {
+          throw new SocketError("NOT_FOUND", "Este server no soporta tesoros")
+        }
+
+        const treasureStatus = await server.treasure.grantDevChest(accountId)
+
+        callback({ success: true, treasureStatus })
+      } catch (e) {
+        log.error(e, "Client event DEV_GRANT_TREASURE_CHEST error")
+        callback({
+          success: false,
+          treasureStatus: { progress: 0, threshold: 3, unopenedChests: [] },
+          error: isSocketError(e),
+        })
+      }
+    })
+
+    /**
      * Create Match
      */
     socket.on(EClientEvent.CREATE_MATCH, async (callback) => {

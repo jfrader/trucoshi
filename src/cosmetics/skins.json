@@ -1,0 +1,120 @@
+[
+  {
+    "release": "argentino",
+    "grantOnInventory": false,
+    "skins": [
+      {
+        "id": "argentino/1b_argentino_001",
+        "card": "1b",
+        "fileName": "1b_argentino_001.png",
+        "assetPath": "skins/argentino/1b_argentino_001.png",
+        "rarity": "COMMON"
+      },
+      {
+        "id": "argentino/1b_argentino_002",
+        "card": "1b",
+        "fileName": "1b_argentino_002.png",
+        "assetPath": "skins/argentino/1b_argentino_002.png",
+        "rarity": "RARE"
+      },
+      {
+        "id": "argentino/1c_argentino_001",
+        "card": "1c",
+        "fileName": "1c_argentino_001.png",
+        "assetPath": "skins/argentino/1c_argentino_001.png",
+        "rarity": "RARE"
+      },
+      {
+        "id": "argentino/1e_argentino_001",
+        "card": "1e",
+        "fileName": "1e_argentino_001.png",
+        "assetPath": "skins/argentino/1e_argentino_001.png",
+        "rarity": "RARE"
+      },
+      {
+        "id": "argentino/1e_argentino_002",
+        "card": "1e",
+        "fileName": "1e_argentino_002.png",
+        "assetPath": "skins/argentino/1e_argentino_002.png",
+        "rarity": "RARE"
+      },
+      {
+        "id": "argentino/1e_argentino_003",
+        "card": "1e",
+        "fileName": "1e_argentino_003.png",
+        "assetPath": "skins/argentino/1e_argentino_003.png",
+        "rarity": "EPIC"
+      },
+      {
+        "id": "argentino/1e_argentino_004",
+        "card": "1e",
+        "fileName": "1e_argentino_004.png",
+        "assetPath": "skins/argentino/1e_argentino_004.png",
+        "rarity": "EPIC"
+      },
+      {
+        "id": "argentino/4e_argentino_001",
+        "card": "4e",
+        "fileName": "4e_argentino_001.png",
+        "assetPath": "skins/argentino/4e_argentino_001.png",
+        "rarity": "COMMON"
+      },
+      {
+        "id": "argentino/7e_argentino_001",
+        "card": "7e",
+        "fileName": "7e_argentino_001.png",
+        "assetPath": "skins/argentino/7e_argentino_001.png",
+        "rarity": "EPIC"
+      },
+      {
+        "id": "argentino/pb_argentino_001",
+        "card": "pb",
+        "fileName": "pb_argentino_001.png",
+        "assetPath": "skins/argentino/pb_argentino_001.png",
+        "rarity": "RARE"
+      },
+      {
+        "id": "argentino/pc_argentino_001",
+        "card": "pc",
+        "fileName": "pc_argentino_001.png",
+        "assetPath": "skins/argentino/pc_argentino_001.png",
+        "rarity": "RARE"
+      },
+      {
+        "id": "argentino/pc_argentino_002",
+        "card": "pc",
+        "fileName": "pc_argentino_002.png",
+        "assetPath": "skins/argentino/pc_argentino_002.png",
+        "rarity": "EPIC"
+      },
+      {
+        "id": "argentino/pe_argentino_001",
+        "card": "pe",
+        "fileName": "pe_argentino_001.png",
+        "assetPath": "skins/argentino/pe_argentino_001.png",
+        "rarity": "RARE"
+      },
+      {
+        "id": "argentino/rb_argentino_001",
+        "card": "rb",
+        "fileName": "rb_argentino_001.png",
+        "assetPath": "skins/argentino/rb_argentino_001.png",
+        "rarity": "EPIC"
+      },
+      {
+        "id": "argentino/rb_argentino_002",
+        "card": "rb",
+        "fileName": "rb_argentino_002.png",
+        "assetPath": "skins/argentino/rb_argentino_002.png",
+        "rarity": "EPIC"
+      },
+      {
+        "id": "argentino/rb_argentino_003",
+        "card": "rb",
+        "fileName": "rb_argentino_003.png",
+        "assetPath": "skins/argentino/rb_argentino_003.png",
+        "rarity": "LEGENDARY"
+      }
+    ]
+  }
+]

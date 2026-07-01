@@ -2,8 +2,12 @@ import { SocketError } from "./server"
 import {
   EMatchState,
   IAccountDetails,
+  CardSkinId,
+  ICard,
   IChatMessage,
+  IEquippedDeck,
   ILobbyOptions,
+  IInventoryCardGroup,
   IMatchDetails,
   IPlayerRanking,
   IPublicChatRoom,
@@ -13,6 +17,8 @@ import {
   IJoinQueueOptions,
   IQueueMatchFound,
   IQueueStatus,
+  ITreasureOpenResult,
+  ITreasureStatus,
   ITrucoshiStats,
   IUserData,
   IWaitingPlayData,
@@ -106,6 +112,11 @@ export enum EClientEvent {
   PLAY_AGAIN = "PLAY_AGAIN",
   JOIN_QUEUE = "JOIN_QUEUE",
   LEAVE_QUEUE = "LEAVE_QUEUE",
+  FETCH_INVENTORY = "FETCH_INVENTORY",
+  SET_DECK_CARD_SKIN = "SET_DECK_CARD_SKIN",
+  FETCH_TREASURE_STATUS = "FETCH_TREASURE_STATUS",
+  OPEN_TREASURE_CHEST = "OPEN_TREASURE_CHEST",
+  DEV_GRANT_TREASURE_CHEST = "DEV_GRANT_TREASURE_CHEST",
   ADD_BOT = "ADD_BOT",
   FETCH_MATCH = "FETCH_MATCH",
   FETCH_CHAT_ROOM = "FETCH_CHAT_ROOM",
@@ -173,6 +184,29 @@ export interface ClientToServerEvents {
     callback: IEventCallback<{ status?: IQueueStatus }>
   ) => void
   [EClientEvent.LEAVE_QUEUE]: (callback?: IEventCallback<{}>) => void
+  [EClientEvent.FETCH_INVENTORY]: (
+    callback: IEventCallback<{ inventory: IInventoryCardGroup[]; equippedDeck: IEquippedDeck }>
+  ) => void
+  [EClientEvent.SET_DECK_CARD_SKIN]: (
+    card: ICard,
+    cardSkinId: CardSkinId | null,
+    callback: IEventCallback<{ inventory: IInventoryCardGroup[]; equippedDeck: IEquippedDeck }>
+  ) => void
+  [EClientEvent.FETCH_TREASURE_STATUS]: (
+    callback: IEventCallback<{ treasureStatus: ITreasureStatus }>
+  ) => void
+  [EClientEvent.OPEN_TREASURE_CHEST]: (
+    chestId: number,
+    callback: IEventCallback<{
+      treasureStatus: ITreasureStatus
+      treasureResult: ITreasureOpenResult
+      inventory: IInventoryCardGroup[]
+      equippedDeck: IEquippedDeck
+    }>
+  ) => void
+  [EClientEvent.DEV_GRANT_TREASURE_CHEST]: (
+    callback: IEventCallback<{ treasureStatus: ITreasureStatus }>
+  ) => void
   [EClientEvent.FETCH_MATCH]: (
     matchSessionId: string,
     callback: IEventCallback<{ match: IPublicMatch | null }>

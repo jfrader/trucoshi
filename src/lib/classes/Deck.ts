@@ -115,6 +115,7 @@ export function PlayedCard(
     player,
     card,
     key: card + player.idx,
+    cardSkinId: player.deckSkinByCard?.[card],
   }
 
   if (burn) {

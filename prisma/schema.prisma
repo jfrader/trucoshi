@@ -31,11 +31,14 @@ model Match {
   state          EMatchState   @default(UNREADY)
   ownerAccountId Int?
   options        Json          @default("{}")
+  createdFromQueue Boolean    @default(false)
   results        Json          @default("[{\"malas\": 0, \"buenas\": 0}, {\"malas\": 0, \"buenas\": 0}]")
   winnerIdx      Int?
   bet            MatchBet?
   hands          MatchHand[]
   players        MatchPlayer[]
+  treasureCredits UserTreasureMatchCredit[]
+  treasureChests  UserTreasureChest[]
 }
 
 model MatchBet {
@@ -81,8 +84,96 @@ model MatchPlayer {
   satsReceived Int      @default(0)
   payRequestId Int?
   bot          Boolean  @default(false)
+  deckSkinByCard Json    @default("{}")
   matchId      Int
   match        Match    @relation(fields: [matchId], references: [id])
+}
+
+model CardSkin {
+  id          String         @id
+  release     String
+  card        String
+  description String?
+  fileName    String
+  assetPath   String
+  rarity      CardSkinRarity @default(COMMON)
+  enabled     Boolean        @default(true)
+  unlockable  Boolean        @default(false)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  userSkins UserCardSkin[]
+  deckCards UserDeckCard[]
+  treasureChests UserTreasureChest[]
+
+  @@index([release])
+  @@index([card])
+  @@index([enabled])
+}
+
+model UserCardSkin {
+  id         Int      @id @default(autoincrement())
+  accountId  Int
+  cardSkinId String
+  unlockedAt DateTime @default(now())
+  source     String?
+
+  cardSkin CardSkin @relation(fields: [cardSkinId], references: [id])
+
+  @@unique([accountId, cardSkinId])
+  @@index([accountId])
+}
+
+model UserDeckCard {
+  id         Int      @id @default(autoincrement())
+  accountId  Int
+  card       String
+  cardSkinId String
+  updatedAt  DateTime @updatedAt
+
+  cardSkin CardSkin @relation(fields: [cardSkinId], references: [id])
+
+  @@unique([accountId, card])
+  @@index([accountId])
+}
+
+model UserTreasureProgress {
+  id        Int      @id @default(autoincrement())
+  accountId Int     @unique
+  progress  Int     @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model UserTreasureMatchCredit {
+  id        Int      @id @default(autoincrement())
+  accountId Int
+  matchId   Int
+  creditedAt DateTime @default(now())
+
+  match Match @relation(fields: [matchId], references: [id])
+
+  @@unique([accountId, matchId])
+  @@index([accountId])
+  @@index([matchId])
+}
+
+model UserTreasureChest {
+  id           Int             @id @default(autoincrement())
+  accountId    Int
+  sourceMatchId Int?
+  earnedAt     DateTime        @default(now())
+  openedAt     DateTime?
+  rolledRarity CardSkinRarity?
+  cardSkinId   String?
+  duplicate    Boolean         @default(false)
+
+  sourceMatch Match?    @relation(fields: [sourceMatchId], references: [id])
+  cardSkin    CardSkin? @relation(fields: [cardSkinId], references: [id])
+
+  @@index([accountId])
+  @@index([sourceMatchId])
+  @@index([openedAt])
 }
 
 enum EMatchState {
@@ -90,4 +181,12 @@ enum EMatchState {
   READY
   STARTED
   FINISHED
+}
+
+enum CardSkinRarity {
+  COMMON
+  RARE
+  EPIC
+  LEGENDARY
+  PROMO
 }

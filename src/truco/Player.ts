@@ -1,4 +1,4 @@
-import { ICard, IPlayer, DANGEROUS_COMMANDS, ECommand } from "../types"
+import { ICard, IEquippedDeck, IPlayer, DANGEROUS_COMMANDS, ECommand } from "../types"
 import { maxBy } from "../utils/array"
 import { BURNT_CARD, CARDS, PLAYER_ABANDON_TIMEOUT } from "../lib/constants"
 import { getMaxNumberIndex, getMinNumberIndex } from "../lib/utils"
@@ -59,6 +59,7 @@ export function Player({
     ready: false,
     abandoned: false,
     opponentProfiles: {},
+    deckSkinByCard: {},
     get commands() {
       return Array.from(player._commands.values())
     },
@@ -106,6 +107,12 @@ export function Player({
     },
     resetCommands() {
       player._commands = new Set()
+    },
+    getCardSkinId(card) {
+      return player.deckSkinByCard[card]
+    },
+    setDeckSkinByCard(deck: IEquippedDeck) {
+      player.deckSkinByCard = { ...deck }
     },
     setIdx(idx) {
       player.idx = idx
@@ -247,6 +254,7 @@ const getPublicPlayer = (
     hasSaidFlor,
     hasSaidTruco,
     hasPassed,
+    deckSkinByCard,
     ...privateProps
   } = player
 
@@ -272,6 +280,7 @@ const getPublicPlayer = (
     teamIdx,
     disabled,
     ready,
+    deckSkinByCard,
     usedHand,
     prevHand,
     turnExpiresAt,

@@ -11,6 +11,7 @@ import {
   GAME_ERROR,
   IAccountDetails,
   ICard,
+  IEquippedDeck,
   IJoinQueueOptions,
   ILobbyOptions,
   IMatchDetails,
@@ -52,6 +53,9 @@ import { PAUSE_REQUEST_TIMEOUT, PLAYER_ABANDON_TIMEOUT, UNPAUSE_TIME } from "../
 import { TrucoshiTurn } from "./Turn"
 import { getWordsId } from "../../utils/string/getRandomWord"
 import { IQueue, Queue } from "../../lib/classes/Queue"
+import { IInventoryService, InventoryService } from "../services/InventoryService"
+import { getTreasureEligibleAccountIds } from "../services/TreasureEligibility"
+import { ITreasureService, TreasureService } from "../services/TreasureService"
 
 const log = logger.child({ class: "Trucoshi" })
 
@@ -168,6 +172,8 @@ export interface ITrucoshi {
   httpServer: HttpServer
   ranking: IPlayerRanking[]
   store?: PrismaClient
+  inventory?: IInventoryService
+  treasure?: ITreasureService
   chat: IChat
   tables: MatchTableMap // sessionId, table
   sessions: TMap<string, IUserSession> // sessionId, user
@@ -312,6 +318,7 @@ export interface ITrucoshi {
   getMatchDetails(socket: TrucoshiSocket, matchId: number): Promise<IMatchDetails>
   getRanking(): Promise<Array<IPlayerRanking>>
   resetSocketsMatchState(table: IMatchTable): Promise<void>
+  getDeckSnapshot(userSession: IUserSession): Promise<IEquippedDeck>
   listen: (
     callback: (io: TrucoshiServer) => void,
     options?: { redis?: boolean; lightningAccounts?: boolean; store?: boolean }
@@ -362,6 +369,8 @@ export const Trucoshi = ({
   const server: ITrucoshi = {
     sessions,
     store: undefined,
+    inventory: undefined,
+    treasure: undefined,
     ranking: [],
     tables,
     turns,
@@ -372,6 +381,13 @@ export const Trucoshi = ({
     httpServer,
     stats: {
       onlinePlayers: [],
+    },
+    async getDeckSnapshot(userSession) {
+      if (!server.inventory || !userSession.account?.id) {
+        return {}
+      }
+
+      return server.inventory.getEffectiveDeck(userSession.account.id)
     },
     async joinQueue({ socket, userSession, options }) {
       return server.matchmakingQueue.queue(async () => {
@@ -616,8 +632,11 @@ export const Trucoshi = ({
       if (store) {
         logger.debug("Connecting to Postgres")
         server.store = new PrismaClient()
+        server.inventory = InventoryService(server.store)
+        server.treasure = TreasureService(server.store)
         try {
           await server.store.$connect()
+          await server.inventory.seedInitialCardSkins()
           logger.info("Connected to Postgres")
         } catch (e) {
           logger.error(e, "Failed to connect to Postgres")
@@ -2073,7 +2092,7 @@ export const Trucoshi = ({
 
       userSession.ownedMatches.add(matchSessionId)
 
-      await table.lobby.addPlayer({
+      const player = await table.lobby.addPlayer({
         accountId: userSession.account?.id,
         key: userSession.key,
         name: userSession.name,
@@ -2082,6 +2101,7 @@ export const Trucoshi = ({
         isOwner: true,
         teamIdx: 0,
       })
+      player.setDeckSkinByCard(await server.getDeckSnapshot(userSession))
 
       if (server.store) {
         const ownerAccountId = userSession.account?.id
@@ -2090,6 +2110,7 @@ export const Trucoshi = ({
           data: {
             ownerAccountId,
             sessionId: matchSessionId,
+            createdFromQueue: table.createdFromQueue,
             options: table.lobby.options as unknown as Prisma.JsonObject,
           },
           select: { id: true },
@@ -2670,10 +2691,17 @@ export const Trucoshi = ({
           name: userSession.name,
           teamIdx: player.teamIdx,
           bot: !!player.bot,
-        } as Pick<
-          MatchPlayer,
-          "session" | "accountId" | "name" | "teamIdx" | "payRequestId" | "satsPaid" | "bot"
-        >
+          deckSkinByCard: player.deckSkinByCard as Prisma.InputJsonObject,
+        } as {
+          session: string
+          accountId?: number
+          name: string
+          teamIdx: number
+          payRequestId?: number
+          satsPaid?: number
+          bot: boolean
+          deckSkinByCard: Prisma.InputJsonObject
+        }
 
         if (pr && pr.id) {
           update.satsPaid = pr.amountInSats
@@ -2783,6 +2811,7 @@ export const Trucoshi = ({
         isOwner: userSession.ownedMatches.has(table.matchSessionId),
         teamIdx,
       })
+      player.setDeckSkinByCard(await server.getDeckSnapshot(userSession))
 
       socket.join(table.matchSessionId)
       socket.join(table.matchSessionId + player.teamIdx)
@@ -2880,6 +2909,7 @@ export const Trucoshi = ({
                   where: { id: player.matchPlayerId },
                   data: {
                     idx,
+                    deckSkinByCard: player.deckSkinByCard as Prisma.InputJsonObject,
                   },
                 }
               }),
@@ -2991,12 +3021,24 @@ export const Trucoshi = ({
                 include: { bet: true },
               })
 
+              const accountPlayers = table.lobby.players.filter(
+                (player) => player.accountId && !player.bot
+              )
+              const accountIds = accountPlayers.map((player) => player.accountId as number)
+
+              if (table.createdFromQueue) {
+                const treasure = TreasureService(tx)
+                const eligibleAccountIds = getTreasureEligibleAccountIds(table.lobby.players)
+
+                for (const accountId of eligibleAccountIds) {
+                  await treasure.creditEligibleMatch(accountId, table.matchId!)
+                }
+              }
+
               if (table.lobby.players.some((player) => player.bot)) {
                 return
               }
 
-              const accountPlayers = table.lobby.players.filter((player) => player.accountId)
-              const accountIds = accountPlayers.map((player) => player.accountId as number)
               const existingStats = await tx.userStats.findMany({
                 where: { accountId: { in: accountIds } },
                 select: { accountId: true, elo: true },
@@ -3060,6 +3102,7 @@ export const Trucoshi = ({
                   },
                 })
               }
+
             })
 
             const satsPerPlayer = table.lobby.options.satsPerPlayer
@@ -3500,7 +3543,14 @@ export const Trucoshi = ({
             },
           },
           players: {
-            select: { accountId: true, name: true, teamIdx: true, idx: true, bot: true },
+            select: {
+              accountId: true,
+              name: true,
+              teamIdx: true,
+              idx: true,
+              bot: true,
+              deckSkinByCard: true,
+            },
           },
         },
       })
@@ -3546,6 +3596,7 @@ export const Trucoshi = ({
                   accountId: true,
                   bot: true,
                   name: true,
+                  deckSkinByCard: true,
                 },
               },
             },

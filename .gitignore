@@ -1,6 +1,8 @@
 node_modules
 dist
 build
+old-dist-backup
+dist-permission-blocked-*
 volumes
 
 # profiler

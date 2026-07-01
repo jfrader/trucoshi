@@ -1,13 +1,15 @@
 export * from "./events"
 
 export { CARDS, CARDS_HUMAN_READABLE, SUITS_HUMAN_READABLE, BURNT_CARD } from "./lib/constants"
+export { CARD_SKINS, INVENTORY_GRANT_RELEASES, SKIN_RELEASES } from "./lib/Skins"
+export { TREASURE_CONFIG, TREASURE_RARITIES } from "./lib/Treasures"
 
 import { RequestParams, User } from "lightning-accounts"
 import { Match, MatchPlayer, MatchHand, UserStats, MatchBet } from "@trucoshi/prisma"
 import { IHand, IPlayInstance } from "./truco"
 import { CARDS, ITable } from "./lib"
 import { AxiosResponse } from "axios"
-import { ITrucoshi } from "./server"
+import type { ITrucoshi } from "./server"
 import { BotProfile } from "./truco/Bot"
 
 export enum EMatchState {
@@ -27,14 +29,19 @@ export type IPlayerRanking = Omit<
   Pick<User, "name" | "avatarUrl">
 
 export interface IMatchDetails extends Match {
-  players: Array<Pick<MatchPlayer, "accountId" | "teamIdx" | "name" | "idx" | "bot">>
+  players: Array<
+    Pick<MatchPlayer, "accountId" | "teamIdx" | "name" | "idx" | "bot" | "deckSkinByCard">
+  >
   hands: Array<MatchHand>
 }
 export interface IAccountDetails {
   stats: IPublicUserStats | null
   matches: Array<
     Match & {
-      players: Pick<MatchPlayer, "accountId" | "idx" | "teamIdx" | "bot" | "name">[]
+      players: Pick<
+        MatchPlayer,
+        "accountId" | "idx" | "teamIdx" | "bot" | "name" | "deckSkinByCard"
+      >[]
       bet: Pick<MatchBet, "id" | "satsPerPlayer"> | null
     }
   >
@@ -296,10 +303,65 @@ export interface IDeck {
 
 export type ICard = keyof typeof CARDS
 
+export type CardSkinId = string
+
+export type CardSkinRarity = "COMMON" | "RARE" | "EPIC" | "LEGENDARY" | "PROMO"
+
+export interface ICardSkin {
+  id: CardSkinId
+  release: string
+  card: ICard
+  description?: string | null
+  fileName: string
+  assetPath: string
+  rarity: CardSkinRarity
+  enabled: boolean
+  unlockable: boolean
+}
+
+export type IEquippedDeck = Partial<Record<ICard, CardSkinId>>
+
+export interface IInventoryCardSkin extends ICardSkin {
+  unlocked: boolean
+  equipped: boolean
+}
+
+export interface IInventoryCardGroup {
+  card: ICard
+  skins: IInventoryCardSkin[]
+  equippedCardSkinId?: CardSkinId
+}
+
+export interface ITreasureConfig {
+  eligibleMatchesPerChest: number
+  rarityWeights: Record<CardSkinRarity, number>
+}
+
+export interface ITreasureChest {
+  id: number
+  sourceMatchId?: number | null
+  earnedAt: string
+}
+
+export interface ITreasureStatus {
+  progress: number
+  threshold: number
+  unopenedChests: ITreasureChest[]
+}
+
+export interface ITreasureOpenResult {
+  chestId: number
+  rarity: CardSkinRarity | null
+  cardSkin: ICardSkin | null
+  duplicate: boolean
+  granted: boolean
+}
+
 export interface IPlayedCard {
   key: string
   player: IPlayer | IPublicPlayer
   card: ICard
+  cardSkinId?: CardSkinId
 }
 
 export interface IHandPoints {
@@ -354,6 +416,7 @@ export type IPublicPlayer = Pick<
   | "hasSaidEnvidoPoints"
   | "hasSaidTruco"
   | "hasPassed"
+  | "deckSkinByCard"
 > &
   (
     | {
@@ -418,6 +481,9 @@ export interface IPlayer {
   abandoned: boolean
   ready: boolean
   opponentProfiles: Record<string, OpponentProfile>
+  deckSkinByCard: IEquippedDeck
+  getCardSkinId(card: ICard): CardSkinId | undefined
+  setDeckSkinByCard(deck: IEquippedDeck): void
   getRandomCard(): [number, ICard]
   getHighestCard(): [number, ICard]
   getLowestCard(): [number, ICard]
