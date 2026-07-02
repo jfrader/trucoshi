@@ -1,6 +1,6 @@
 {
   "name": "trucoshi",
-  "version": "12.0.0-rc.1",
+  "version": "12.0.0-rc.2",
   "description": "Truco Game Server",
   "main": "dist/types.js",
   "license": "GPL-3.0",
@@ -63,6 +63,7 @@
   },
   "files": [
     "dist/lib/*",
+    "dist/cosmetics/*",
     "dist/types.js",
     "dist/types.d.ts",
     "dist/events.js",
