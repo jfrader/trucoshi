@@ -4,6 +4,7 @@ build
 old-dist-backup
 dist-permission-blocked-*
 volumes
+.dev-yarn-links/
 
 # profiler
 isolate*.log

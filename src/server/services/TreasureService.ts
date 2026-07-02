@@ -1,4 +1,5 @@
 import { Prisma, PrismaClient } from "@prisma/client"
+import { createRandomIndexPicker, RandomIndexPicker } from "../../lib/classes/Random"
 import { TREASURE_CONFIG, TREASURE_RARITIES } from "../../lib/Treasures"
 import {
   CardSkinRarity,
@@ -9,7 +10,6 @@ import {
 } from "../../types"
 
 type Store = PrismaClient | Prisma.TransactionClient
-type RandomFn = () => number
 
 const toTreasureChest = (chest: {
   id: number
@@ -54,7 +54,10 @@ export interface ITreasureService {
   openChest(accountId: number, chestId: number): Promise<ITreasureOpenResult>
 }
 
-export function TreasureService(store: Store, random: RandomFn = Math.random): ITreasureService {
+export function TreasureService(
+  store: Store,
+  random: RandomIndexPicker = createRandomIndexPicker("treasure-service")
+): ITreasureService {
   const rollRarity = (): CardSkinRarity | null => {
     const entries = TREASURE_RARITIES.map((rarity) => ({
       rarity,
@@ -66,7 +69,7 @@ export function TreasureService(store: Store, random: RandomFn = Math.random): I
       return null
     }
 
-    let roll = random() * total
+    let roll = random(total)
     for (const entry of entries) {
       roll -= entry.weight
       if (roll < 0) {
@@ -170,7 +173,7 @@ export function TreasureService(store: Store, random: RandomFn = Math.random): I
         return { chestId, rarity, cardSkin: null, duplicate: false, granted: false }
       }
 
-      const selected = skins[Math.floor(random() * skins.length)]
+      const selected = skins[random(skins.length)]
       const owned = await store.userCardSkin.findUnique({
         where: { accountId_cardSkinId: { accountId, cardSkinId: selected.id } },
       })

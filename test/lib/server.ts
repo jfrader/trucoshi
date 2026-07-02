@@ -154,6 +154,162 @@ describe("Socket Server", () => {
       ).to.deep.equal({ maxPlayers: 0, allowBots: true })
     })
 
+    it("should match mixed bot preference humans before bot fallback", async () => {
+      const player2Match = waitForQueueMatch(clients[2])
+      const player3Match = waitForQueueMatch(clients[3])
+
+      await new Promise<void>((resolve, reject) => {
+        clients[2].emit(EClientEvent.JOIN_QUEUE, { maxPlayers: 2, allowBots: true }, ({ success, error }) => {
+          if (success) return resolve()
+          reject(handleError(error, "Player 2 failed to join mixed queue"))
+        })
+      })
+
+      await new Promise<void>((resolve, reject) => {
+        clients[3].emit(EClientEvent.JOIN_QUEUE, { maxPlayers: 2, allowBots: false }, ({ success, error }) => {
+          if (success) return resolve()
+          reject(handleError(error, "Player 3 failed to join mixed queue"))
+        })
+      })
+
+      const [match2, match3] = await Promise.all([player2Match, player3Match])
+      expect(match2.matchSessionId).to.equal(match3.matchSessionId)
+      expect(match2.maxPlayers).to.equal(2)
+      expect(match2.humanPlayers).to.equal(2)
+      expect(match2.botPlayers).to.equal(0)
+      expect(match2.filledWithBots).to.equal(false)
+    })
+
+    it("should default queue size to any and match mixed bot preference humans", async () => {
+      const player2Match = waitForQueueMatch(clients[2])
+      const player3Match = waitForQueueMatch(clients[3])
+
+      await new Promise<void>((resolve, reject) => {
+        clients[2].emit(EClientEvent.JOIN_QUEUE, { allowBots: true } as any, ({ success, error }) => {
+          if (success) return resolve()
+          reject(handleError(error, "Player 2 failed to join default-size mixed queue"))
+        })
+      })
+
+      await new Promise<void>((resolve, reject) => {
+        clients[3].emit(EClientEvent.JOIN_QUEUE, { allowBots: false } as any, ({ success, error }) => {
+          if (success) return resolve()
+          reject(handleError(error, "Player 3 failed to join default-size mixed queue"))
+        })
+      })
+
+      const [match2, match3] = await Promise.all([player2Match, player3Match])
+      expect(match2.matchSessionId).to.equal(match3.matchSessionId)
+      expect(match2.maxPlayers).to.equal(2)
+      expect(match2.humanPlayers).to.equal(2)
+      expect(match2.botPlayers).to.equal(0)
+      expect(match2.filledWithBots).to.equal(false)
+    })
+
+    it("should keep same-session devices attached to one queue entry", async () => {
+      const sharedA = Client(`http://localhost:${process.env.APP_PORT || 9999}`, {
+        autoConnect: false,
+        withCredentials: true,
+        auth: { name: "shared-a" },
+      })
+
+      await new Promise<void>((resolve, reject) => {
+        sharedA.once("connect", resolve)
+        sharedA.once("connect_error", reject)
+        sharedA.connect()
+      })
+
+      const sharedSession = server.sessions.find((session) => session.name === "shared-a")?.session
+      expect(sharedSession).to.be.a("string")
+
+      const sharedB = Client(`http://localhost:${process.env.APP_PORT || 9999}`, {
+        autoConnect: false,
+        withCredentials: true,
+        auth: { name: "shared-b", sessionID: sharedSession },
+      })
+
+      try {
+        await new Promise<void>((resolve, reject) => {
+          sharedB.once("connect", resolve)
+          sharedB.once("connect_error", reject)
+          sharedB.connect()
+        })
+
+        const sharedAMatch = waitForQueueMatch(sharedA as Socket<ServerToClientEvents, ClientToServerEvents>)
+        const sharedBMatch = waitForQueueMatch(sharedB as Socket<ServerToClientEvents, ClientToServerEvents>)
+        const opponentMatch = waitForQueueMatch(clients[0])
+        let firstQueuedAt = 0
+        let secondQueuedAt = 0
+
+        await new Promise<void>((resolve, reject) => {
+          sharedA.emit(EClientEvent.JOIN_QUEUE, { maxPlayers: 2, allowBots: true }, ({ success, status, error }) => {
+            firstQueuedAt = status?.queuedAt || 0
+            if (success) return resolve()
+            reject(handleError(error, "Shared device A failed to join queue"))
+          })
+        })
+
+        await new Promise<void>((resolve, reject) => {
+          sharedB.emit(EClientEvent.JOIN_QUEUE, { maxPlayers: 2, allowBots: true }, ({ success, status, error }) => {
+            secondQueuedAt = status?.queuedAt || 0
+            if (success) return resolve()
+            reject(handleError(error, "Shared device B failed to rejoin queue"))
+          })
+        })
+
+        expect(secondQueuedAt).to.equal(firstQueuedAt)
+
+        await new Promise<void>((resolve, reject) => {
+          clients[0].emit(EClientEvent.JOIN_QUEUE, { maxPlayers: 2, allowBots: false }, ({ success, error }) => {
+            if (success) return resolve()
+            reject(handleError(error, "Opponent failed to join shared-session queue"))
+          })
+        })
+
+        const [matchA, matchB, matchOpponent] = await Promise.all([
+          sharedAMatch,
+          sharedBMatch,
+          opponentMatch,
+        ])
+        expect(matchA.matchSessionId).to.equal(matchB.matchSessionId)
+        expect(matchA.matchSessionId).to.equal(matchOpponent.matchSessionId)
+        expect(matchA.humanPlayers).to.equal(2)
+        expect(matchA.botPlayers).to.equal(0)
+      } finally {
+        sharedA.close()
+        sharedB.close()
+      }
+    })
+
+    it("should prioritize a waiting humans-only player before bot fallback", async () => {
+      const humanOnlyMatch = waitForQueueMatch(clients[2])
+      const botAllowedMatch = waitForQueueMatch(clients[3])
+
+      await new Promise<void>((resolve, reject) => {
+        clients[2].emit(EClientEvent.JOIN_QUEUE, { maxPlayers: 2, allowBots: false }, ({ success, error }) => {
+          if (success) return resolve()
+          reject(handleError(error, "Humans-only player failed to join queue"))
+        })
+      })
+
+      await new Promise<void>((resolve, reject) => {
+        clients[3].emit(EClientEvent.JOIN_QUEUE, { maxPlayers: 2, allowBots: true }, ({ success, error }) => {
+          if (success) return resolve()
+          reject(handleError(error, "Bot-allowed player failed to join queue"))
+        })
+      })
+
+      const [matchHumanOnly, matchBotAllowed] = await Promise.all([
+        humanOnlyMatch,
+        botAllowedMatch,
+      ])
+      expect(matchHumanOnly.matchSessionId).to.equal(matchBotAllowed.matchSessionId)
+      expect(matchHumanOnly.maxPlayers).to.equal(2)
+      expect(matchHumanOnly.humanPlayers).to.equal(2)
+      expect(matchHumanOnly.botPlayers).to.equal(0)
+      expect(matchHumanOnly.filledWithBots).to.equal(false)
+    })
+
     it("should keep waiting when bot fallback is disabled", async () => {
       let matched = false
       clients[3].once(EServerEvent.QUEUE_MATCH_FOUND, () => {

@@ -26,6 +26,14 @@ Proba la demo actual en [Trucoshi](https://trucoshi.com)
 
 `yarn build`
 
+### Full local dev stack
+
+Run the three-repo local stack from this repo with:
+
+`yarn dev:all:sudo-docker`
+
+Do not prefix the command with `sudo`. The script only uses sudo for Docker commands, and running Yarn itself as root can corrupt local links and generated Prisma files.
+
 # Test
 
 `yarn test`

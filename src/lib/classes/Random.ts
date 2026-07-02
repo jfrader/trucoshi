@@ -45,6 +45,21 @@ export const Random = () => {
   return random
 }
 
+export type RandomIndexPicker = (max: number) => number
+
+export const createRandomIndexPicker = (clientSeed: string): RandomIndexPicker => {
+  const random = Random()
+  random.clients[0] = clientSeed
+
+  return (max) => {
+    if (!Number.isInteger(max) || max <= 0) {
+      throw new Error("Random max must be a positive integer")
+    }
+
+    return random.pick(0, max)
+  }
+}
+
 export interface IRng {
   combine(client: string, server: string, bitcoinHash: string, nonce: number): string
   sha512(string: string): string

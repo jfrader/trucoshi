@@ -156,7 +156,7 @@ describe("TreasureService", () => {
   })
 
   it("opens a chest and grants an unowned rolled skin", async () => {
-    const service = TreasureService(createFakeStore(), () => 0)
+    const service = TreasureService(createFakeStore(), (_max) => 0)
 
     await service.creditEligibleMatch(1, 101)
     await service.creditEligibleMatch(1, 102)
@@ -181,7 +181,7 @@ describe("TreasureService", () => {
 
   it("opens duplicate rewards without granting a second copy", async () => {
     const store = createFakeStore()
-    const service = TreasureService(store, () => 0)
+    const service = TreasureService(store, (_max) => 0)
 
     await service.creditEligibleMatch(1, 101)
     await service.creditEligibleMatch(1, 102)
@@ -199,7 +199,7 @@ describe("TreasureService", () => {
   })
 
   it("opens empty when a rarity has no configured skins", async () => {
-    const service = TreasureService(createFakeStore([]), () => 0)
+    const service = TreasureService(createFakeStore([]), (_max) => 0)
 
     await service.creditEligibleMatch(1, 101)
     await service.creditEligibleMatch(1, 102)

@@ -264,6 +264,8 @@ export enum GAME_ERROR {
   INVALID_SESSION = "INVALID_SESSION",
   PAYMENT_REQUIRED = "PAYMENT_REQUIRED",
   PAYMENT_ERROR = "PAYMENT_ERROR",
+  REWARD_CODE_INVALID = "REWARD_CODE_INVALID",
+  REWARD_CODE_REDEEMED = "REWARD_CODE_REDEEMED",
 }
 
 export interface EnvidoState {
@@ -355,6 +357,48 @@ export interface ITreasureOpenResult {
   cardSkin: ICardSkin | null
   duplicate: boolean
   granted: boolean
+}
+
+export interface IAdminOnlineAccount {
+  accountId: number
+  name: string
+  avatarUrl?: string | null
+  role?: User["role"]
+  online: boolean
+}
+
+export interface IAdminRewardCodeSummary {
+  id: number
+  codePreview: string
+  createdByAccountId: number
+  intendedAccountId?: number | null
+  note?: string | null
+  createdAt: string
+  redeemedAt?: string | null
+  redeemedByAccountId?: number | null
+  treasureChestId?: number | null
+}
+
+export interface IAdminDashboard {
+  onlineAccounts: IAdminOnlineAccount[]
+  liveGames: IPublicMatchInfo[]
+  rewardCodes: IAdminRewardCodeSummary[]
+}
+
+export interface IAdminCreateChestRewardCodeInput {
+  intendedAccountId?: number | null
+  note?: string | null
+}
+
+export interface IAdminCreateChestRewardCodeResult {
+  code: string
+  link: string
+  rewardCode: IAdminRewardCodeSummary
+}
+
+export interface IRewardCodeRedeemResult {
+  grantedChest: ITreasureChest
+  treasureStatus: ITreasureStatus
 }
 
 export interface IPlayedCard {

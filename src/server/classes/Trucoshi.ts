@@ -9,6 +9,7 @@ import {
   EMatchState,
   ESayCommand,
   GAME_ERROR,
+  IAdminOnlineAccount,
   IAccountDetails,
   ICard,
   IEquippedDeck,
@@ -56,6 +57,7 @@ import { IQueue, Queue } from "../../lib/classes/Queue"
 import { IInventoryService, InventoryService } from "../services/InventoryService"
 import { getTreasureEligibleAccountIds } from "../services/TreasureEligibility"
 import { ITreasureService, TreasureService } from "../services/TreasureService"
+import { AdminService, IAdminService } from "../services/AdminService"
 
 const log = logger.child({ class: "Trucoshi" })
 
@@ -174,6 +176,7 @@ export interface ITrucoshi {
   store?: PrismaClient
   inventory?: IInventoryService
   treasure?: ITreasureService
+  admin?: IAdminService
   chat: IChat
   tables: MatchTableMap // sessionId, table
   sessions: TMap<string, IUserSession> // sessionId, user
@@ -371,6 +374,7 @@ export const Trucoshi = ({
     store: undefined,
     inventory: undefined,
     treasure: undefined,
+    admin: undefined,
     ranking: [],
     tables,
     turns,
@@ -391,9 +395,26 @@ export const Trucoshi = ({
     },
     async joinQueue({ socket, userSession, options }) {
       return server.matchmakingQueue.queue(async () => {
-        const maxPlayers = options.maxPlayers
+        const maxPlayers = options?.maxPlayers ?? 0
         if (![0, ...MATCH_QUEUE_SIZES].includes(maxPlayers)) {
           throw new SocketError("FORBIDDEN", "Invalid queue size")
+        }
+        const allowBots = Boolean(options?.allowBots)
+
+        const existingEntry = server.matchQueue.get(userSession.session)
+        if (
+          existingEntry &&
+          existingEntry.maxPlayers === maxPlayers &&
+          existingEntry.allowBots === allowBots
+        ) {
+          existingEntry.socket = socket
+          server.io.to(userSession.session).emit(
+            EServerEvent.QUEUE_UPDATE,
+            server.getQueueStatus(existingEntry)
+          )
+          await server.resolveMatchQueues(maxPlayers)
+          const current = server.matchQueue.get(userSession.session)
+          return current ? server.getQueueStatus(current) : undefined
         }
 
         server.removeQueueEntry(userSession.session)
@@ -405,16 +426,14 @@ export const Trucoshi = ({
             }))?.elo || DEFAULT_ELO
           : DEFAULT_ELO
 
-        const botFallbackAt = options.allowBots
-          ? Date.now() + QUEUE_BOT_FALLBACK_TIMEOUT
-          : undefined
+        const botFallbackAt = allowBots ? Date.now() + QUEUE_BOT_FALLBACK_TIMEOUT : undefined
 
         const entry: IMatchQueueEntry = {
           requestId: randomUUID(),
           userSession,
           socket,
           maxPlayers,
-          allowBots: options.allowBots,
+          allowBots,
           rating,
           queuedAt: Date.now(),
           botFallbackAt,
@@ -461,7 +480,9 @@ export const Trucoshi = ({
           : getAllQueueEntries(server.matchQueue)
 
       entries.forEach((entry) => {
-        entry.socket.emit(EServerEvent.QUEUE_UPDATE, server.getQueueStatus(entry))
+        server.io
+          .to(entry.userSession.session)
+          .emit(EServerEvent.QUEUE_UPDATE, server.getQueueStatus(entry))
       })
     },
     getQueueStatus(entry) {
@@ -499,16 +520,17 @@ export const Trucoshi = ({
       }
 
       if (allowBotFallback) {
-        const botCandidates = getQueueEntries(server.matchQueue, maxPlayers).filter(
-          (entry) => entry.allowBots
+        const entries = getQueueEntries(server.matchQueue, maxPlayers)
+        const botCandidates = entries.filter(
+          (entry) => entry.allowBots && (!entry.botFallbackAt || entry.botFallbackAt <= Date.now())
         )
         if (botCandidates.length) {
           const selected = selectClosestQueueEntries(
-            botCandidates,
+            entries,
             botCandidates[0],
-            Math.min(maxPlayers, botCandidates.length)
+            Math.min(maxPlayers, entries.length)
           )
-          await server.createQueueMatch(selected, true, maxPlayers)
+          await server.createQueueMatch(selected, selected.length < maxPlayers, maxPlayers)
         }
       }
 
@@ -521,78 +543,94 @@ export const Trucoshi = ({
         return
       }
 
-      selectedEntries.forEach((entry) => server.removeQueueEntry(entry.userSession.session))
-
       const teamSize = maxPlayers / 2
       const teamCounts: Record<0 | 1, number> = { 0: 1, 1: 0 }
       const teamRatings: Record<0 | 1, number> = { 0: ownerEntry.rating, 1: 0 }
       const teamAssignments = new Map<string, 0 | 1>([[ownerEntry.userSession.session, 0]])
 
-      const table = await server.createMatchTable(ownerEntry.userSession, ownerEntry.socket, {
-        maxPlayers,
-        satsPerPlayer: 0,
-        createdFromQueue: true,
-      })
-      selectedEntries.forEach((entry) => {
-        table.queueOptionsBySession.set(entry.userSession.session, {
-          maxPlayers: entry.maxPlayers,
-          allowBots: entry.allowBots,
+      let table: IMatchTable | undefined
+
+      try {
+        table = await server.createMatchTable(ownerEntry.userSession, ownerEntry.socket, {
+          maxPlayers,
+          satsPerPlayer: 0,
+          createdFromQueue: true,
         })
-      })
+        selectedEntries.forEach((entry) => {
+          table?.queueOptionsBySession.set(entry.userSession.session, {
+            maxPlayers: entry.maxPlayers,
+            allowBots: entry.allowBots,
+          })
+        })
 
-      const challengers = selectedEntries
-        .filter((entry) => entry.requestId !== ownerEntry.requestId)
-        .sort((a, b) => b.rating - a.rating)
+        const challengers = selectedEntries
+          .filter((entry) => entry.requestId !== ownerEntry.requestId)
+          .sort((a, b) => b.rating - a.rating)
 
-      for (const entry of challengers) {
-        const teamIdx = chooseQueueTeam(teamCounts, teamRatings, teamSize)
-        await server.joinMatch(table, entry.userSession, entry.socket, teamIdx)
-        teamCounts[teamIdx] += 1
-        teamRatings[teamIdx] += entry.rating
-        teamAssignments.set(entry.userSession.session, teamIdx)
-      }
+        for (const entry of challengers) {
+          const teamIdx = chooseQueueTeam(teamCounts, teamRatings, teamSize)
+          await server.joinMatch(table, entry.userSession, entry.socket, teamIdx)
+          teamCounts[teamIdx] += 1
+          teamRatings[teamIdx] += entry.rating
+          teamAssignments.set(entry.userSession.session, teamIdx)
+        }
 
-      let botPlayers = 0
-      while (teamCounts[0] + teamCounts[1] < maxPlayers) {
-        const teamIdx = chooseQueueTeam(teamCounts, teamRatings, teamSize)
-        await server.addBot(table, ownerEntry.userSession, teamIdx)
-        teamCounts[teamIdx] += 1
-        teamRatings[teamIdx] += DEFAULT_ELO
-        botPlayers += 1
-      }
+        let botPlayers = 0
+        while (teamCounts[0] + teamCounts[1] < maxPlayers) {
+          const teamIdx = chooseQueueTeam(teamCounts, teamRatings, teamSize)
+          await server.addBot(table, ownerEntry.userSession, teamIdx)
+          teamCounts[teamIdx] += 1
+          teamRatings[teamIdx] += DEFAULT_ELO
+          botPlayers += 1
+        }
 
-      for (const entry of selectedEntries) {
-        await server.setMatchPlayerReady({
+        for (const entry of selectedEntries) {
+          await server.setMatchPlayerReady({
+            matchSessionId: table.matchSessionId,
+            userSession: entry.userSession,
+            ready: true,
+          })
+        }
+
+        await server.startMatch({
+          identityJwt: null,
           matchSessionId: table.matchSessionId,
-          userSession: entry.userSession,
-          ready: true,
+          userSession: ownerEntry.userSession,
         })
+
+        selectedEntries.forEach((entry) => server.removeQueueEntry(entry.userSession.session))
+
+        const payload: IQueueMatchFound = {
+          matchSessionId: table.matchSessionId,
+          maxPlayers,
+          humanPlayers: selectedEntries.length,
+          botPlayers,
+          filledWithBots,
+        }
+
+        selectedEntries.forEach((entry) => {
+          server.io.to(entry.userSession.session).emit(EServerEvent.QUEUE_MATCH_FOUND, payload)
+          const assignedTeam = teamAssignments.get(entry.userSession.session)
+          table?.log.debug(
+            { player: entry.userSession.name, teamIdx: assignedTeam },
+            "Queued player matched"
+          )
+        })
+
+        server.emitQueueStatuses(maxPlayers)
+      } catch (e) {
+        if (table) {
+          await server.cleanupMatchTable(table)
+        }
+        selectedEntries.forEach((entry) => {
+          if (server.matchQueue.get(entry.userSession.session)?.requestId === entry.requestId) {
+            server.io
+              .to(entry.userSession.session)
+              .emit(EServerEvent.QUEUE_UPDATE, server.getQueueStatus(entry))
+          }
+        })
+        throw e
       }
-
-      await server.startMatch({
-        identityJwt: null,
-        matchSessionId: table.matchSessionId,
-        userSession: ownerEntry.userSession,
-      })
-
-      const payload: IQueueMatchFound = {
-        matchSessionId: table.matchSessionId,
-        maxPlayers,
-        humanPlayers: selectedEntries.length,
-        botPlayers,
-        filledWithBots,
-      }
-
-      selectedEntries.forEach((entry) => {
-        entry.socket.emit(EServerEvent.QUEUE_MATCH_FOUND, payload)
-        const assignedTeam = teamAssignments.get(entry.userSession.session)
-        table.log.debug(
-          { player: entry.userSession.name, teamIdx: assignedTeam },
-          "Queued player matched"
-        )
-      })
-
-      server.emitQueueStatuses(maxPlayers)
     },
     async listen(
       callback,
@@ -634,6 +672,38 @@ export const Trucoshi = ({
         server.store = new PrismaClient()
         server.inventory = InventoryService(server.store)
         server.treasure = TreasureService(server.store)
+        server.admin = AdminService(server.store, {
+          getAccount: async (accountId) =>
+            accountsApi.users.getUser(String(accountId)).then((response) => response.data || null),
+          getOnlineAccounts: () => {
+            const onlineByAccountId = new Map<number, IAdminOnlineAccount>()
+            for (const session of server.sessions.findAll((s) => s.online && !!s.account?.id)) {
+              const account = session.account
+              if (!account?.id) {
+                continue
+              }
+              onlineByAccountId.set(account.id, {
+                accountId: account.id,
+                name: account.name,
+                avatarUrl: account.avatarUrl,
+                role: account.role,
+                online: true,
+              })
+            }
+            return Array.from(onlineByAccountId.values()).sort((a, b) =>
+              a.name.localeCompare(b.name)
+            )
+          },
+          getLiveGames: () =>
+            server.tables.getAll({
+              state: [
+                EMatchState.UNREADY,
+                EMatchState.READY,
+                EMatchState.STARTED,
+                EMatchState.PAUSED,
+              ],
+            }),
+        })
         try {
           await server.store.$connect()
           await server.inventory.seedInitialCardSkins()

@@ -1,5 +1,6 @@
 import { ExtendedError } from "socket.io/dist/namespace"
-import { ITrucoshi, SocketError, TrucoshiSocket, isSocketError } from "../classes"
+import { SocketError, isSocketError } from "../classes/SocketError"
+import type { ITrucoshi, TrucoshiSocket } from "../classes/Trucoshi"
 import logger from "../../utils/logger"
 import { getWordsId } from "../../utils/string/getRandomWord"
 import { EClientEvent, EServerEvent } from "../../events"
@@ -274,6 +275,91 @@ export const trucoshiMiddleware = (server: ITrucoshi) => {
         log.error(e, "Client event DEV_GRANT_TREASURE_CHEST error")
         callback({
           success: false,
+          treasureStatus: { progress: 0, threshold: 3, unopenedChests: [] },
+          error: isSocketError(e),
+        })
+      }
+    })
+
+    /**
+     * Fetch admin operations dashboard.
+     */
+    socket.on(EClientEvent.ADMIN_FETCH_DASHBOARD, async (callback) => {
+      try {
+        if (!server.admin) {
+          throw new SocketError("NOT_FOUND", "Este server no soporta administracion")
+        }
+
+        const dashboard = await server.admin.getDashboard(socket.data.user?.account)
+
+        callback({ success: true, dashboard })
+      } catch (e) {
+        log.error(e, "Client event ADMIN_FETCH_DASHBOARD error")
+        callback({
+          success: false,
+          dashboard: { onlineAccounts: [], liveGames: [], rewardCodes: [] },
+          error: isSocketError(e),
+        })
+      }
+    })
+
+    /**
+     * Create one single-use chest reward code.
+     */
+    socket.on(EClientEvent.ADMIN_CREATE_CHEST_REWARD_CODE, async (input, callback) => {
+      try {
+        if (!server.admin) {
+          throw new SocketError("NOT_FOUND", "Este server no soporta administracion")
+        }
+
+        const result = await server.admin.createChestRewardCode(socket.data.user?.account, input)
+
+        callback({ success: true, ...result })
+      } catch (e) {
+        log.error(e, "Client event ADMIN_CREATE_CHEST_REWARD_CODE error")
+        callback({
+          success: false,
+          code: "",
+          link: "",
+          rewardCode: {
+            id: 0,
+            codePreview: "",
+            createdByAccountId: 0,
+            intendedAccountId: null,
+            note: null,
+            createdAt: "",
+            redeemedAt: null,
+            redeemedByAccountId: null,
+            treasureChestId: null,
+          },
+          error: isSocketError(e),
+        })
+      }
+    })
+
+    /**
+     * Redeem one single-use reward code for the logged-in account.
+     */
+    socket.on(EClientEvent.REDEEM_REWARD_CODE, async (code, callback) => {
+      try {
+        const accountId = socket.data.user?.account?.id
+
+        if (!accountId) {
+          throw new SocketError("GAME_REQUIRES_ACCOUNT", "Necesitas iniciar sesion")
+        }
+
+        if (!server.admin) {
+          throw new SocketError("NOT_FOUND", "Este server no soporta recompensas")
+        }
+
+        const result = await server.admin.redeemRewardCode(accountId, code)
+
+        callback({ success: true, ...result })
+      } catch (e) {
+        log.error(e, "Client event REDEEM_REWARD_CODE error")
+        callback({
+          success: false,
+          grantedChest: { id: 0, sourceMatchId: null, earnedAt: "" },
           treasureStatus: { progress: 0, threshold: 3, unopenedChests: [] },
           error: isSocketError(e),
         })

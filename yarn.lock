@@ -3114,10 +3114,10 @@ libnpmversion@^8.0.1:
     proc-log "^5.0.0"
     semver "^7.3.7"
 
-lightning-accounts@6.2.1:
-  version "6.2.1"
-  resolved "https://registry.yarnpkg.com/lightning-accounts/-/lightning-accounts-6.2.1.tgz#0140910ec39232313142c4bf5b5fe5b4f9355eb6"
-  integrity "sha1-AUCRDsOSMjExQsS/W1/ltPk1XrY= sha512-GWqYd6bs741iYNzz8psiEP9AHfOvMZkogbUfjwLr2/3/+zBoFcdmpDBD/ZbfmgbNWRLhWHQKfuzR2KafNtdQOA=="
+lightning-accounts@6.2.2:
+  version "6.2.2"
+  resolved "https://registry.npmjs.org/lightning-accounts/-/lightning-accounts-6.2.2.tgz#a3140ee3fc3f6976c7209308df2000df5e31b570"
+  integrity sha512-M4lrog0isetX05rRBDcFVoABWOusA+eVEuwMb3CrkpLmKDBr0rdDZQPztwjf9mfRPSv4VJDegoWFmnkDt0ZhCw==
   dependencies:
     "@openapi-contrib/json-schema-to-openapi-schema" "^4.0.2"
     "@prisma/client" "^6.12.0"

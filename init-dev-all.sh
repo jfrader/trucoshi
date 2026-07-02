@@ -7,6 +7,7 @@ LIGHTNING_ACCOUNTS_DIR="$(cd "$ROOT_DIR/../lightning-accounts" 2>/dev/null && pw
 TRUCOSHI_CLIENT_DIR="$(cd "$ROOT_DIR/../trucoshi-client" 2>/dev/null && pwd || true)"
 NODE_ENV="${NODE_ENV:-development}"
 DEV_ALL_DOCKER_SUDO="${DEV_ALL_DOCKER_SUDO:-0}"
+DEV_ALL_YARN_LINK_DIR="${DEV_ALL_YARN_LINK_DIR:-$ROOT_DIR/.dev-yarn-links}"
 
 PIDS=()
 CLEANING_UP=0
@@ -23,6 +24,12 @@ fail() {
 
 require_command() {
   command -v "$1" >/dev/null 2>&1 || fail "Missing required command: $1"
+}
+
+require_not_root() {
+  if [ "${EUID:-$(id -u)}" -eq 0 ]; then
+    fail "Do not run this script with sudo. Use: yarn dev:all:sudo-docker. That mode only uses sudo for Docker commands."
+  fi
 }
 
 use_sudo_docker() {
@@ -205,6 +212,67 @@ ensure_writable_path() {
   fi
 }
 
+ensure_writable_tree() {
+  local label="$1"
+  local path="$2"
+  local blocked_path
+
+  ensure_writable_path "$label" "$path"
+
+  if [ ! -e "$path" ]; then
+    return
+  fi
+
+  blocked_path="$(find "$path" ! -writable -print -quit 2>/dev/null || true)"
+  if [ -n "$blocked_path" ]; then
+    ls -ld "$blocked_path" >&2 || true
+    fail "$label contains a non-writable path. Fix ownership once with: sudo chown -R $(id -u):$(id -g) \"$path\""
+  fi
+}
+
+ensure_project_writable_paths() {
+  local name="$1"
+  local dir="$2"
+
+  ensure_writable_path "$name node_modules" "$dir/node_modules"
+  ensure_writable_path "$name package install metadata" "$dir/package.json"
+
+  if [ -e "$dir/yarn.lock" ]; then
+    ensure_writable_path "$name lockfile" "$dir/yarn.lock"
+  fi
+}
+
+ensure_lightning_accounts_prisma_install() {
+  local check_output
+
+  if [ ! -d "$LIGHTNING_ACCOUNTS_DIR/node_modules" ]; then
+    fail "lightning-accounts dependencies are not installed. Run in $LIGHTNING_ACCOUNTS_DIR: yarn install"
+  fi
+
+  ensure_writable_tree \
+    "lightning-accounts generated Prisma client" \
+    "$LIGHTNING_ACCOUNTS_DIR/node_modules/.prisma/client"
+  ensure_writable_path \
+    "lightning-accounts Prisma JSON schema" \
+    "$LIGHTNING_ACCOUNTS_DIR/prisma/json-schema.json"
+
+  if ! check_output="$(
+    cd "$LIGHTNING_ACCOUNTS_DIR" && node -e '
+      const clientVersion = require("./node_modules/@prisma/client/package.json").version;
+      const prismaVersion = require("./node_modules/prisma/package.json").version;
+      if (clientVersion !== prismaVersion) {
+        console.error(`@prisma/client ${clientVersion} does not match prisma ${prismaVersion}`);
+        process.exit(1);
+      }
+      console.log(`@prisma/client and prisma ${clientVersion}`);
+    ' 2>&1
+  )"; then
+    fail "lightning-accounts has a broken Prisma install: $check_output. Fix once with: cd \"$LIGHTNING_ACCOUNTS_DIR\" && sudo chown -R $(id -u):$(id -g) node_modules dist prisma/json-schema.json && yarn install --force"
+  fi
+
+  log "Verified lightning-accounts Prisma install: $check_output"
+}
+
 wait_for_url() {
   local url="$1"
   local name="$2"
@@ -246,7 +314,9 @@ wait_for_port() {
   log "$name is ready."
 }
 
+require_not_root
 require_command yarn
+require_command node
 require_command docker
 require_command curl
 require_command pgrep
@@ -264,21 +334,26 @@ require_project "trucoshi" "$ROOT_DIR"
 
 export NODE_ENV
 
-ensure_writable_path "lightning-accounts build output" "$LIGHTNING_ACCOUNTS_DIR/build"
-ensure_writable_path "lightning-accounts dist output" "$LIGHTNING_ACCOUNTS_DIR/dist"
-ensure_writable_path "trucoshi build output" "$ROOT_DIR/build"
-ensure_writable_path "trucoshi dist output" "$ROOT_DIR/dist"
+ensure_writable_tree "lightning-accounts dist output" "$LIGHTNING_ACCOUNTS_DIR/dist"
+ensure_writable_tree "trucoshi build output" "$ROOT_DIR/build"
+ensure_writable_tree "trucoshi dist output" "$ROOT_DIR/dist"
+ensure_writable_tree "trucoshi-client Vite cache" "$TRUCOSHI_CLIENT_DIR/node_modules/.vite"
+ensure_project_writable_paths "lightning-accounts" "$LIGHTNING_ACCOUNTS_DIR"
+ensure_project_writable_paths "trucoshi" "$ROOT_DIR"
+ensure_project_writable_paths "trucoshi-client" "$TRUCOSHI_CLIENT_DIR"
+ensure_writable_path "local Yarn link folder" "$DEV_ALL_YARN_LINK_DIR"
+ensure_lightning_accounts_prisma_install
 
 log "Preparing local linked packages..."
-run_in "$LIGHTNING_ACCOUNTS_DIR" yarn build
-run_in "$LIGHTNING_ACCOUNTS_DIR" yarn link
+run_in "$LIGHTNING_ACCOUNTS_DIR" yarn swagger:generate
+run_in "$LIGHTNING_ACCOUNTS_DIR" yarn link --link-folder "$DEV_ALL_YARN_LINK_DIR"
 
-run_in "$ROOT_DIR" yarn link lightning-accounts
+run_in "$ROOT_DIR" yarn link --link-folder "$DEV_ALL_YARN_LINK_DIR" lightning-accounts
 run_in "$ROOT_DIR" yarn build:dist
-run_in "$ROOT_DIR" yarn link
+run_in "$ROOT_DIR" yarn link --link-folder "$DEV_ALL_YARN_LINK_DIR"
 
-run_in "$TRUCOSHI_CLIENT_DIR" yarn link lightning-accounts
-run_in "$TRUCOSHI_CLIENT_DIR" yarn link trucoshi
+run_in "$TRUCOSHI_CLIENT_DIR" yarn link --link-folder "$DEV_ALL_YARN_LINK_DIR" lightning-accounts
+run_in "$TRUCOSHI_CLIENT_DIR" yarn link --link-folder "$DEV_ALL_YARN_LINK_DIR" trucoshi
 
 trap cleanup EXIT INT TERM
 
@@ -293,7 +368,7 @@ start_process \
   --watch tsconfig.build.json \
   --watch tsconfig.dist.json \
   --ext ts,json,prisma,yml,yaml \
-  --exec "yarn build"
+  --exec "yarn swagger:generate"
 
 start_process \
   "trucoshi type watcher" \

@@ -1,6 +1,9 @@
 import { SocketError } from "./server"
 import {
   EMatchState,
+  IAdminCreateChestRewardCodeInput,
+  IAdminCreateChestRewardCodeResult,
+  IAdminDashboard,
   IAccountDetails,
   CardSkinId,
   ICard,
@@ -17,6 +20,7 @@ import {
   IJoinQueueOptions,
   IQueueMatchFound,
   IQueueStatus,
+  IRewardCodeRedeemResult,
   ITreasureOpenResult,
   ITreasureStatus,
   ITrucoshiStats,
@@ -117,6 +121,9 @@ export enum EClientEvent {
   FETCH_TREASURE_STATUS = "FETCH_TREASURE_STATUS",
   OPEN_TREASURE_CHEST = "OPEN_TREASURE_CHEST",
   DEV_GRANT_TREASURE_CHEST = "DEV_GRANT_TREASURE_CHEST",
+  ADMIN_FETCH_DASHBOARD = "ADMIN_FETCH_DASHBOARD",
+  ADMIN_CREATE_CHEST_REWARD_CODE = "ADMIN_CREATE_CHEST_REWARD_CODE",
+  REDEEM_REWARD_CODE = "REDEEM_REWARD_CODE",
   ADD_BOT = "ADD_BOT",
   FETCH_MATCH = "FETCH_MATCH",
   FETCH_CHAT_ROOM = "FETCH_CHAT_ROOM",
@@ -206,6 +213,17 @@ export interface ClientToServerEvents {
   ) => void
   [EClientEvent.DEV_GRANT_TREASURE_CHEST]: (
     callback: IEventCallback<{ treasureStatus: ITreasureStatus }>
+  ) => void
+  [EClientEvent.ADMIN_FETCH_DASHBOARD]: (
+    callback: IEventCallback<{ dashboard: IAdminDashboard }>
+  ) => void
+  [EClientEvent.ADMIN_CREATE_CHEST_REWARD_CODE]: (
+    input: IAdminCreateChestRewardCodeInput,
+    callback: IEventCallback<IAdminCreateChestRewardCodeResult>
+  ) => void
+  [EClientEvent.REDEEM_REWARD_CODE]: (
+    code: string,
+    callback: IEventCallback<IRewardCodeRedeemResult>
   ) => void
   [EClientEvent.FETCH_MATCH]: (
     matchSessionId: string,
