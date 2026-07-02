@@ -1,6 +1,6 @@
 {
   "name": "trucoshi",
-  "version": "11.1.0",
+  "version": "12.0.0-rc",
   "description": "Truco Game Server",
   "main": "dist/types.js",
   "license": "GPL-3.0",
@@ -83,7 +83,7 @@
     "dotenv-cli": "^7.3.0",
     "form-data": "^4.0.5",
     "jsonwebtoken": "^9.0.3",
-    "lightning-accounts": "6.2.2",
+    "lightning-accounts": "6.3.0",
     "lodash.debounce": "^4.0.8",
     "lodash.memoize": "^4.1.2",
     "lodash.partialright": "^4.2.1",
