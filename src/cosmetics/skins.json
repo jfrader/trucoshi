@@ -170,13 +170,6 @@
         "fileName": "7b_argentino_001.png",
         "assetPath": "skins/argentino/7b_argentino_001.png",
         "rarity": "COMMON"
-      },
-      {
-        "id": "argentino/ce_argentino_001",
-        "card": "ce",
-        "fileName": "ce_argentino_001.png",
-        "assetPath": "skins/argentino/ce_argentino_001.png",
-        "rarity": "LEGENDARY"
       }
     ]
   }

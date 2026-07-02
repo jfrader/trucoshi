@@ -58,6 +58,14 @@ export function TreasureService(
   store: Store,
   random: RandomIndexPicker = createRandomIndexPicker("treasure-service")
 ): ITreasureService {
+  const runInTransaction = async <T>(fn: (tx: Store) => Promise<T>): Promise<T> => {
+    if ("$transaction" in store && typeof store.$transaction === "function") {
+      return store.$transaction((tx) => fn(tx))
+    }
+
+    return fn(store)
+  }
+
   const rollRarity = (): CardSkinRarity | null => {
     const entries = TREASURE_RARITIES.map((rarity) => ({
       rarity,
@@ -143,67 +151,70 @@ export function TreasureService(
       }
     },
     async openChest(accountId, chestId) {
-      const chest = await store.userTreasureChest.findUnique({
-        where: { id: chestId },
-      })
-
-      if (!chest || chest.accountId !== accountId || chest.openedAt) {
-        throw new Error("Treasure chest not found")
-      }
-
-      const rarity = rollRarity()
-      if (!rarity) {
-        await store.userTreasureChest.update({
-          where: { id: chestId },
-          data: { openedAt: new Date(), rolledRarity: null, cardSkinId: null, duplicate: false },
+      return runInTransaction(async (tx) => {
+        const openedAt = new Date()
+        const claim = await tx.userTreasureChest.updateMany({
+          where: { id: chestId, accountId, openedAt: null },
+          data: { openedAt },
         })
-        return { chestId, rarity: null, cardSkin: null, duplicate: false, granted: false }
-      }
 
-      const skins = await store.cardSkin.findMany({
-        where: { enabled: true, unlockable: true, rarity },
-        orderBy: [{ id: "asc" }],
-      })
+        if (claim.count !== 1) {
+          throw new Error("Treasure chest not found")
+        }
 
-      if (!skins.length) {
-        await store.userTreasureChest.update({
-          where: { id: chestId },
-          data: { openedAt: new Date(), rolledRarity: rarity, cardSkinId: null, duplicate: false },
+        const rarity = rollRarity()
+        if (!rarity) {
+          await tx.userTreasureChest.update({
+            where: { id: chestId },
+            data: { rolledRarity: null, cardSkinId: null, duplicate: false },
+          })
+          return { chestId, rarity: null, cardSkin: null, duplicate: false, granted: false }
+        }
+
+        const skins = await tx.cardSkin.findMany({
+          where: { enabled: true, unlockable: true, rarity },
+          orderBy: [{ id: "asc" }],
         })
-        return { chestId, rarity, cardSkin: null, duplicate: false, granted: false }
-      }
 
-      const selected = skins[random(skins.length)]
-      const owned = await store.userCardSkin.findUnique({
-        where: { accountId_cardSkinId: { accountId, cardSkinId: selected.id } },
-      })
-      const duplicate = Boolean(owned)
+        if (!skins.length) {
+          await tx.userTreasureChest.update({
+            where: { id: chestId },
+            data: { rolledRarity: rarity, cardSkinId: null, duplicate: false },
+          })
+          return { chestId, rarity, cardSkin: null, duplicate: false, granted: false }
+        }
 
-      if (!duplicate) {
-        await store.userCardSkin.upsert({
+        const selected = skins[random(skins.length)]
+        const owned = await tx.userCardSkin.findUnique({
           where: { accountId_cardSkinId: { accountId, cardSkinId: selected.id } },
-          create: { accountId, cardSkinId: selected.id, source: `treasure-chest:${chestId}` },
-          update: { source: `treasure-chest:${chestId}` },
         })
-      }
+        const duplicate = Boolean(owned)
 
-      await store.userTreasureChest.update({
-        where: { id: chestId },
-        data: {
-          openedAt: new Date(),
-          rolledRarity: rarity,
-          cardSkinId: selected.id,
+        if (!duplicate) {
+          await tx.userCardSkin.upsert({
+            where: { accountId_cardSkinId: { accountId, cardSkinId: selected.id } },
+            create: { accountId, cardSkinId: selected.id, source: `treasure-chest:${chestId}` },
+            update: { source: `treasure-chest:${chestId}` },
+          })
+        }
+
+        await tx.userTreasureChest.update({
+          where: { id: chestId },
+          data: {
+            rolledRarity: rarity,
+            cardSkinId: selected.id,
+            duplicate,
+          },
+        })
+
+        return {
+          chestId,
+          rarity,
+          cardSkin: toCardSkin(selected),
           duplicate,
-        },
+          granted: !duplicate,
+        }
       })
-
-      return {
-        chestId,
-        rarity,
-        cardSkin: toCardSkin(selected),
-        duplicate,
-        granted: !duplicate,
-      }
     },
   }
 

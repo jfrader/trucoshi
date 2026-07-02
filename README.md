@@ -38,6 +38,54 @@ Do not prefix the command with `sudo`. The script only uses sudo for Docker comm
 
 `yarn test`
 
+### Docker e2e
+
+Trucoshi e2e tests depend on a running Lightning Accounts e2e server. Start that first in one
+terminal, then run the Trucoshi e2e suite in another:
+
+```bash
+cd /home/fran/Workspace/trucoshi/lightning-accounts
+NODE_ENV=test ./init-e2e.sh
+```
+
+```bash
+cd /home/fran/Workspace/trucoshi/trucoshi
+NODE_ENV=test ./init-e2e.sh
+```
+
+Use `../lightning-accounts/init-test.sh` when you want to run the Lightning Accounts Jest/e2e
+suite itself. Use `../lightning-accounts/init-e2e.sh` when Trucoshi needs the persistent API,
+regtest bitcoind, and LND containers.
+
+### Docker migrations
+
+Production and staging containers do not run database seeds. Run migrations explicitly before
+starting a newly built app image.
+
+Staging:
+
+```bash
+docker compose -f docker-compose.staging.yml --env-file .env build server
+docker compose -f docker-compose.staging.yml --env-file .env up -d postgres redis
+yarn docker:staging:migrate
+docker compose -f docker-compose.staging.yml --env-file .env up -d --build server
+```
+
+Production uses the same sequence with `docker-compose.prod.yml` and `yarn docker:prod:migrate`.
+
+### Admin users
+
+User roles live in Lightning Accounts. To promote an existing user by email:
+
+```bash
+cd /home/fran/Workspace/trucoshi/lightning-accounts
+yarn docker:staging:make-admin --email you@example.com
+yarn docker:prod:make-admin --email you@example.com
+```
+
+The command only updates an existing non-`APPLICATION` user to `ADMIN`; it does not create users or
+run seeds.
+
 ### Play
 
 `yarn cli:play`

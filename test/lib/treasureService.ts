@@ -106,6 +106,19 @@ function createFakeStore(randomSkins: FakeCardSkin[] = CARD_SKINS.map(toFakeSkin
       async findUnique({ where }: any) {
         return chests.get(where.id) || null
       },
+      async updateMany({ where, data }: any) {
+        const existing = chests.get(where.id)
+        if (
+          !existing ||
+          existing.accountId !== where.accountId ||
+          (where.openedAt === null && existing.openedAt)
+        ) {
+          return { count: 0 }
+        }
+
+        chests.set(existing.id, { ...existing, ...data })
+        return { count: 1 }
+      },
       async update({ where, data }: any) {
         const existing = chests.get(where.id)
         if (!existing) {
@@ -115,6 +128,13 @@ function createFakeStore(randomSkins: FakeCardSkin[] = CARD_SKINS.map(toFakeSkin
         chests.set(where.id, row)
         return row
       },
+    },
+    async $transaction(fn: any) {
+      return fn(this)
+    },
+    __rows: {
+      userSkins,
+      chests,
     },
   } as any
 }
@@ -196,6 +216,32 @@ describe("TreasureService", () => {
     expect(result.rarity).to.equal("COMMON")
     expect(result.granted).to.equal(false)
     expect(result.duplicate).to.equal(true)
+  })
+
+  it("only allows one concurrent open for the same chest", async () => {
+    const store = createFakeStore()
+    const service = TreasureService(store, (_max) => 0)
+
+    await service.creditEligibleMatch(1, 101)
+    await service.creditEligibleMatch(1, 102)
+    const status = await service.creditEligibleMatch(1, 103)
+    const chestId = status.unopenedChests[0].id
+    const results = await Promise.allSettled([
+      service.openChest(1, chestId),
+      service.openChest(1, chestId),
+    ])
+
+    const fulfilled = results.filter(
+      (result): result is PromiseFulfilledResult<Awaited<ReturnType<typeof service.openChest>>> =>
+        result.status === "fulfilled"
+    )
+    const rejected = results.filter((result) => result.status === "rejected")
+
+    expect(fulfilled).to.have.length(1)
+    expect(rejected).to.have.length(1)
+    expect(fulfilled[0].value.granted).to.equal(true)
+    expect(store.__rows.userSkins.size).to.equal(1)
+    expect((await service.getTreasureStatus(1)).unopenedChests).to.have.length(0)
   })
 
   it("opens empty when a rarity has no configured skins", async () => {
