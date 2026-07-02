@@ -4,6 +4,8 @@ import {
   IAdminCreateChestRewardCodeInput,
   IAdminCreateChestRewardCodeResult,
   IAdminDashboard,
+  IAdminSetNoticeBannerInput,
+  IAdminSetNoticeBannerResult,
   IAccountDetails,
   CardSkinId,
   ICard,
@@ -21,6 +23,7 @@ import {
   IQueueMatchFound,
   IQueueStatus,
   IRewardCodeRedeemResult,
+  IPublicNoticeBanner,
   ITreasureOpenResult,
   ITreasureStatus,
   ITrucoshiStats,
@@ -55,6 +58,7 @@ export enum EServerEvent {
   UPDATE_STATS = "UPDATE_STATS",
   QUEUE_UPDATE = "QUEUE_UPDATE",
   QUEUE_MATCH_FOUND = "QUEUE_MATCH_FOUND",
+  UPDATE_NOTICE_BANNER = "UPDATE_NOTICE_BANNER",
 }
 
 export interface ServerToClientEvents {
@@ -63,6 +67,7 @@ export interface ServerToClientEvents {
   [EServerEvent.UPDATE_STATS]: (room: ITrucoshiStats) => void
   [EServerEvent.QUEUE_UPDATE]: (status: IQueueStatus) => void
   [EServerEvent.QUEUE_MATCH_FOUND]: (match: IQueueMatchFound) => void
+  [EServerEvent.UPDATE_NOTICE_BANNER]: (noticeBanner: IPublicNoticeBanner | null) => void
   [EServerEvent.NEW_MESSAGE]: (roomId: string, message?: IChatMessage) => void
   [EServerEvent.UPDATE_ACTIVE_MATCHES]: (activeMatches: IPublicMatchInfo[]) => void
   [EServerEvent.UPDATE_PUBLIC_MATCHES]: (publicMatches: IPublicMatchInfo[]) => void
@@ -121,8 +126,10 @@ export enum EClientEvent {
   FETCH_TREASURE_STATUS = "FETCH_TREASURE_STATUS",
   OPEN_TREASURE_CHEST = "OPEN_TREASURE_CHEST",
   DEV_GRANT_TREASURE_CHEST = "DEV_GRANT_TREASURE_CHEST",
+  FETCH_NOTICE_BANNER = "FETCH_NOTICE_BANNER",
   ADMIN_FETCH_DASHBOARD = "ADMIN_FETCH_DASHBOARD",
   ADMIN_CREATE_CHEST_REWARD_CODE = "ADMIN_CREATE_CHEST_REWARD_CODE",
+  ADMIN_SET_NOTICE_BANNER = "ADMIN_SET_NOTICE_BANNER",
   REDEEM_REWARD_CODE = "REDEEM_REWARD_CODE",
   ADD_BOT = "ADD_BOT",
   FETCH_MATCH = "FETCH_MATCH",
@@ -214,12 +221,19 @@ export interface ClientToServerEvents {
   [EClientEvent.DEV_GRANT_TREASURE_CHEST]: (
     callback: IEventCallback<{ treasureStatus: ITreasureStatus }>
   ) => void
+  [EClientEvent.FETCH_NOTICE_BANNER]: (
+    callback: IEventCallback<{ noticeBanner: IPublicNoticeBanner | null }>
+  ) => void
   [EClientEvent.ADMIN_FETCH_DASHBOARD]: (
     callback: IEventCallback<{ dashboard: IAdminDashboard }>
   ) => void
   [EClientEvent.ADMIN_CREATE_CHEST_REWARD_CODE]: (
     input: IAdminCreateChestRewardCodeInput,
     callback: IEventCallback<IAdminCreateChestRewardCodeResult>
+  ) => void
+  [EClientEvent.ADMIN_SET_NOTICE_BANNER]: (
+    input: IAdminSetNoticeBannerInput,
+    callback: IEventCallback<IAdminSetNoticeBannerResult>
   ) => void
   [EClientEvent.REDEEM_REWARD_CODE]: (
     code: string,

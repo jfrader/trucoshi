@@ -282,6 +282,24 @@ export const trucoshiMiddleware = (server: ITrucoshi) => {
     })
 
     /**
+     * Fetch active public notice banner.
+     */
+    socket.on(EClientEvent.FETCH_NOTICE_BANNER, async (callback) => {
+      try {
+        const noticeBanner = server.admin ? await server.admin.getNoticeBanner() : null
+
+        callback({ success: true, noticeBanner })
+      } catch (e) {
+        log.error(e, "Client event FETCH_NOTICE_BANNER error")
+        callback({
+          success: false,
+          noticeBanner: null,
+          error: isSocketError(e),
+        })
+      }
+    })
+
+    /**
      * Fetch admin operations dashboard.
      */
     socket.on(EClientEvent.ADMIN_FETCH_DASHBOARD, async (callback) => {
@@ -297,7 +315,7 @@ export const trucoshiMiddleware = (server: ITrucoshi) => {
         log.error(e, "Client event ADMIN_FETCH_DASHBOARD error")
         callback({
           success: false,
-          dashboard: { onlineAccounts: [], liveGames: [], rewardCodes: [] },
+          dashboard: { onlineAccounts: [], liveGames: [], rewardCodes: [], noticeBanner: null },
           error: isSocketError(e),
         })
       }
@@ -332,6 +350,30 @@ export const trucoshiMiddleware = (server: ITrucoshi) => {
             redeemedByAccountId: null,
             treasureChestId: null,
           },
+          error: isSocketError(e),
+        })
+      }
+    })
+
+    /**
+     * Set or hide the global notice banner.
+     */
+    socket.on(EClientEvent.ADMIN_SET_NOTICE_BANNER, async (input, callback) => {
+      try {
+        if (!server.admin) {
+          throw new SocketError("NOT_FOUND", "Este server no soporta administracion")
+        }
+
+        const result = await server.admin.setNoticeBanner(socket.data.user?.account, input)
+
+        callback({ success: true, ...result })
+        server.io.emit(EServerEvent.UPDATE_NOTICE_BANNER, result.publicNoticeBanner)
+      } catch (e) {
+        log.error(e, "Client event ADMIN_SET_NOTICE_BANNER error")
+        callback({
+          success: false,
+          noticeBanner: null,
+          publicNoticeBanner: null,
           error: isSocketError(e),
         })
       }

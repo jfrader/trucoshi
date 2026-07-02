@@ -196,6 +196,21 @@ model AdminRewardCode {
   @@index([redeemedByAccountId])
 }
 
+model AdminNoticeBanner {
+  id                 Int      @id @default(autoincrement())
+  text               String
+  severity           String   @default("info")
+  buttonText         String?
+  buttonHref         String?
+  active             Boolean  @default(true)
+  updatedByAccountId Int
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([active])
+  @@index([updatedAt])
+}
+
 enum EMatchState {
   UNREADY
   READY

@@ -10,8 +10,10 @@ DEV_ALL_DOCKER_SUDO="${DEV_ALL_DOCKER_SUDO:-0}"
 DEV_ALL_YARN_LINK_DIR="${DEV_ALL_YARN_LINK_DIR:-$ROOT_DIR/.dev-yarn-links}"
 
 PIDS=()
+PID_NAMES=()
 CLEANING_UP=0
 SUDO_KEEPALIVE_PID=""
+HAVE_SETSID=0
 
 log() {
   echo "[dev:all] $*"
@@ -24,6 +26,10 @@ fail() {
 
 require_command() {
   command -v "$1" >/dev/null 2>&1 || fail "Missing required command: $1"
+}
+
+has_command() {
+  command -v "$1" >/dev/null 2>&1
 }
 
 require_not_root() {
@@ -72,8 +78,13 @@ start_process() {
   shift 2
 
   log "Starting $name..."
-  (cd "$dir" && "$@") &
+  if [ "$HAVE_SETSID" -eq 1 ]; then
+    setsid bash -c 'dir="$1"; shift; cd "$dir" && exec "$@"' bash "$dir" "$@" &
+  else
+    (cd "$dir" && "$@") &
+  fi
   PIDS+=("$!")
+  PID_NAMES+=("$name")
 }
 
 start_docker_compose_process() {
@@ -86,9 +97,14 @@ start_docker_compose_process() {
   if use_sudo_docker; then
     (cd "$dir" && sudo -n env NODE_ENV="$node_env" docker compose "$@") &
   else
-    (cd "$dir" && env NODE_ENV="$node_env" docker compose "$@") &
+    if [ "$HAVE_SETSID" -eq 1 ]; then
+      setsid bash -c 'dir="$1"; node_env="$2"; shift 2; cd "$dir" && exec env NODE_ENV="$node_env" docker compose "$@"' bash "$dir" "$node_env" "$@" &
+    else
+      (cd "$dir" && env NODE_ENV="$node_env" docker compose "$@") &
+    fi
   fi
   PIDS+=("$!")
+  PID_NAMES+=("$name")
 }
 
 authenticate_sudo_docker() {
@@ -123,22 +139,42 @@ kill_tree() {
   kill "$pid" 2>/dev/null || true
 }
 
+stop_process() {
+  local pid="$1"
+  local name="$2"
+
+  if ! kill -0 "$pid" 2>/dev/null; then
+    return
+  fi
+
+  log "Stopping $name..."
+  if [ "$HAVE_SETSID" -eq 1 ]; then
+    kill -TERM "-$pid" 2>/dev/null || kill_tree "$pid"
+  else
+    kill_tree "$pid"
+  fi
+}
+
 cleanup() {
   local exit_code=$?
+  local i
 
   if [ "$CLEANING_UP" -eq 1 ]; then
     exit "$exit_code"
   fi
 
   CLEANING_UP=1
+  trap - EXIT INT TERM
   set +e
 
   log "Stopping dev processes..."
-  for pid in "${PIDS[@]}"; do
-    kill_tree "$pid"
-  done
+  if [ "${#PIDS[@]}" -gt 0 ]; then
+    for ((i = ${#PIDS[@]} - 1; i >= 0; i--)); do
+      stop_process "${PIDS[$i]}" "${PID_NAMES[$i]}"
+    done
 
-  wait "${PIDS[@]}" 2>/dev/null
+    wait "${PIDS[@]}" 2>/dev/null
+  fi
 
   log "Stopping trucoshi Docker dev stack..."
   docker_compose "$ROOT_DIR" development -f docker-compose.yml -f docker-compose.local-links.yml down
@@ -321,6 +357,10 @@ require_command docker
 require_command curl
 require_command pgrep
 
+if has_command setsid; then
+  HAVE_SETSID=1
+fi
+
 if use_sudo_docker; then
   require_command sudo
   log "Using sudo for Docker commands only."
@@ -335,6 +375,7 @@ require_project "trucoshi" "$ROOT_DIR"
 export NODE_ENV
 
 ensure_writable_tree "lightning-accounts dist output" "$LIGHTNING_ACCOUNTS_DIR/dist"
+ensure_writable_tree "lightning-accounts build output" "$LIGHTNING_ACCOUNTS_DIR/build"
 ensure_writable_tree "trucoshi build output" "$ROOT_DIR/build"
 ensure_writable_tree "trucoshi dist output" "$ROOT_DIR/dist"
 ensure_writable_tree "trucoshi-client Vite cache" "$TRUCOSHI_CLIENT_DIR/node_modules/.vite"

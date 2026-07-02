@@ -250,6 +250,7 @@ export enum GAME_ERROR {
   INVALID_IDENTITY = "INVALID_IDENTITY",
   UNEXPECTED_ERROR = "UNEXPECTED_ERROR",
   FORBIDDEN = "FORBIDDEN",
+  INVALID_INPUT = "INVALID_INPUT",
   NOT_FOUND = "NOT_FOUND",
   MATCH_ALREADY_STARTED = "MATCH_ALREADY_STARTED",
   LOBBY_IS_FULL = "LOBBY_IS_FULL",
@@ -379,10 +380,28 @@ export interface IAdminRewardCodeSummary {
   treasureChestId?: number | null
 }
 
+export type NoticeBannerSeverity = "info" | "warning" | "error" | "success"
+
+export interface IPublicNoticeBanner {
+  id: number
+  text: string
+  severity: NoticeBannerSeverity
+  buttonText?: string | null
+  buttonHref?: string | null
+  updatedAt: string
+}
+
+export interface IAdminNoticeBanner extends IPublicNoticeBanner {
+  active: boolean
+  updatedByAccountId: number
+  createdAt: string
+}
+
 export interface IAdminDashboard {
   onlineAccounts: IAdminOnlineAccount[]
   liveGames: IPublicMatchInfo[]
   rewardCodes: IAdminRewardCodeSummary[]
+  noticeBanner: IAdminNoticeBanner | null
 }
 
 export interface IAdminCreateChestRewardCodeInput {
@@ -394,6 +413,19 @@ export interface IAdminCreateChestRewardCodeResult {
   code: string
   link: string
   rewardCode: IAdminRewardCodeSummary
+}
+
+export interface IAdminSetNoticeBannerInput {
+  active: boolean
+  text?: string | null
+  severity?: NoticeBannerSeverity | null
+  buttonText?: string | null
+  buttonHref?: string | null
+}
+
+export interface IAdminSetNoticeBannerResult {
+  noticeBanner: IAdminNoticeBanner | null
+  publicNoticeBanner: IPublicNoticeBanner | null
 }
 
 export interface IRewardCodeRedeemResult {

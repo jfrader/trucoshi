@@ -6,11 +6,16 @@ import {
   IAdminCreateChestRewardCodeInput,
   IAdminCreateChestRewardCodeResult,
   IAdminDashboard,
+  IAdminNoticeBanner,
   IAdminOnlineAccount,
   IAdminRewardCodeSummary,
+  IAdminSetNoticeBannerInput,
+  IAdminSetNoticeBannerResult,
+  IPublicNoticeBanner,
   IPublicMatchInfo,
   IRewardCodeRedeemResult,
   ITreasureChest,
+  NoticeBannerSeverity,
 } from "../../types"
 import { SocketError } from "../classes/SocketError"
 import { TreasureService } from "./TreasureService"
@@ -22,6 +27,10 @@ const REWARD_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 const REWARD_CODE_LENGTH = 12
 const REWARD_CODE_MAX_ATTEMPTS = 5
 const RECENT_REWARD_CODE_LIMIT = 20
+const NOTICE_BANNER_TEXT_MAX_LENGTH = 240
+const NOTICE_BANNER_BUTTON_TEXT_MAX_LENGTH = 48
+const NOTICE_BANNER_BUTTON_HREF_MAX_LENGTH = 500
+const NOTICE_BANNER_SEVERITIES: NoticeBannerSeverity[] = ["info", "warning", "error", "success"]
 
 const isUniqueConstraintError = (e: unknown) =>
   (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") ||
@@ -49,6 +58,39 @@ const getCodePreview = (code: string) => `${code.slice(0, 3)}...${code.slice(-3)
 
 const getPublicUrl = () =>
   (process.env.APP_PUBLIC_URL || "https://trucoshi.com").replace(/\/+$/, "")
+
+const isNoticeBannerSeverity = (value: unknown): value is NoticeBannerSeverity =>
+  NOTICE_BANNER_SEVERITIES.includes(value as NoticeBannerSeverity)
+
+const normalizeNullableText = (value?: string | null) => {
+  const text = value?.trim()
+  return text || null
+}
+
+const assertNoticeBannerHref = (href: string | null) => {
+  if (!href) {
+    return
+  }
+
+  if (href.length > NOTICE_BANNER_BUTTON_HREF_MAX_LENGTH) {
+    throw new SocketError("INVALID_INPUT", "El link del aviso es demasiado largo")
+  }
+
+  if (href.startsWith("/") && !href.startsWith("//")) {
+    return
+  }
+
+  try {
+    const url = new URL(href)
+    if (url.protocol === "http:" || url.protocol === "https:") {
+      return
+    }
+  } catch {
+    // Fall through to validation error.
+  }
+
+  throw new SocketError("INVALID_INPUT", "El link del aviso debe ser relativo o http(s)")
+}
 
 const toTreasureChest = (chest: {
   id: number
@@ -82,6 +124,51 @@ const toRewardCodeSummary = (row: {
   treasureChestId: row.treasureChestId,
 })
 
+const toAdminNoticeBanner = (row: {
+  id: number
+  text: string
+  severity: string
+  buttonText: string | null
+  buttonHref: string | null
+  active: boolean
+  updatedByAccountId: number
+  createdAt: Date
+  updatedAt: Date
+}): IAdminNoticeBanner => ({
+  id: row.id,
+  text: row.text,
+  severity: isNoticeBannerSeverity(row.severity) ? row.severity : "info",
+  buttonText: row.buttonText,
+  buttonHref: row.buttonHref,
+  active: row.active,
+  updatedByAccountId: row.updatedByAccountId,
+  createdAt: row.createdAt.toISOString(),
+  updatedAt: row.updatedAt.toISOString(),
+})
+
+const toPublicNoticeBanner = (row: {
+  id: number
+  text: string
+  severity: string
+  buttonText: string | null
+  buttonHref: string | null
+  active: boolean
+  updatedAt: Date
+}): IPublicNoticeBanner | null => {
+  if (!row.active || !row.text.trim()) {
+    return null
+  }
+
+  return {
+    id: row.id,
+    text: row.text,
+    severity: isNoticeBannerSeverity(row.severity) ? row.severity : "info",
+    buttonText: row.buttonText,
+    buttonHref: row.buttonHref,
+    updatedAt: row.updatedAt.toISOString(),
+  }
+}
+
 export interface IAdminServiceProviders {
   getAccount(accountId: number): Promise<User | null>
   getOnlineAccounts(): IAdminOnlineAccount[]
@@ -90,7 +177,12 @@ export interface IAdminServiceProviders {
 
 export interface IAdminService {
   assertAdmin(account?: User | null): Promise<AdminUser>
+  getNoticeBanner(): Promise<IPublicNoticeBanner | null>
   getDashboard(account?: User | null): Promise<IAdminDashboard>
+  setNoticeBanner(
+    account: User | null | undefined,
+    input: IAdminSetNoticeBannerInput
+  ): Promise<IAdminSetNoticeBannerResult>
   createChestRewardCode(
     account: User | null | undefined,
     input?: IAdminCreateChestRewardCodeInput
@@ -109,6 +201,45 @@ export function AdminService(store: Store, providers: IAdminServiceProviders): I
       })
       .then((rows) => rows.map(toRewardCodeSummary))
 
+  const findCurrentNoticeBanner = async () =>
+    store.adminNoticeBanner.findFirst({
+      orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+    })
+
+  const validateNoticeBannerInput = (input: IAdminSetNoticeBannerInput) => {
+    const active = Boolean(input.active)
+    const text = normalizeNullableText(input.text)
+    const buttonText = normalizeNullableText(input.buttonText)
+    const buttonHref = normalizeNullableText(input.buttonHref)
+    const severity = isNoticeBannerSeverity(input.severity) ? input.severity : "info"
+
+    if (active && !text) {
+      throw new SocketError("INVALID_INPUT", "El aviso necesita un texto")
+    }
+
+    if (text && text.length > NOTICE_BANNER_TEXT_MAX_LENGTH) {
+      throw new SocketError("INVALID_INPUT", "El texto del aviso es demasiado largo")
+    }
+
+    if (buttonText && buttonText.length > NOTICE_BANNER_BUTTON_TEXT_MAX_LENGTH) {
+      throw new SocketError("INVALID_INPUT", "El texto del boton es demasiado largo")
+    }
+
+    if (Boolean(buttonText) !== Boolean(buttonHref)) {
+      throw new SocketError("INVALID_INPUT", "El boton necesita texto y link")
+    }
+
+    assertNoticeBannerHref(buttonHref)
+
+    return {
+      active,
+      text: text || "",
+      severity,
+      buttonText,
+      buttonHref,
+    }
+  }
+
   const service: IAdminService = {
     async assertAdmin(account) {
       if (!account?.id) {
@@ -123,15 +254,36 @@ export function AdminService(store: Store, providers: IAdminServiceProviders): I
 
       return freshAccount as AdminUser
     },
+    async getNoticeBanner() {
+      const noticeBanner = await findCurrentNoticeBanner()
+      return noticeBanner ? toPublicNoticeBanner(noticeBanner) : null
+    },
     async getDashboard(account) {
       await service.assertAdmin(account)
 
       const rewardCodes = await findRecentRewardCodes()
+      const noticeBanner = await findCurrentNoticeBanner()
 
       return {
         onlineAccounts: providers.getOnlineAccounts(),
         liveGames: providers.getLiveGames(),
         rewardCodes,
+        noticeBanner: noticeBanner ? toAdminNoticeBanner(noticeBanner) : null,
+      }
+    },
+    async setNoticeBanner(account, input) {
+      const admin = await service.assertAdmin(account)
+      const data = validateNoticeBannerInput(input)
+      const noticeBanner = await store.adminNoticeBanner.create({
+        data: {
+          ...data,
+          updatedByAccountId: admin.id,
+        },
+      })
+
+      return {
+        noticeBanner: toAdminNoticeBanner(noticeBanner),
+        publicNoticeBanner: toPublicNoticeBanner(noticeBanner),
       }
     },
     async createChestRewardCode(account, input = {}) {
