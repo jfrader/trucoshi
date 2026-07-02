@@ -142,6 +142,41 @@
         "fileName": "4b_argentino_001.png",
         "assetPath": "skins/argentino/4b_argentino_001.png",
         "rarity": "COMMON"
+      },
+      {
+        "id": "argentino/7o_argentino_001",
+        "card": "7o",
+        "fileName": "7o_argentino_001.png",
+        "assetPath": "skins/argentino/7o_argentino_001.png",
+        "rarity": "LEGENDARY"
+      },
+      {
+        "id": "argentino/3e_argentino_001",
+        "card": "3e",
+        "fileName": "3e_argentino_001.png",
+        "assetPath": "skins/argentino/3e_argentino_001.png",
+        "rarity": "LEGENDARY"
+      },
+      {
+        "id": "argentino/3b_argentino_001",
+        "card": "3b",
+        "fileName": "3b_argentino_001.png",
+        "assetPath": "skins/argentino/3b_argentino_001.png",
+        "rarity": "COMMON"
+      },
+      {
+        "id": "argentino/7b_argentino_001",
+        "card": "7b",
+        "fileName": "7b_argentino_001.png",
+        "assetPath": "skins/argentino/7b_argentino_001.png",
+        "rarity": "COMMON"
+      },
+      {
+        "id": "argentino/ce_argentino_001",
+        "card": "ce",
+        "fileName": "ce_argentino_001.png",
+        "assetPath": "skins/argentino/ce_argentino_001.png",
+        "rarity": "LEGENDARY"
       }
     ]
   }
