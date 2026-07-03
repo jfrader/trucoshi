@@ -570,7 +570,10 @@ export const trucoshiMiddleware = (server: ITrucoshi) => {
       log.trace({ matchId, socketId: socket.id }, "Client emitted LEAVE_MATCH event")
       try {
         await server.leaveMatch(matchId, socket, true)
-        callback?.({ success: true })
+        callback?.({
+          success: true,
+          activeMatches: server.getSessionActiveMatches(socket.data.session),
+        })
       } catch (e) {
         log.error(e, "Client event LEAVE_MATCH error")
         callback?.({ success: false, error: isSocketError(e) })

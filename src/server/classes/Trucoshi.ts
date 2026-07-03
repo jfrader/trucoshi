@@ -101,6 +101,7 @@ class MatchTableMap extends TMap<string, IMatchTable> {
 interface InterServerEvents {}
 
 interface SocketData {
+  session: string;
   user?: IUserData
   identity?: string
   matches: Set<string>
@@ -931,7 +932,7 @@ export const Trucoshi = ({
           if (table.state() === EMatchState.FINISHED) {
             return false
           }
-          return Boolean(table.isSessionPlaying(session))
+          return Boolean(table.isSessionPlaying(session) && !table.getPublicMatch(session).me?.abandoned)
         })
         .map((match) => {
           const info = match.getPublicMatchInfo(session)

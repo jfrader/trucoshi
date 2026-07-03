@@ -149,7 +149,10 @@ export interface ClientToServerEvents {
   [EClientEvent.PING]: (clientTime: number) => void
   [EClientEvent.CHAT]: (matchId: string, msg: string, callback?: IEventCallback<{}>) => void
   [EClientEvent.SAY]: (matchId: string, msg: SayType, callback?: IEventCallback<{}>) => void
-  [EClientEvent.LEAVE_MATCH]: (matchId: string, callback?: IEventCallback<{}>) => void
+  [EClientEvent.LEAVE_MATCH]: (
+    matchId: string,
+    callback?: IEventCallback<{ activeMatches?: IPublicMatchInfo[] }>
+  ) => void
   [EClientEvent.CREATE_MATCH]: (
     callback: IEventCallback<{ match?: IPublicMatch; activeMatches?: IPublicMatchInfo[] }>
   ) => void

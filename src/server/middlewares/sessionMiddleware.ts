@@ -1,7 +1,6 @@
 import { ExtendedError } from "socket.io/dist/namespace"
 import { ITrucoshi, SocketError, TrucoshiSocket, isSocketError } from "../classes"
 import logger from "../../utils/logger"
-import { TMap } from "../classes/TMap"
 import { EClientEvent, EServerEvent } from "../../types"
 import { validateJwt } from "../../accounts/client"
 import { Event } from "socket.io"
@@ -48,6 +47,7 @@ export const sessionMiddleware = (server: ITrucoshi) => {
         userSession.setName(name)
         socket.data.user = userSession.getUserData()
         socket.data.identity = handshakeID
+        socket.data.session = userSession.session
 
         if (!socket.data.matches) {
           socket.data.matches = new Set()
