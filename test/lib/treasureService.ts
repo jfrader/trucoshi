@@ -142,11 +142,12 @@ function createFakeStore(randomSkins: FakeCardSkin[] = CARD_SKINS.map(toFakeSkin
 describe("Treasure config", () => {
   it("uses conservative rarity odds and a 3-match threshold", () => {
     expect(TREASURE_CONFIG.eligibleMatchesPerChest).to.equal(3)
+    expect(Object.values(TREASURE_CONFIG.rarityWeights).reduce((p, c) => p + c, 0)).to.equal(100)
     expect(TREASURE_CONFIG.rarityWeights).to.deep.equal({
-      COMMON: 70,
-      RARE: 22,
-      EPIC: 7,
-      LEGENDARY: 1,
+      COMMON: 67,
+      RARE: 24,
+      EPIC: 7.5,
+      LEGENDARY: 1.5,
       PROMO: 0,
     })
   })
