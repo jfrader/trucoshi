@@ -1,6 +1,6 @@
 {
   "name": "trucoshi",
-  "version": "12.0.0-rc.4",
+  "version": "12.0.0",
   "description": "Truco Game Server",
   "main": "dist/types.js",
   "license": "GPL-3.0",
@@ -39,6 +39,7 @@
     "prepublishOnly": "yarn test && yarn build:dist",
     "cli:autoplay": "APP_DEBUG_LEVEL=warn yarn run ts-node src/utils/scripts/autoplay",
     "cli:play": "APP_DEBUG_LEVEL=warn yarn run ts-node src/utils/scripts/play",
+    "sync:skins": "node scripts/sync-skins.js",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
     "db:migrate": "prisma migrate dev"

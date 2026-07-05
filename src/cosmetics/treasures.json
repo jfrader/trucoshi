@@ -1,10 +1,10 @@
 {
   "eligibleMatchesPerChest": 3,
   "rarityWeights": {
-    "COMMON": 70,
-    "RARE": 22,
-    "EPIC": 7,
-    "LEGENDARY": 1,
+    "COMMON": 66,
+    "RARE": 24,
+    "EPIC": 8,
+    "LEGENDARY": 2,
     "PROMO": 0
   }
 }
