@@ -605,6 +605,7 @@ export interface ITeam {
   players: Array<IPlayer>
   points: ITeamPoints
   get activePlayers(): IPlayer[]
+  setName(name: string): ITeam
   setPlayers(players: IPlayer[]): ITeam
   pointsToWin(matchPoint: number): number
   getPublicTeam(playerSession?: string): IPublicTeam

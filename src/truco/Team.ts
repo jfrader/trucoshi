@@ -18,6 +18,10 @@ export function Team(id: 0 | 1, name?: string) {
       malas: 0,
       winner: false,
     },
+    setName(name) {
+      team.name = name
+      return team
+    },
     setPlayers(players) {
       team._players.clear()
       players.forEach((player) => team._players.set(player.session as string, player))

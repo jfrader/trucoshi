@@ -86,31 +86,30 @@ export interface IPrivateLobby {
   startMatch(matchPoint?: 9 | 12 | 15): IGameLoop
 }
 
-export interface ILobby
-  extends Pick<
-    IPrivateLobby,
-    | "ackTime"
-    | "setOptions"
-    | "addPlayer"
-    | "removePlayer"
-    | "startMatch"
-    | "isEmpty"
-    | "options"
-    | "ready"
-    | "full"
-    | "started"
-    | "paused"
-    | "teams"
-    | "players"
-    | "gameLoop"
-    | "table"
-    | "calculateReady"
-    | "hostName"
-    | "playerCount"
-    | "requestPause"
-    | "pauseRequest"
-    | "playAgainRequest"
-  > {}
+export interface ILobby extends Pick<
+  IPrivateLobby,
+  | "ackTime"
+  | "setOptions"
+  | "addPlayer"
+  | "removePlayer"
+  | "startMatch"
+  | "isEmpty"
+  | "options"
+  | "ready"
+  | "full"
+  | "started"
+  | "paused"
+  | "teams"
+  | "players"
+  | "gameLoop"
+  | "table"
+  | "calculateReady"
+  | "hostName"
+  | "playerCount"
+  | "requestPause"
+  | "pauseRequest"
+  | "playAgainRequest"
+> {}
 
 export function Lobby(
   matchId: string,
@@ -210,10 +209,13 @@ export function Lobby(
         }
 
         return new Promise<{ emitter: EventEmitter; playerNotAlone: boolean }>((resolve) =>
-          setTimeout(() => {
-            lobby.paused = false
-            resolve({ emitter, playerNotAlone })
-          }, Math.max(unpausesAt - Date.now(), 0))
+          setTimeout(
+            () => {
+              lobby.paused = false
+              resolve({ emitter, playerNotAlone })
+            },
+            Math.max(unpausesAt - Date.now(), 0)
+          )
         )
       }
 
@@ -288,6 +290,13 @@ const startLobbyMatch = (matchId: string, lobby: IPrivateLobby) => {
 
   lobby.table = Table(matchId, lobby.players)
   lobby.gameLoop = GameLoop(Match(matchId, lobby.table, lobby.teams, lobby.options))
+
+  lobby.teams.forEach((team) => {
+    if (team.players.length === 1) {
+      const [p1] = team.players
+      team.setName(p1.name)
+    }
+  })
 
   lobby.started = true
   return lobby.gameLoop

@@ -95,6 +95,20 @@
         "rarity": "COMMON"
       },
       {
+        "id": "argentino/cb_argentino_002",
+        "card": "cb",
+        "fileName": "cb_argentino_002.png",
+        "assetPath": "skins/argentino/cb_argentino_002.png",
+        "rarity": "COMMON"
+      },
+      {
+        "id": "argentino/ro_argentino_001",
+        "card": "ro",
+        "fileName": "ro_argentino_001.png",
+        "assetPath": "skins/argentino/ro_argentino_001.png",
+        "rarity": "COMMON"
+      },
+      {
         "id": "argentino/1b_argentino_002",
         "card": "1b",
         "fileName": "1b_argentino_002.png",
@@ -148,6 +162,41 @@
         "card": "1o",
         "fileName": "1o_argentino_001.png",
         "assetPath": "skins/argentino/1o_argentino_001.png",
+        "rarity": "RARE"
+      },
+      {
+        "id": "argentino/2e_argentino_001",
+        "card": "2e",
+        "fileName": "2e_argentino_001.png",
+        "assetPath": "skins/argentino/2e_argentino_001.png",
+        "rarity": "RARE"
+      },
+      {
+        "id": "argentino/2o_argentino_001",
+        "card": "2o",
+        "fileName": "2o_argentino_001.png",
+        "assetPath": "skins/argentino/2o_argentino_001.png",
+        "rarity": "RARE"
+      },
+      {
+        "id": "argentino/cb_argentino_003",
+        "card": "cb",
+        "fileName": "cb_argentino_003.png",
+        "assetPath": "skins/argentino/cb_argentino_003.png",
+        "rarity": "RARE"
+      },
+      {
+        "id": "argentino/cc_argentino_001",
+        "card": "cc",
+        "fileName": "cc_argentino_001.png",
+        "assetPath": "skins/argentino/cc_argentino_001.png",
+        "rarity": "RARE"
+      },
+      {
+        "id": "argentino/rc_argentino_001",
+        "card": "rc",
+        "fileName": "rc_argentino_001.png",
+        "assetPath": "skins/argentino/rc_argentino_001.png",
         "rarity": "RARE"
       },
       {
@@ -221,6 +270,27 @@
         "rarity": "EPIC"
       },
       {
+        "id": "argentino/4c_argentino_001",
+        "card": "4c",
+        "fileName": "4c_argentino_001.png",
+        "assetPath": "skins/argentino/4c_argentino_001.png",
+        "rarity": "EPIC"
+      },
+      {
+        "id": "argentino/cb_argentino_001",
+        "card": "cb",
+        "fileName": "cb_argentino_001.png",
+        "assetPath": "skins/argentino/cb_argentino_001.png",
+        "rarity": "EPIC"
+      },
+      {
+        "id": "argentino/co_argentino_001",
+        "card": "co",
+        "fileName": "co_argentino_001.png",
+        "assetPath": "skins/argentino/co_argentino_001.png",
+        "rarity": "EPIC"
+      },
+      {
         "id": "argentino/rb_argentino_003",
         "card": "rb",
         "fileName": "rb_argentino_003.png",
@@ -253,6 +323,13 @@
         "card": "3c",
         "fileName": "3c_argentino_002.png",
         "assetPath": "skins/argentino/3c_argentino_002.png",
+        "rarity": "LEGENDARY"
+      },
+      {
+        "id": "argentino/re_argentino_001",
+        "card": "re",
+        "fileName": "re_argentino_001.png",
+        "assetPath": "skins/argentino/re_argentino_001.png",
         "rarity": "LEGENDARY"
       }
     ]

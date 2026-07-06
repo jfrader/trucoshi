@@ -101,7 +101,7 @@ class MatchTableMap extends TMap<string, IMatchTable> {
 interface InterServerEvents {}
 
 interface SocketData {
-  session: string;
+  session: string
   user?: IUserData
   identity?: string
   matches: Set<string>
@@ -409,10 +409,9 @@ export const Trucoshi = ({
           existingEntry.allowBots === allowBots
         ) {
           existingEntry.socket = socket
-          server.io.to(userSession.session).emit(
-            EServerEvent.QUEUE_UPDATE,
-            server.getQueueStatus(existingEntry)
-          )
+          server.io
+            .to(userSession.session)
+            .emit(EServerEvent.QUEUE_UPDATE, server.getQueueStatus(existingEntry))
           await server.resolveMatchQueues(maxPlayers)
           const current = server.matchQueue.get(userSession.session)
           return current ? server.getQueueStatus(current) : undefined
@@ -421,10 +420,12 @@ export const Trucoshi = ({
         server.removeQueueEntry(userSession.session)
 
         const rating = userSession.account?.id
-          ? (await server.store?.userStats.findUnique({
-              where: { accountId: userSession.account.id },
-              select: { elo: true },
-            }))?.elo || DEFAULT_ELO
+          ? (
+              await server.store?.userStats.findUnique({
+                where: { accountId: userSession.account.id },
+                select: { elo: true },
+              })
+            )?.elo || DEFAULT_ELO
           : DEFAULT_ELO
 
         const botFallbackAt = allowBots ? Date.now() + QUEUE_BOT_FALLBACK_TIMEOUT : undefined
@@ -441,11 +442,14 @@ export const Trucoshi = ({
         }
 
         if (botFallbackAt) {
-          entry.fallbackTimeout = setTimeout(() => {
-            server.matchmakingQueue
-              .queue(() => server.resolveMatchQueues(maxPlayers, true))
-              .catch((e) => log.error(e, "Failed to resolve match queue bot fallback"))
-          }, Math.max(botFallbackAt - Date.now(), 0))
+          entry.fallbackTimeout = setTimeout(
+            () => {
+              server.matchmakingQueue
+                .queue(() => server.resolveMatchQueues(maxPlayers, true))
+                .catch((e) => log.error(e, "Failed to resolve match queue bot fallback"))
+            },
+            Math.max(botFallbackAt - Date.now(), 0)
+          )
         }
 
         server.matchQueue.set(userSession.session, entry)
@@ -932,7 +936,9 @@ export const Trucoshi = ({
           if (table.state() === EMatchState.FINISHED) {
             return false
           }
-          return Boolean(table.isSessionPlaying(session) && !table.getPublicMatch(session).me?.abandoned)
+          return Boolean(
+            table.isSessionPlaying(session) && !table.getPublicMatch(session).me?.abandoned
+          )
         })
         .map((match) => {
           const info = match.getPublicMatchInfo(session)
@@ -1622,10 +1628,7 @@ export const Trucoshi = ({
           return null
         }
 
-        if (
-          !play.player?.turnExpiresAt ||
-          !play.player.turnExtensionExpiresAt
-        ) {
+        if (!play.player?.turnExpiresAt || !play.player.turnExtensionExpiresAt) {
           player.setTurnExpiration(table.lobby.options.turnTime, table.lobby.options.abandonTime)
         }
 
@@ -1728,11 +1731,7 @@ export const Trucoshi = ({
                 )
                 return
               }
-              if (
-                table.lobby.paused &&
-                currentTurn.pausedAt &&
-                timedOutAt < currentTurn.pausedAt
-              ) {
+              if (table.lobby.paused && currentTurn.pausedAt && timedOutAt < currentTurn.pausedAt) {
                 disconnectedDuration = currentTurn.pausedAt - timedOutAt
               }
               tPlayer.addDisconnectedTime(disconnectedDuration)
@@ -1806,7 +1805,11 @@ export const Trucoshi = ({
         )
         if (!isActiveTurn()) {
           table.log.trace(
-            { matchSessionId: table.matchSessionId, player: player.getPublicPlayer("log"), pausedTime },
+            {
+              matchSessionId: table.matchSessionId,
+              player: player.getPublicPlayer("log"),
+              pausedTime,
+            },
             "Ignoring stale turn retry"
           )
           return
@@ -2072,11 +2075,18 @@ export const Trucoshi = ({
 
       const publicMatch = await server.emitMatchUpdate(table)
 
-      table.lobby.teams.map((team) => {
-        server.chat.rooms
-          .getOrThrow(table.matchSessionId)
-          .system(`${team.name}: +${publicMatch.previousHand?.points[team.id]}`, false)
-      })
+      table.lobby.teams
+        .sort((teamA, teamB) => {
+          return (
+            (publicMatch.previousHand?.points[teamA.id] || 0) -
+            (publicMatch.previousHand?.points[teamB.id] || 0)
+          )
+        })
+        .map((team) => {
+          server.chat.rooms
+            .getOrThrow(table.matchSessionId)
+            .system(`${team.name}: +${publicMatch.previousHand?.points[team.id]}`, false)
+        })
 
       if (process.env.APP_DISABLE_TIMERS !== "1") {
         await new Promise<void>((resolve) => {
@@ -3173,7 +3183,6 @@ export const Trucoshi = ({
                   },
                 })
               }
-
             })
 
             const satsPerPlayer = table.lobby.options.satsPerPlayer
