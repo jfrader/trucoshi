@@ -2075,7 +2075,7 @@ export const Trucoshi = ({
 
       const publicMatch = await server.emitMatchUpdate(table)
 
-      table.lobby.teams
+      ;[...table.lobby.teams]
         .sort((teamA, teamB) => {
           return (
             (publicMatch.previousHand?.points[teamA.id] || 0) -
