@@ -142,6 +142,7 @@ export function Player({
       }
     },
     setTurnExpiration(turnTime: number, abandonTime: number) {
+      player.disconnectedAt = null
       this.turnExpiresAt = Date.now() + turnTime
       this.turnExtensionExpiresAt = this.turnExpiresAt + abandonTime
     },

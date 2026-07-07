@@ -66,7 +66,7 @@ docker_compose() {
 
   log "Running Docker Compose in $dir with NODE_ENV=$node_env: docker compose $*"
   if use_sudo_docker; then
-    (cd "$dir" && sudo -n env NODE_ENV="$node_env" docker compose "$@")
+    (cd "$dir" && NODE_ENV="$node_env" sudo -n --preserve-env=NODE_ENV docker compose "$@")
   else
     (cd "$dir" && env NODE_ENV="$node_env" docker compose "$@")
   fi
@@ -95,7 +95,7 @@ start_docker_compose_process() {
 
   log "Starting $name..."
   if use_sudo_docker; then
-    (cd "$dir" && sudo -n env NODE_ENV="$node_env" docker compose "$@") &
+    (cd "$dir" && NODE_ENV="$node_env" sudo -n --preserve-env=NODE_ENV docker compose "$@") &
   else
     if [ "$HAVE_SETSID" -eq 1 ]; then
       setsid bash -c 'dir="$1"; node_env="$2"; shift 2; cd "$dir" && exec env NODE_ENV="$node_env" docker compose "$@"' bash "$dir" "$node_env" "$@" &
@@ -117,11 +117,11 @@ authenticate_sudo_docker() {
     fail "Cannot authenticate sudo because /dev/tty is not readable"
   fi
 
-  sudo -v < /dev/tty || fail "Could not authenticate sudo for Docker commands"
+  sudo docker version >/dev/null < /dev/tty || fail "Could not authenticate sudo for Docker commands"
 
   (
     while true; do
-      sudo -n true >/dev/null 2>&1 || exit
+      sudo -n docker version >/dev/null 2>&1 || exit
       sleep 60
     done
   ) &
@@ -364,8 +364,6 @@ fi
 if use_sudo_docker; then
   require_command sudo
   log "Using sudo for Docker commands only."
-  authenticate_sudo_docker
-  trap cleanup EXIT INT TERM
 fi
 
 require_project "lightning-accounts" "$LIGHTNING_ACCOUNTS_DIR"
@@ -396,6 +394,7 @@ run_in "$ROOT_DIR" yarn link --link-folder "$DEV_ALL_YARN_LINK_DIR"
 run_in "$TRUCOSHI_CLIENT_DIR" yarn link --link-folder "$DEV_ALL_YARN_LINK_DIR" lightning-accounts
 run_in "$TRUCOSHI_CLIENT_DIR" yarn link --link-folder "$DEV_ALL_YARN_LINK_DIR" trucoshi
 
+authenticate_sudo_docker
 trap cleanup EXIT INT TERM
 
 start_process \

@@ -21,6 +21,9 @@ import {
   IPublicMatchStats,
   IJoinQueueOptions,
   IQueueMatchFound,
+  IQueueMatchCancelled,
+  IQueueMatchStarting,
+  IQueueReadyUpdate,
   IQueueStatus,
   IRewardCodeRedeemResult,
   IPublicNoticeBanner,
@@ -58,6 +61,9 @@ export enum EServerEvent {
   UPDATE_STATS = "UPDATE_STATS",
   QUEUE_UPDATE = "QUEUE_UPDATE",
   QUEUE_MATCH_FOUND = "QUEUE_MATCH_FOUND",
+  QUEUE_READY_UPDATE = "QUEUE_READY_UPDATE",
+  QUEUE_MATCH_STARTING = "QUEUE_MATCH_STARTING",
+  QUEUE_MATCH_CANCELLED = "QUEUE_MATCH_CANCELLED",
   UPDATE_NOTICE_BANNER = "UPDATE_NOTICE_BANNER",
 }
 
@@ -67,6 +73,9 @@ export interface ServerToClientEvents {
   [EServerEvent.UPDATE_STATS]: (room: ITrucoshiStats) => void
   [EServerEvent.QUEUE_UPDATE]: (status: IQueueStatus) => void
   [EServerEvent.QUEUE_MATCH_FOUND]: (match: IQueueMatchFound) => void
+  [EServerEvent.QUEUE_READY_UPDATE]: (update: IQueueReadyUpdate) => void
+  [EServerEvent.QUEUE_MATCH_STARTING]: (starting: IQueueMatchStarting) => void
+  [EServerEvent.QUEUE_MATCH_CANCELLED]: (cancelled: IQueueMatchCancelled) => void
   [EServerEvent.UPDATE_NOTICE_BANNER]: (noticeBanner: IPublicNoticeBanner | null) => void
   [EServerEvent.NEW_MESSAGE]: (roomId: string, message?: IChatMessage) => void
   [EServerEvent.UPDATE_ACTIVE_MATCHES]: (activeMatches: IPublicMatchInfo[]) => void
@@ -121,6 +130,8 @@ export enum EClientEvent {
   PLAY_AGAIN = "PLAY_AGAIN",
   JOIN_QUEUE = "JOIN_QUEUE",
   LEAVE_QUEUE = "LEAVE_QUEUE",
+  CONFIRM_QUEUE_MATCH = "CONFIRM_QUEUE_MATCH",
+  DECLINE_QUEUE_MATCH = "DECLINE_QUEUE_MATCH",
   FETCH_INVENTORY = "FETCH_INVENTORY",
   SET_DECK_CARD_SKIN = "SET_DECK_CARD_SKIN",
   FETCH_TREASURE_STATUS = "FETCH_TREASURE_STATUS",
@@ -201,6 +212,14 @@ export interface ClientToServerEvents {
     callback: IEventCallback<{ status?: IQueueStatus }>
   ) => void
   [EClientEvent.LEAVE_QUEUE]: (callback?: IEventCallback<{}>) => void
+  [EClientEvent.CONFIRM_QUEUE_MATCH]: (
+    proposalId: string,
+    callback?: IEventCallback<{ update?: IQueueReadyUpdate }>
+  ) => void
+  [EClientEvent.DECLINE_QUEUE_MATCH]: (
+    proposalId: string,
+    callback?: IEventCallback<{}>
+  ) => void
   [EClientEvent.FETCH_INVENTORY]: (
     callback: IEventCallback<{ inventory: IInventoryCardGroup[]; equippedDeck: IEquippedDeck }>
   ) => void

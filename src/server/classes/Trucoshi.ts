@@ -23,6 +23,10 @@ import {
   IPublicMatchStats,
   IPublicPlayer,
   IQueueMatchFound,
+  IQueueMatchCancelled,
+  IQueueMatchStarting,
+  IQueueProposalParticipant,
+  IQueueReadyUpdate,
   IQueueStatus,
   ITeam,
   ITrucoshiStats,
@@ -64,12 +68,16 @@ const log = logger.child({ class: "Trucoshi" })
 const DEFAULT_ELO = 1000
 const ELO_K_FACTOR = 32
 const QUEUE_BOT_FALLBACK_TIMEOUT = 5000
+const QUEUE_READY_TIMEOUT = 30000
+const QUEUE_START_COUNTDOWN = 3000
 const MATCH_QUEUE_SIZES = [2, 4, 6] as const
 type MatchQueueSize = (typeof MATCH_QUEUE_SIZES)[number]
 type QueueRequestSize = 0 | MatchQueueSize
 
 interface IMatchQueueEntry {
   requestId: string
+  queueKey: string
+  queueRoom: string
   userSession: IUserSession
   socket: TrucoshiSocket
   maxPlayers: QueueRequestSize
@@ -78,6 +86,22 @@ interface IMatchQueueEntry {
   queuedAt: number
   botFallbackAt?: number
   fallbackTimeout?: NodeJS.Timeout
+}
+
+interface IQueueProposal {
+  proposalId: string
+  matchSessionId: string
+  maxPlayers: MatchQueueSize
+  filledWithBots: boolean
+  botPlayers: number
+  entries: IMatchQueueEntry[]
+  ownerEntry: IMatchQueueEntry
+  table: IMatchTable
+  readySessions: Set<string>
+  readyExpiresAt: number
+  readyTimeout?: NodeJS.Timeout
+  startTimeout?: NodeJS.Timeout
+  starting?: boolean
 }
 
 interface MatchTableMap extends TMap<string, IMatchTable> {
@@ -129,6 +153,13 @@ const getQueueEntries = (queue: TMap<string, IMatchQueueEntry>, maxPlayers: Matc
 
 const getAllQueueEntries = (queue: TMap<string, IMatchQueueEntry>) =>
   Array.from(queue.values()).sort((a, b) => a.queuedAt - b.queuedAt)
+
+const getAccountRoom = (accountId: number) => `account:${accountId}`
+
+const getQueueKey = (userSession: IUserSession) =>
+  userSession.account?.id ? getAccountRoom(userSession.account.id) : userSession.session
+
+const getQueueRoom = (userSession: IUserSession) => getQueueKey(userSession)
 
 const selectClosestQueueEntries = (
   entries: IMatchQueueEntry[],
@@ -183,6 +214,7 @@ export interface ITrucoshi {
   sessions: TMap<string, IUserSession> // sessionId, user
   turns: TMap<string, TrucoshiTurn> // sessionId, play instance
   matchQueue: TMap<string, IMatchQueueEntry> // sessionId, matchmaking queue entry
+  queueProposals: TMap<string, IQueueProposal>
   matchmakingQueue: IQueue
   stats: ITrucoshiStats
   emitStats(): void
@@ -192,9 +224,20 @@ export interface ITrucoshi {
     options: IJoinQueueOptions
   }): Promise<IQueueStatus | undefined>
   leaveQueue(userSession: IUserSession): Promise<void>
-  removeQueueEntry(session: string): IMatchQueueEntry | undefined
+  removeQueueEntry(queueKey: string): IMatchQueueEntry | undefined
   emitQueueStatuses(maxPlayers?: QueueRequestSize): void
   getQueueStatus(entry: IMatchQueueEntry): IQueueStatus
+  getQueueProposalPayload(proposal: IQueueProposal): IQueueMatchFound
+  getQueueReadyUpdate(proposal: IQueueProposal): IQueueReadyUpdate
+  emitQueueProposalUpdate(proposal: IQueueProposal): void
+  confirmQueueMatch(proposalId: string, userSession: IUserSession): Promise<IQueueReadyUpdate>
+  declineQueueMatch(proposalId: string, userSession: IUserSession): Promise<void>
+  cancelQueueProposal(
+    proposal: IQueueProposal,
+    reason: IQueueMatchCancelled["reason"],
+    failedEntries?: IMatchQueueEntry[]
+  ): Promise<void>
+  startQueueProposal(proposal: IQueueProposal): Promise<void>
   resolveMatchQueue(maxPlayers: MatchQueueSize, allowBotFallback?: boolean): Promise<void>
   resolveMatchQueues(maxPlayers?: QueueRequestSize, allowBotFallback?: boolean): Promise<void>
   createQueueMatch(
@@ -368,6 +411,7 @@ export const Trucoshi = ({
   const tables = new MatchTableMap() // sessionId, table
   const turns = new TMap<string, TrucoshiTurn>() // sessionId, play instance, play promise resolve and type
   const matchQueue = new TMap<string, IMatchQueueEntry>()
+  const queueProposals = new TMap<string, IQueueProposal>()
   const matchmakingQueue = Queue()
 
   const server: ITrucoshi = {
@@ -380,6 +424,7 @@ export const Trucoshi = ({
     tables,
     turns,
     matchQueue,
+    queueProposals,
     matchmakingQueue,
     io,
     chat: Chat(),
@@ -401,23 +446,26 @@ export const Trucoshi = ({
           throw new SocketError("FORBIDDEN", "Invalid queue size")
         }
         const allowBots = Boolean(options?.allowBots)
+        const queueKey = getQueueKey(userSession)
+        const queueRoom = getQueueRoom(userSession)
 
-        const existingEntry = server.matchQueue.get(userSession.session)
+        const existingEntry = server.matchQueue.get(queueKey)
         if (
           existingEntry &&
           existingEntry.maxPlayers === maxPlayers &&
           existingEntry.allowBots === allowBots
         ) {
           existingEntry.socket = socket
+          existingEntry.userSession = userSession
           server.io
-            .to(userSession.session)
+            .to(queueRoom)
             .emit(EServerEvent.QUEUE_UPDATE, server.getQueueStatus(existingEntry))
           await server.resolveMatchQueues(maxPlayers)
-          const current = server.matchQueue.get(userSession.session)
+          const current = server.matchQueue.get(queueKey)
           return current ? server.getQueueStatus(current) : undefined
         }
 
-        server.removeQueueEntry(userSession.session)
+        server.removeQueueEntry(queueKey)
 
         const rating = userSession.account?.id
           ? (
@@ -432,6 +480,8 @@ export const Trucoshi = ({
 
         const entry: IMatchQueueEntry = {
           requestId: randomUUID(),
+          queueKey,
+          queueRoom,
           userSession,
           socket,
           maxPlayers,
@@ -452,29 +502,29 @@ export const Trucoshi = ({
           )
         }
 
-        server.matchQueue.set(userSession.session, entry)
+        server.matchQueue.set(queueKey, entry)
         server.emitQueueStatuses(maxPlayers)
         await server.resolveMatchQueues(maxPlayers)
 
-        const current = server.matchQueue.get(userSession.session)
+        const current = server.matchQueue.get(queueKey)
         return current ? server.getQueueStatus(current) : undefined
       })
     },
     async leaveQueue(userSession) {
       return server.matchmakingQueue.queue(async () => {
-        const removed = server.removeQueueEntry(userSession.session)
+        const removed = server.removeQueueEntry(getQueueKey(userSession))
         if (removed) {
           server.emitQueueStatuses(removed.maxPlayers)
         }
       })
     },
-    removeQueueEntry(session) {
-      const entry = server.matchQueue.get(session)
+    removeQueueEntry(queueKey) {
+      const entry = server.matchQueue.get(queueKey)
       if (entry?.fallbackTimeout) {
         clearTimeout(entry.fallbackTimeout)
       }
       if (entry) {
-        server.matchQueue.delete(session)
+        server.matchQueue.delete(queueKey)
       }
       return entry
     },
@@ -485,9 +535,7 @@ export const Trucoshi = ({
           : getAllQueueEntries(server.matchQueue)
 
       entries.forEach((entry) => {
-        server.io
-          .to(entry.userSession.session)
-          .emit(EServerEvent.QUEUE_UPDATE, server.getQueueStatus(entry))
+        server.io.to(entry.queueRoom).emit(EServerEvent.QUEUE_UPDATE, server.getQueueStatus(entry))
       })
     },
     getQueueStatus(entry) {
@@ -507,6 +555,197 @@ export const Trucoshi = ({
         queuedAt: entry.queuedAt,
         botFallbackAt: entry.botFallbackAt,
       }
+    },
+    getQueueProposalPayload(proposal) {
+      return {
+        ...server.getQueueReadyUpdate(proposal),
+        maxPlayers: proposal.maxPlayers,
+        humanPlayers: proposal.entries.length,
+        botPlayers: proposal.botPlayers,
+        filledWithBots: proposal.filledWithBots,
+        lobbyOptions: proposal.table.lobby.options,
+      }
+    },
+    getQueueReadyUpdate(proposal) {
+      const participants: IQueueProposalParticipant[] = proposal.table.lobby.players.map(
+        (player) => ({
+          accountId: player.accountId,
+          session: player.session,
+          name: player.name,
+          avatarUrl: player.avatarUrl,
+          bot: Boolean(player.bot),
+          ready: Boolean(player.bot || proposal.readySessions.has(player.session)),
+        })
+      )
+
+      return {
+        proposalId: proposal.proposalId,
+        matchSessionId: proposal.matchSessionId,
+        readyExpiresAt: proposal.readyExpiresAt,
+        participants,
+      }
+    },
+    emitQueueProposalUpdate(proposal) {
+      const update = server.getQueueReadyUpdate(proposal)
+      proposal.entries.forEach((entry) => {
+        server.io.to(entry.queueRoom).emit(EServerEvent.QUEUE_READY_UPDATE, update)
+      })
+    },
+    async confirmQueueMatch(proposalId, userSession) {
+      return server.matchmakingQueue.queue(async () => {
+        const proposal = server.queueProposals.get(proposalId)
+        if (!proposal) {
+          throw new SocketError("NOT_FOUND", "La propuesta de partida ya no existe")
+        }
+
+        const queueKey = getQueueKey(userSession)
+        const entry = proposal.entries.find((candidate) => candidate.queueKey === queueKey)
+        if (!entry) {
+          throw new SocketError("FORBIDDEN", "No estas en esta propuesta de partida")
+        }
+
+        proposal.readySessions.add(entry.userSession.session)
+        const update = server.getQueueReadyUpdate(proposal)
+        server.emitQueueProposalUpdate(proposal)
+
+        if (
+          proposal.entries.every((candidate) =>
+            proposal.readySessions.has(candidate.userSession.session)
+          )
+        ) {
+          await server.startQueueProposal(proposal)
+        }
+
+        return update
+      })
+    },
+    async declineQueueMatch(proposalId, userSession) {
+      return server.matchmakingQueue.queue(async () => {
+        const proposal = server.queueProposals.get(proposalId)
+        if (!proposal) {
+          return
+        }
+
+        const queueKey = getQueueKey(userSession)
+        const entry = proposal.entries.find((candidate) => candidate.queueKey === queueKey)
+        if (!entry) {
+          throw new SocketError("FORBIDDEN", "No estas en esta propuesta de partida")
+        }
+
+        await server.cancelQueueProposal(proposal, "declined", [entry])
+      })
+    },
+    async cancelQueueProposal(proposal, reason, failedEntries = []) {
+      if (!server.queueProposals.has(proposal.proposalId)) {
+        return
+      }
+
+      if (proposal.readyTimeout) {
+        clearTimeout(proposal.readyTimeout)
+      }
+      if (proposal.startTimeout) {
+        clearTimeout(proposal.startTimeout)
+      }
+
+      server.queueProposals.delete(proposal.proposalId)
+
+      const failedKeys = new Set(failedEntries.map((entry) => entry.queueKey))
+      const cancelPayload: IQueueMatchCancelled = {
+        proposalId: proposal.proposalId,
+        matchSessionId: proposal.matchSessionId,
+        reason,
+      }
+
+      proposal.entries.forEach((entry) => {
+        server.io.to(entry.queueRoom).emit(EServerEvent.QUEUE_MATCH_CANCELLED, cancelPayload)
+      })
+
+      await server.cleanupMatchTable(proposal.table)
+
+      for (const entry of proposal.entries) {
+        const wasReady = proposal.readySessions.has(entry.userSession.session)
+        if (!wasReady || failedKeys.has(entry.queueKey)) {
+          continue
+        }
+
+        if (entry.botFallbackAt) {
+          entry.fallbackTimeout = setTimeout(
+            () => {
+              server.matchmakingQueue
+                .queue(() => server.resolveMatchQueues(entry.maxPlayers, true))
+                .catch((e) => log.error(e, "Failed to resolve requeued match queue bot fallback"))
+            },
+            Math.max(entry.botFallbackAt - Date.now(), 0)
+          )
+        }
+
+        server.matchQueue.set(entry.queueKey, entry)
+      }
+
+      server.emitQueueStatuses(proposal.maxPlayers)
+      await server.resolveMatchQueues(proposal.maxPlayers)
+    },
+    async startQueueProposal(proposal) {
+      if (proposal.starting) {
+        return
+      }
+
+      proposal.starting = true
+      if (proposal.readyTimeout) {
+        clearTimeout(proposal.readyTimeout)
+        proposal.readyTimeout = undefined
+      }
+
+      const startsAt = Date.now() + QUEUE_START_COUNTDOWN
+      const payload: IQueueMatchStarting = {
+        proposalId: proposal.proposalId,
+        matchSessionId: proposal.matchSessionId,
+        startsAt,
+      }
+
+      proposal.entries.forEach((entry) => {
+        server.io.to(entry.queueRoom).emit(EServerEvent.QUEUE_MATCH_STARTING, payload)
+      })
+
+      proposal.startTimeout = setTimeout(() => {
+        server.matchmakingQueue
+          .queue(async () => {
+            const current = server.queueProposals.get(proposal.proposalId)
+            if (!current) {
+              return
+            }
+
+            try {
+              for (const entry of current.entries) {
+                await server.setMatchPlayerReady({
+                  matchSessionId: current.matchSessionId,
+                  userSession: entry.userSession,
+                  ready: true,
+                })
+              }
+
+              await server.startMatch({
+                identityJwt: null,
+                matchSessionId: current.matchSessionId,
+                userSession: current.ownerEntry.userSession,
+              })
+
+              server.queueProposals.delete(current.proposalId)
+              current.entries.forEach((entry) => {
+                server.io
+                  .to(entry.queueRoom)
+                  .emit(
+                    EServerEvent.UPDATE_ACTIVE_MATCHES,
+                    server.getSessionActiveMatches(entry.userSession.session)
+                  )
+              })
+            } catch (e) {
+              log.error(e, "Failed to start confirmed queue proposal")
+              await server.cancelQueueProposal(current, "error")
+            }
+          })
+          .catch((e) => log.error(e, "Failed to process queue proposal start"))
+      }, QUEUE_START_COUNTDOWN)
     },
     async resolveMatchQueues(maxPlayers, allowBotFallback = false) {
       const queueSizes =
@@ -589,36 +828,46 @@ export const Trucoshi = ({
           botPlayers += 1
         }
 
-        for (const entry of selectedEntries) {
-          await server.setMatchPlayerReady({
-            matchSessionId: table.matchSessionId,
-            userSession: entry.userSession,
-            ready: true,
-          })
-        }
+        selectedEntries.forEach((entry) => server.removeQueueEntry(entry.queueKey))
 
-        await server.startMatch({
-          identityJwt: null,
-          matchSessionId: table.matchSessionId,
-          userSession: ownerEntry.userSession,
-        })
-
-        selectedEntries.forEach((entry) => server.removeQueueEntry(entry.userSession.session))
-
-        const payload: IQueueMatchFound = {
+        const proposal: IQueueProposal = {
+          proposalId: randomUUID(),
           matchSessionId: table.matchSessionId,
           maxPlayers,
-          humanPlayers: selectedEntries.length,
-          botPlayers,
           filledWithBots,
+          botPlayers,
+          entries: selectedEntries,
+          ownerEntry,
+          table,
+          readySessions: new Set(),
+          readyExpiresAt: Date.now() + QUEUE_READY_TIMEOUT,
         }
 
+        proposal.readyTimeout = setTimeout(() => {
+          server.matchmakingQueue
+            .queue(async () => {
+              const current = server.queueProposals.get(proposal.proposalId)
+              if (!current) {
+                return
+              }
+              const failedEntries = current.entries.filter(
+                (entry) => !current.readySessions.has(entry.userSession.session)
+              )
+              await server.cancelQueueProposal(current, "timeout", failedEntries)
+            })
+            .catch((e) => log.error(e, "Failed to cancel timed-out queue proposal"))
+        }, QUEUE_READY_TIMEOUT)
+
+        server.queueProposals.set(proposal.proposalId, proposal)
+
+        const payload = server.getQueueProposalPayload(proposal)
+
         selectedEntries.forEach((entry) => {
-          server.io.to(entry.userSession.session).emit(EServerEvent.QUEUE_MATCH_FOUND, payload)
+          server.io.to(entry.queueRoom).emit(EServerEvent.QUEUE_MATCH_FOUND, payload)
           const assignedTeam = teamAssignments.get(entry.userSession.session)
           table?.log.debug(
             { player: entry.userSession.name, teamIdx: assignedTeam },
-            "Queued player matched"
+            "Queued player proposal created"
           )
         })
 
@@ -628,9 +877,9 @@ export const Trucoshi = ({
           await server.cleanupMatchTable(table)
         }
         selectedEntries.forEach((entry) => {
-          if (server.matchQueue.get(entry.userSession.session)?.requestId === entry.requestId) {
+          if (server.matchQueue.get(entry.queueKey)?.requestId === entry.requestId) {
             server.io
-              .to(entry.userSession.session)
+              .to(entry.queueRoom)
               .emit(EServerEvent.QUEUE_UPDATE, server.getQueueStatus(entry))
           }
         })
@@ -965,6 +1214,7 @@ export const Trucoshi = ({
       const userSession = UserSession(key, id || "Satoshi", session)
       socket.data.user = userSession.getUserData()
       socket.data.matches = new Set()
+      socket.data.session = userSession.session
       server.sessions.set(session, userSession)
 
       userSession.on("connect", () => {
@@ -997,6 +1247,7 @@ export const Trucoshi = ({
       userSession.reconnect(userSession.session)
       socket.data.user = userSession.getUserData()
       socket.data.identity = identityJwt
+      socket.data.session = userSession.session
 
       if (!socket.data.matches) {
         socket.data.matches = new Set()
@@ -1013,11 +1264,14 @@ export const Trucoshi = ({
       }
 
       const userSession = server.sessions.getOrThrow(socket.data.user.session)
-      const queued = server.removeQueueEntry(userSession.session)
+      const queued = server.removeQueueEntry(getQueueKey(userSession))
       if (queued) {
         server.emitQueueStatuses(queued.maxPlayers)
       }
       socket.leave(userSession.session)
+      if (userSession.account?.id) {
+        socket.leave(getAccountRoom(userSession.account.id))
+      }
 
       for (const key in socket.data.matches?.keys()) {
         socket.leave(key)

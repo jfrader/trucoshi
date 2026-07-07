@@ -81,12 +81,44 @@ export interface IQueueStatus {
   botFallbackAt?: number
 }
 
+export interface IQueueProposalParticipant {
+  accountId?: number
+  session: string
+  name: string
+  avatarUrl?: string | null
+  bot: boolean
+  ready: boolean
+}
+
 export interface IQueueMatchFound {
+  proposalId: string
   matchSessionId: string
   maxPlayers: 2 | 4 | 6
   humanPlayers: number
   botPlayers: number
   filledWithBots: boolean
+  readyExpiresAt: number
+  lobbyOptions: ILobbyOptions
+  participants: IQueueProposalParticipant[]
+}
+
+export interface IQueueReadyUpdate {
+  proposalId: string
+  matchSessionId: string
+  readyExpiresAt: number
+  participants: IQueueProposalParticipant[]
+}
+
+export interface IQueueMatchStarting {
+  proposalId: string
+  matchSessionId: string
+  startsAt: number
+}
+
+export interface IQueueMatchCancelled {
+  proposalId: string
+  matchSessionId: string
+  reason: "declined" | "timeout" | "cancelled" | "error"
 }
 
 export interface ISaidCommand {

@@ -31,6 +31,9 @@ export const trucoshiMiddleware = (server: ITrucoshi) => {
     )
     if (socket.data.user) {
       socket.join(socket.data.user.session)
+      if (socket.data.user.account?.id) {
+        socket.join(`account:${socket.data.user.account.id}`)
+      }
       server.emitSocketSession(socket)
     }
   })
@@ -48,7 +51,10 @@ export const trucoshiMiddleware = (server: ITrucoshi) => {
         reason
       )
       if (socket.data.user) {
-        const matchingSockets = await server.io.in(socket.data.user?.session).fetchSockets()
+        const userRoom = socket.data.user.account?.id
+          ? `account:${socket.data.user.account.id}`
+          : socket.data.user.session
+        const matchingSockets = await server.io.in(userRoom).fetchSockets()
         const isDisconnected = "length" in matchingSockets && matchingSockets.length === 0
 
         if (isDisconnected) {
@@ -123,6 +129,34 @@ export const trucoshiMiddleware = (server: ITrucoshi) => {
         callback?.({ success: true })
       } catch (e) {
         log.error(e, "Client event LEAVE_QUEUE error")
+        callback?.({ success: false, error: isSocketError(e) })
+      }
+    })
+
+    /**
+     * Confirm queue proposal
+     */
+    socket.on(EClientEvent.CONFIRM_QUEUE_MATCH, async (proposalId, callback) => {
+      try {
+        const userSession = server.sessions.getOrThrow(socket.data.user?.session)
+        const update = await server.confirmQueueMatch(proposalId, userSession)
+        callback?.({ success: true, update })
+      } catch (e) {
+        log.error(e, "Client event CONFIRM_QUEUE_MATCH error")
+        callback?.({ success: false, error: isSocketError(e) })
+      }
+    })
+
+    /**
+     * Decline queue proposal
+     */
+    socket.on(EClientEvent.DECLINE_QUEUE_MATCH, async (proposalId, callback) => {
+      try {
+        const userSession = server.sessions.getOrThrow(socket.data.user?.session)
+        await server.declineQueueMatch(proposalId, userSession)
+        callback?.({ success: true })
+      } catch (e) {
+        log.error(e, "Client event DECLINE_QUEUE_MATCH error")
         callback?.({ success: false, error: isSocketError(e) })
       }
     })

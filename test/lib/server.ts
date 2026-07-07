@@ -1,6 +1,15 @@
 import { io as Client, Socket } from "socket.io-client"
 import { assert, expect } from "chai"
-import { ESayCommand, ICard, IPublicMatch, IQueueMatchFound } from "../../src/types"
+import {
+  EMatchState,
+  ESayCommand,
+  ICard,
+  IPublicMatch,
+  IQueueMatchFound,
+  IQueueMatchCancelled,
+  IQueueMatchStarting,
+  IQueueReadyUpdate,
+} from "../../src/types"
 import { ITrucoshi, Trucoshi } from "../../src/server/classes"
 import { playBotsMatch, playRandomMatch } from "../serverHelpers"
 import {
@@ -32,6 +41,54 @@ describe("Socket Server", () => {
         resolve(match)
       }
       client.once(EServerEvent.QUEUE_MATCH_FOUND, handleMatchFound)
+    })
+
+  const waitForQueueReadyUpdate = (
+    client: Socket<ServerToClientEvents, ClientToServerEvents>,
+    timeout = 7000
+  ) =>
+    new Promise<IQueueReadyUpdate>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        client.off(EServerEvent.QUEUE_READY_UPDATE, handleReadyUpdate)
+        reject(new Error("Timed out waiting for queue ready update"))
+      }, timeout)
+      const handleReadyUpdate = (update: IQueueReadyUpdate) => {
+        clearTimeout(timer)
+        resolve(update)
+      }
+      client.once(EServerEvent.QUEUE_READY_UPDATE, handleReadyUpdate)
+    })
+
+  const waitForQueueStarting = (
+    client: Socket<ServerToClientEvents, ClientToServerEvents>,
+    timeout = 7000
+  ) =>
+    new Promise<IQueueMatchStarting>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        client.off(EServerEvent.QUEUE_MATCH_STARTING, handleStarting)
+        reject(new Error("Timed out waiting for queue match starting"))
+      }, timeout)
+      const handleStarting = (starting: IQueueMatchStarting) => {
+        clearTimeout(timer)
+        resolve(starting)
+      }
+      client.once(EServerEvent.QUEUE_MATCH_STARTING, handleStarting)
+    })
+
+  const waitForQueueCancelled = (
+    client: Socket<ServerToClientEvents, ClientToServerEvents>,
+    timeout = 7000
+  ) =>
+    new Promise<IQueueMatchCancelled>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        client.off(EServerEvent.QUEUE_MATCH_CANCELLED, handleCancelled)
+        reject(new Error("Timed out waiting for queue match cancellation"))
+      }, timeout)
+      const handleCancelled = (cancelled: IQueueMatchCancelled) => {
+        clearTimeout(timer)
+        resolve(cancelled)
+      }
+      client.once(EServerEvent.QUEUE_MATCH_CANCELLED, handleCancelled)
     })
 
   const handleError = (error: unknown, message: string): Error => {
@@ -121,16 +178,55 @@ describe("Socket Server", () => {
       expect(match0.humanPlayers).to.equal(2)
       expect(match0.botPlayers).to.equal(0)
       expect(match0.filledWithBots).to.equal(false)
+      expect(match0.proposalId).to.be.a("string")
+      expect(match0.readyExpiresAt).to.be.greaterThan(Date.now())
+      expect(match0.participants).to.have.length(2)
+      expect(match0.participants.every((participant) => !participant.ready)).to.equal(true)
       expect(player0QueuedAt).to.be.greaterThan(0)
       const player0Session = server.sessions.find((session) => session.name === "player0")?.session
       const player1Session = server.sessions.find((session) => session.name === "player1")?.session
-      expect(server.getSessionActiveMatches(player0Session)[0]?.createdFromQueue).to.equal(true)
+      expect(server.tables.get(match0.matchSessionId)?.state()).to.equal(EMatchState.UNREADY)
       expect(
         server.tables.get(match0.matchSessionId)?.getPublicMatch(player0Session).queueOptions
       ).to.deep.equal({ maxPlayers: 2, allowBots: false })
       expect(
         server.tables.get(match1.matchSessionId)?.getPublicMatch(player1Session).queueOptions
       ).to.deep.equal({ maxPlayers: 2, allowBots: false })
+
+      const player0Ready = waitForQueueReadyUpdate(clients[0])
+
+      await new Promise<void>((resolve, reject) => {
+        clients[0].emit(EClientEvent.CONFIRM_QUEUE_MATCH, match0.proposalId, ({ success, error }) => {
+          if (success) return resolve()
+          reject(handleError(error, "Player 0 failed to confirm queue match"))
+        })
+      })
+
+      const readyUpdate = await player0Ready
+      expect(
+        readyUpdate.participants.find((participant) => participant.session === player0Session)
+          ?.ready
+      ).to.equal(true)
+      expect(server.tables.get(match0.matchSessionId)?.state()).to.equal(EMatchState.UNREADY)
+
+      const player0Starting = waitForQueueStarting(clients[0])
+      const player1Starting = waitForQueueStarting(clients[1])
+
+      await new Promise<void>((resolve, reject) => {
+        clients[1].emit(EClientEvent.CONFIRM_QUEUE_MATCH, match0.proposalId, ({ success, error }) => {
+          if (success) return resolve()
+          reject(handleError(error, "Player 1 failed to confirm queue match"))
+        })
+      })
+
+      const [starting0, starting1] = await Promise.all([player0Starting, player1Starting])
+      expect(starting0.matchSessionId).to.equal(match0.matchSessionId)
+      expect(starting1.matchSessionId).to.equal(match0.matchSessionId)
+      expect(starting0.startsAt).to.be.greaterThan(Date.now())
+
+      await new Promise((resolve) => setTimeout(resolve, 3500))
+      expect(server.tables.get(match0.matchSessionId)?.state()).to.equal(EMatchState.STARTED)
+      expect(server.getSessionActiveMatches(player0Session)[0]?.createdFromQueue).to.equal(true)
     })
 
     it("should fill a queued any-size match with a bot after fallback", async () => {
@@ -152,6 +248,69 @@ describe("Socket Server", () => {
       expect(
         server.tables.get(match.matchSessionId)?.getPublicMatch(player2Session).queueOptions
       ).to.deep.equal({ maxPlayers: 0, allowBots: true })
+
+      const starting = waitForQueueStarting(clients[2])
+      await new Promise<void>((resolve, reject) => {
+        clients[2].emit(EClientEvent.CONFIRM_QUEUE_MATCH, match.proposalId, ({ success, error }) => {
+          if (success) return resolve()
+          reject(handleError(error, "Player failed to confirm bot fallback queue"))
+        })
+      })
+      await starting
+      await new Promise((resolve) => setTimeout(resolve, 3500))
+    })
+
+    it("should cancel a queue proposal and requeue confirmed players when another player declines", async () => {
+      const player2Match = waitForQueueMatch(clients[2])
+      const player3Match = waitForQueueMatch(clients[3])
+
+      await new Promise<void>((resolve, reject) => {
+        clients[2].emit(EClientEvent.JOIN_QUEUE, { maxPlayers: 2, allowBots: false }, ({ success, error }) => {
+          if (success) return resolve()
+          reject(handleError(error, "Player 2 failed to join cancellable queue"))
+        })
+      })
+
+      await new Promise<void>((resolve, reject) => {
+        clients[3].emit(EClientEvent.JOIN_QUEUE, { maxPlayers: 2, allowBots: false }, ({ success, error }) => {
+          if (success) return resolve()
+          reject(handleError(error, "Player 3 failed to join cancellable queue"))
+        })
+      })
+
+      const [match2, match3] = await Promise.all([player2Match, player3Match])
+      expect(match2.matchSessionId).to.equal(match3.matchSessionId)
+
+      await new Promise<void>((resolve, reject) => {
+        clients[2].emit(EClientEvent.CONFIRM_QUEUE_MATCH, match2.proposalId, ({ success, error }) => {
+          if (success) return resolve()
+          reject(handleError(error, "Player 2 failed to confirm cancellable queue"))
+        })
+      })
+
+      const cancelled = waitForQueueCancelled(clients[2])
+      await new Promise<void>((resolve, reject) => {
+        clients[3].emit(EClientEvent.DECLINE_QUEUE_MATCH, match2.proposalId, ({ success, error }) => {
+          if (success) return resolve()
+          reject(handleError(error, "Player 3 failed to decline queue proposal"))
+        })
+      })
+
+      const cancellation = await cancelled
+      expect(cancellation.matchSessionId).to.equal(match2.matchSessionId)
+      expect(cancellation.reason).to.equal("declined")
+
+      const player2Session = server.sessions.find((session) => session.name === "player2")
+      const player3Session = server.sessions.find((session) => session.name === "player3")
+      expect(server.matchQueue.find((entry) => entry.userSession.session === player2Session?.session)).to.exist
+      expect(server.matchQueue.find((entry) => entry.userSession.session === player3Session?.session)).to.equal(undefined)
+
+      await new Promise<void>((resolve, reject) => {
+        clients[2].emit(EClientEvent.LEAVE_QUEUE, ({ success, error }) => {
+          if (success) return resolve()
+          reject(handleError(error, "Player 2 failed to leave requeued queue"))
+        })
+      })
     })
 
     it("should match mixed bot preference humans before bot fallback", async () => {

@@ -1,4 +1,5 @@
 import { expect } from "chai"
+import * as sinon from "sinon"
 import { Player } from "../../src/truco"
 import { EFlorCommand } from "../../src/types"
 
@@ -144,6 +145,67 @@ describe("Trucoshi Player", () => {
     it("should allow commands with force flag", () => {
       expect(player.sayCommand(EFlorCommand.FLOR, true)).to.equal(EFlorCommand.FLOR)
       expect(player.didSomething).to.be.true
+    })
+  })
+
+  describe("setTurnExpiration", () => {
+    it("clears a stale turn timeout disconnection marker for a fresh turn", () => {
+      player.disconnectedAt = Date.now() - 45_000
+
+      player.setTurnExpiration(30_000, 120_000)
+
+      expect(player.disconnectedAt).to.be.null
+      expect(player.turnExpiresAt).to.be.a("number")
+      expect(player.turnExtensionExpiresAt).to.be.a("number")
+      expect(player.turnExtensionExpiresAt).to.equal(player.turnExpiresAt! + 120_000)
+    })
+
+    it("anchors fresh turn timers to the current server time after an older timeout", () => {
+      const clock = sinon.useFakeTimers({ now: 1_000_000 })
+
+      try {
+        player.setTurnExpiration(30_000, 120_000)
+        const firstTurnExpiresAt = player.turnExpiresAt
+        player.disconnectedAt = firstTurnExpiresAt
+
+        clock.tick(90_000)
+        player.setTurnExpiration(45_000, 180_000)
+
+        expect(player.disconnectedAt).to.be.null
+        expect(player.turnExpiresAt).to.equal(1_135_000)
+        expect(player.turnExtensionExpiresAt).to.equal(1_315_000)
+      } finally {
+        clock.restore()
+      }
+    })
+
+    it("does not carry a stale red-timer start into the next response timer", () => {
+      const clock = sinon.useFakeTimers({ now: 2_000_000 })
+
+      try {
+        player.setTurnExpiration(30_000, 120_000)
+        player.disconnectedAt = Date.now() + 30_000
+
+        clock.tick(75_000)
+        player.setTurnExpiration(30_000, 120_000)
+
+        const nextTimeoutStart = player.turnExpiresAt!
+        expect(player.disconnectedAt).to.be.null
+        expect(nextTimeoutStart).to.equal(2_105_000)
+        expect(player.turnExtensionExpiresAt).to.equal(nextTimeoutStart + 120_000)
+      } finally {
+        clock.restore()
+      }
+    })
+
+    it("preserves accumulated abandon penalty when starting a new turn", () => {
+      player.abandonedTime = 25_000
+      player.disconnectedAt = Date.now() - 45_000
+
+      player.setTurnExpiration(30_000, 120_000)
+
+      expect(player.disconnectedAt).to.be.null
+      expect(player.abandonedTime).to.equal(25_000)
     })
   })
 
