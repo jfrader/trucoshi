@@ -76,7 +76,7 @@ const log = logger.child({ class: "Trucoshi" })
 
 const DEFAULT_ELO = 1000
 const ELO_K_FACTOR = 32
-const QUEUE_BOT_FALLBACK_TIMEOUT = 5000
+const QUEUE_BOT_FALLBACK_TIMEOUT = 10000
 const QUEUE_READY_TIMEOUT = 30000
 const QUEUE_START_COUNTDOWN = 3000
 const MATCH_QUEUE_SIZES = [2, 4, 6] as const
@@ -1190,6 +1190,11 @@ export const Trucoshi = ({
 
         selectedEntries.forEach((entry) => server.removeQueueEntry(entry.queueKey))
 
+        const autoStartWithBots = selectedEntries.length === 1 && botPlayers > 0
+        const readySessions = autoStartWithBots
+          ? new Set([ownerEntry.userSession.session])
+          : new Set<string>()
+
         const proposal: IQueueProposal = {
           proposalId: randomUUID(),
           matchSessionId: table.matchSessionId,
@@ -1199,24 +1204,26 @@ export const Trucoshi = ({
           entries: selectedEntries,
           ownerEntry,
           table,
-          readySessions: new Set(),
+          readySessions,
           readyExpiresAt: Date.now() + QUEUE_READY_TIMEOUT,
         }
 
-        proposal.readyTimeout = setTimeout(() => {
-          server.matchmakingQueue
-            .queue(async () => {
-              const current = server.queueProposals.get(proposal.proposalId)
-              if (!current) {
-                return
-              }
-              const failedEntries = current.entries.filter(
-                (entry) => !current.readySessions.has(entry.userSession.session)
-              )
-              await server.cancelQueueProposal(current, "timeout", failedEntries)
-            })
-            .catch((e) => log.error(e, "Failed to cancel timed-out queue proposal"))
-        }, QUEUE_READY_TIMEOUT)
+        if (!autoStartWithBots) {
+          proposal.readyTimeout = setTimeout(() => {
+            server.matchmakingQueue
+              .queue(async () => {
+                const current = server.queueProposals.get(proposal.proposalId)
+                if (!current) {
+                  return
+                }
+                const failedEntries = current.entries.filter(
+                  (entry) => !current.readySessions.has(entry.userSession.session)
+                )
+                await server.cancelQueueProposal(current, "timeout", failedEntries)
+              })
+              .catch((e) => log.error(e, "Failed to cancel timed-out queue proposal"))
+          }, QUEUE_READY_TIMEOUT)
+        }
 
         server.queueProposals.set(proposal.proposalId, proposal)
 
@@ -1232,6 +1239,9 @@ export const Trucoshi = ({
         })
 
         server.emitQueueStatuses(maxPlayers)
+        if (autoStartWithBots) {
+          await server.startQueueProposal(proposal)
+        }
       } catch (e) {
         if (table) {
           await server.cleanupMatchTable(table)

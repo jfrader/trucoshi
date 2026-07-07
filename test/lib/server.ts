@@ -29,7 +29,7 @@ describe("Socket Server", () => {
 
   const waitForQueueMatch = (
     client: Socket<ServerToClientEvents, ClientToServerEvents>,
-    timeout = 7000
+    timeout = 12000
   ) =>
     new Promise<IQueueMatchFound>((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -262,6 +262,7 @@ describe("Socket Server", () => {
 
     it("should fill a queued any-size match with a bot after fallback", async () => {
       const queuedMatch = waitForQueueMatch(clients[2])
+      const starting = waitForQueueStarting(clients[2], 12000)
 
       await new Promise<void>((resolve, reject) => {
         clients[2].emit(EClientEvent.JOIN_QUEUE, { maxPlayers: 0, allowBots: true }, ({ success, error }) => {
@@ -280,15 +281,10 @@ describe("Socket Server", () => {
         server.tables.get(match.matchSessionId)?.getPublicMatch(player2Session).queueOptions
       ).to.deep.equal({ maxPlayers: 0, allowBots: true })
 
-      const starting = waitForQueueStarting(clients[2])
-      await new Promise<void>((resolve, reject) => {
-        clients[2].emit(EClientEvent.CONFIRM_QUEUE_MATCH, match.proposalId, ({ success, error }) => {
-          if (success) return resolve()
-          reject(handleError(error, "Player failed to confirm bot fallback queue"))
-        })
-      })
-      await starting
+      const startingEvent = await starting
+      expect(startingEvent.matchSessionId).to.equal(match.matchSessionId)
       await new Promise((resolve) => setTimeout(resolve, 3500))
+      expect(server.tables.get(match.matchSessionId)?.state()).to.equal(EMatchState.STARTED)
     })
 
     it("should cancel a queue proposal and requeue confirmed players when another player declines", async () => {
