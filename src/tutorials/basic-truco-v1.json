@@ -24,27 +24,38 @@
         {
           "trigger": "before_human_turn",
           "roundIdx": 1,
-          "text": "La ronda se gana con la carta mas fuerte. El ancho de espada es la mejor."
+          "text": "Arranca con el ancho de espada. Es la carta mas fuerte y sirve para tomar control."
         },
         {
           "trigger": "after_human_action",
+          "roundIdx": 1,
           "actionValue": "1e",
-          "text": "Esa manda. Despues vienen ancho de basto, 7 de espada y 7 de oro."
+          "text": "Ahora falta la respuesta del Profe. La ronda se compara cuando estan las dos cartas."
+        },
+        {
+          "trigger": "after_bot_action",
+          "actionValue": "3c",
+          "text": "El Profe respondio con un 3. Compara las dos cartas: quien gana abre la siguiente."
         },
         {
           "trigger": "before_human_turn",
           "roundIdx": 2,
-          "text": "Ahora cerra la mano usando otra carta fuerte cuando haga falta."
+          "text": "Segunda ronda: si hay carta en mesa, mira si podes matarla; si abris, cuida recursos."
+        },
+        {
+          "trigger": "after_bot_action",
+          "actionValue": "6b",
+          "text": "Recorda el orden alto: ancho de espada, ancho de basto, 7 de espada y 7 de oro."
         },
         {
           "trigger": "before_human_turn",
           "roundIdx": 3,
           "state": "WAITING_PLAY",
-          "text": "Si hace falta otra ronda, elegi la carta que mejor cierre la mano."
+          "text": "Si llegas a tercera, mira lo que queda y busca la mejor definicion."
         },
         {
           "trigger": "hand_end",
-          "text": "Perfecto. En truco se gana al mejor de tres rondas."
+          "text": "Base lista: cada mano se decide al mejor de tres rondas."
         }
       ],
       "botActions": [
@@ -90,21 +101,26 @@
           "trigger": "after_bot_action",
           "roundIdx": 2,
           "actionValue": "3o",
-          "text": "Si perdes una ronda, tranqui. Usa una fuerte para recuperar control."
+          "text": "El Profe jugo un 3 en segunda. Si necesitas ganarla, una carta alta lo supera."
         },
         {
           "trigger": "before_human_turn",
           "roundIdx": 2,
-          "text": "El ancho de basto es enorme. Usalo si necesitas ganar esta ronda."
+          "text": "No gastes de mas: usa la carta mas chica que alcance para tu objetivo."
+        },
+        {
+          "trigger": "after_human_action",
+          "actionValue": "7o",
+          "text": "El 7 de oro es carta alta; elegir cuando gastarla es parte del plan."
         },
         {
           "trigger": "before_human_turn",
           "roundIdx": 3,
-          "text": "Te queda el 7 de oro. Muy buena carta para definir."
+          "text": "Tercera ronda: mira que cartas quedan y usa la que mejor cierre la mano."
         },
         {
           "trigger": "hand_end",
-          "text": "Linda remontada. A veces perder barato la primera te deja mejor parado."
+          "text": "La idea: perder barato o ahorrar fuerza puede dejarte mejor para despues."
         }
       ],
       "botActions": [
@@ -126,6 +142,73 @@
       ]
     },
     {
+      "goal": "Entender la parda y como se define una mano empatada.",
+      "cardsByPlayerIdx": {
+        "0": ["3e", "7b", "4o"],
+        "1": ["3o", "4c", "5b"]
+      },
+      "messages": [
+        {
+          "trigger": "hand_start",
+          "text": "Si dos cartas tienen la misma fuerza, la ronda queda parda: no la gana nadie todavia."
+        },
+        {
+          "trigger": "before_bot_action",
+          "roundIdx": 1,
+          "text": "El Profe va a responder con un 3. Si vos tambien jugaste un 3, queda parda."
+        },
+        {
+          "trigger": "before_human_turn",
+          "roundIdx": 1,
+          "text": "Juga el 3 de espada. Tiene la misma fuerza que cualquier otro 3."
+        },
+        {
+          "trigger": "after_human_action",
+          "roundIdx": 1,
+          "actionValue": "3e",
+          "text": "Ahora falta la respuesta del Profe. Si tira otro 3, la ronda queda parda."
+        },
+        {
+          "trigger": "after_bot_action",
+          "roundIdx": 1,
+          "actionValue": "3o",
+          "text": "El Profe jugo un 3. Si ambos jugaron 3, la primera queda parda."
+        },
+        {
+          "trigger": "before_human_turn",
+          "roundIdx": 2,
+          "text": "En segunda, revisa la primera: si fue parda, ganar ahora puede definir."
+        },
+        {
+          "trigger": "after_bot_action",
+          "roundIdx": 2,
+          "actionValue": "4c",
+          "text": "El Profe uso un 4. Si tu carta lo supera y la primera fue parda, podes cerrar."
+        },
+        {
+          "trigger": "hand_end",
+          "text": "Bien. Las pardas cambian la cuenta: no siempre hacen falta tres rondas."
+        }
+      ],
+      "botActions": [
+        {
+          "trigger": "before_bot_action",
+          "roundIdx": 1,
+          "action": { "type": "card", "value": "3o" }
+        },
+        {
+          "trigger": "before_bot_action",
+          "roundIdx": 2,
+          "action": { "type": "card", "value": "4c" }
+        },
+        {
+          "trigger": "before_bot_action",
+          "roundIdx": 3,
+          "action": { "type": "card", "value": "5b" }
+        }
+      ]
+    },
+    {
       "goal": "Cantar Envido antes de jugar y comparar tantos.",
       "cardsByPlayerIdx": {
         "0": ["7c", "6c", "1o"],
@@ -139,7 +222,7 @@
         {
           "trigger": "before_human_turn",
           "roundIdx": 1,
-          "text": "Toca ENVIDO ahora. El envido se resuelve antes de seguir con las cartas."
+          "text": "Antes de responder con carta, toca ENVIDO. Tenes 33 y todavia no jugaste."
         },
         {
           "trigger": "before_bot_action",
@@ -159,13 +242,7 @@
         {
           "trigger": "after_bot_action",
           "actionValue": 29,
-          "text": "El Profe dijo 29. Tus 33 ganan el envido."
-        },
-        {
-          "trigger": "before_human_turn",
-          "roundIdx": 1,
-          "state": "WAITING_PLAY",
-          "text": "Ahora segui la mano. El envido suma aparte del juego de cartas."
+          "text": "El Profe dijo 29. Si declaraste tus 33, el envido es tuyo; ahora segui con cartas."
         },
         {
           "trigger": "before_human_turn",
@@ -213,6 +290,86 @@
       ]
     },
     {
+      "goal": "Aprender cuando rechazar Envido con poco tanto.",
+      "cardsByPlayerIdx": {
+        "0": ["7e", "6b", "4c"],
+        "1": ["6o", "5o", "4b"]
+      },
+      "messages": [
+        {
+          "trigger": "hand_start",
+          "text": "Tambien hay que saber decir que no. Esta vez tu envido es flojo: solo 7."
+        },
+        {
+          "trigger": "before_bot_action",
+          "roundIdx": 1,
+          "state": "WAITING_PLAY",
+          "text": "Como el Profe todavia no jugo carta, puede probar con ENVIDO."
+        },
+        {
+          "trigger": "after_bot_action",
+          "actionValue": "ENVIDO",
+          "text": "Con poco tanto, NO QUIERO limita el dano: entregarias 1 y la mano sigue."
+        },
+        {
+          "trigger": "before_human_turn",
+          "state": "WAITING_ENVIDO_ANSWER",
+          "text": "Toca NO QUIERO. No hace falta pelear cada envite."
+        },
+        {
+          "trigger": "after_human_action",
+          "state": "WAITING_ENVIDO_ANSWER",
+          "actionValue": "NO_QUIERO",
+          "text": "Bien. Cediste 1 punto, pero evitaste pagar 2 con un tanto muy bajo."
+        },
+        {
+          "trigger": "before_human_turn",
+          "roundIdx": 1,
+          "state": "WAITING_PLAY",
+          "text": "No cantes con 7 de tanto. Arranca con el 7 de espada y juga por la mano."
+        },
+        {
+          "trigger": "before_human_turn",
+          "roundIdx": 2,
+          "state": "WAITING_PLAY",
+          "text": "Separar tantos y cartas es clave: podes rechazar envido y aun ganar la mano."
+        },
+        {
+          "trigger": "before_human_turn",
+          "roundIdx": 3,
+          "state": "WAITING_PLAY",
+          "text": "Si llega a tercera, resolve con lo que queda. Lo importante fue no regalar el envite."
+        },
+        {
+          "trigger": "hand_end",
+          "text": "Recorda: no regalar puntos tambien es parte del juego."
+        }
+      ],
+      "botActions": [
+        {
+          "trigger": "before_bot_action",
+          "roundIdx": 1,
+          "action": { "type": "command", "value": "ENVIDO" }
+        },
+        {
+          "trigger": "before_bot_action",
+          "roundIdx": 1,
+          "state": "WAITING_PLAY",
+          "action": { "type": "card", "value": "6o" }
+        },
+        {
+          "trigger": "before_bot_action",
+          "roundIdx": 2,
+          "action": { "type": "card", "value": "5o" }
+        },
+        {
+          "trigger": "before_bot_action",
+          "roundIdx": 3,
+          "action": { "type": "card", "value": "4b" }
+        }
+      ]
+    },
+    {
       "goal": "Responder Truco y entender cuando aceptar o rechazar.",
       "cardsByPlayerIdx": {
         "0": ["7b", "3e", "1c"],
@@ -231,7 +388,7 @@
         {
           "trigger": "before_human_turn",
           "roundIdx": 1,
-          "text": "Responde con el 7 de basto. No es fuerte, pero guardas dos cartas decentes."
+          "text": "Responde con el 7 de basto. Pierde barato y guardas mejores cartas para despues."
         },
         {
           "trigger": "before_bot_action",
@@ -246,7 +403,7 @@
         {
           "trigger": "before_human_turn",
           "state": "WAITING_FOR_TRUCO_ANSWER",
-          "text": "Aca acepta con QUIERO: tenes cartas para pelear y aprender el riesgo."
+          "text": "Aca podes aceptar con QUIERO si ves chances de pelear la mano."
         },
         {
           "trigger": "before_human_turn",
@@ -289,6 +446,100 @@
       ]
     },
     {
+      "goal": "Subir una apuesta de Truco con Re-Truco.",
+      "cardsByPlayerIdx": {
+        "0": ["1b", "7o", "3e"],
+        "1": ["3c", "2c", "4e"]
+      },
+      "messages": [
+        {
+          "trigger": "hand_start",
+          "text": "Cuando te cantan Truco con una mano fuerte, tambien podes subir la apuesta."
+        },
+        {
+          "trigger": "before_bot_action",
+          "roundIdx": 1,
+          "state": "WAITING_PLAY",
+          "text": "Despues de tu primera carta, el Profe va a cantar TRUCO."
+        },
+        {
+          "trigger": "after_bot_action",
+          "actionValue": "TRUCO",
+          "text": "Con esta mano no solo podes querer: podes retrucar y pasar la mano a 3 puntos."
+        },
+        {
+          "trigger": "before_human_turn",
+          "roundIdx": 1,
+          "state": "WAITING_PLAY",
+          "text": "Tenes mano fuerte. Abri con el ancho de basto y preparate para subir."
+        },
+        {
+          "trigger": "before_human_turn",
+          "state": "WAITING_FOR_TRUCO_ANSWER",
+          "text": "Toca RE_TRUCO. Es una respuesta agresiva: ahora el Profe decide si acepta."
+        },
+        {
+          "trigger": "after_human_action",
+          "state": "WAITING_FOR_TRUCO_ANSWER",
+          "actionValue": "RE_TRUCO",
+          "text": "Buen retruco. Si el Profe quiere, la mano vale 3; si no, cobras 2."
+        },
+        {
+          "trigger": "before_bot_action",
+          "state": "WAITING_FOR_TRUCO_ANSWER",
+          "text": "El Profe va a aceptar para que veas como sigue una apuesta subida."
+        },
+        {
+          "trigger": "after_bot_action",
+          "actionValue": "QUIERO",
+          "text": "Aceptado. Ahora gana la mano con tus cartas fuertes."
+        },
+        {
+          "trigger": "after_bot_action",
+          "actionValue": "3c",
+          "text": "El Profe jugo un 3. Si abriste con ancho de basto, tomaste la primera."
+        },
+        {
+          "trigger": "before_human_turn",
+          "roundIdx": 2,
+          "state": "WAITING_PLAY",
+          "text": "En segunda, revisa quien gano la primera y no regales la apuesta subida."
+        },
+        {
+          "trigger": "hand_end",
+          "text": "Asi funciona la escalera: TRUCO vale 2, RE_TRUCO 3 y VALE CUATRO 4."
+        }
+      ],
+      "botActions": [
+        {
+          "trigger": "before_bot_action",
+          "roundIdx": 1,
+          "action": { "type": "command", "value": "TRUCO" }
+        },
+        {
+          "trigger": "before_bot_action",
+          "state": "WAITING_FOR_TRUCO_ANSWER",
+          "action": { "type": "command", "value": "QUIERO" }
+        },
+        {
+          "trigger": "before_bot_action",
+          "roundIdx": 1,
+          "state": "WAITING_PLAY",
+          "action": { "type": "card", "value": "3c" }
+        },
+        {
+          "trigger": "before_bot_action",
+          "roundIdx": 2,
+          "action": { "type": "card", "value": "2c" }
+        },
+        {
+          "trigger": "before_bot_action",
+          "roundIdx": 3,
+          "action": { "type": "card", "value": "4e" }
+        }
+      ]
+    },
+    {
       "goal": "Reconocer Flor y declararla con tres cartas del mismo palo.",
       "cardsByPlayerIdx": {
         "0": ["7o", "6o", "1o"],
@@ -302,24 +553,20 @@
         {
           "trigger": "before_human_turn",
           "roundIdx": 1,
-          "text": "Toca FLOR. Con flor activa, vale mas que pensar en envido."
+          "text": "Toca FLOR antes de jugar. Tres cartas del mismo palo se declaran enseguida."
         },
         {
           "trigger": "after_human_action",
-          "actionValue": "FLOR",
-          "text": "Flor cantada. Ahora segui jugando la mano de cartas."
-        },
-        {
-          "trigger": "before_human_turn",
           "roundIdx": 1,
           "state": "WAITING_PLAY",
-          "text": "Tu 7 de oro es muy fuerte. Usalo para marcar la cancha."
+          "actionValue": "FLOR",
+          "text": "Flor cantada. Ahora juga el 7 de oro para marcar la cancha."
         },
         {
           "trigger": "before_human_turn",
           "roundIdx": 2,
           "state": "WAITING_PLAY",
-          "text": "Ahora segui jugando tus cartas. La Flor ya sumo, falta la mano."
+          "text": "Si cantaste Flor, ya sumo; ahora la mano se sigue con cartas."
         },
         {
           "trigger": "before_human_turn",
@@ -329,7 +576,7 @@
         },
         {
           "trigger": "hand_end",
-          "text": "Bien ahi. Si ves tres del mismo palo, primero mira la Flor."
+          "text": "Si ves tres cartas del mismo palo, primero mira la Flor."
         }
       ],
       "botActions": [
@@ -362,8 +609,15 @@
           "text": "Mano flojita: sin envido fuerte y sin cartas altas. No todo se pelea."
         },
         {
+          "trigger": "before_human_turn",
+          "roundIdx": 1,
+          "state": "WAITING_PLAY",
+          "text": "Arranca con el 4 de copa. Es una mano debil, asi que no inviertas de mas."
+        },
+        {
           "trigger": "before_bot_action",
           "roundIdx": 1,
+          "state": "WAITING_PLAY",
           "text": "El Profe huele debilidad y va a cantar TRUCO."
         },
         {
@@ -374,11 +628,11 @@
         {
           "trigger": "before_human_turn",
           "state": "WAITING_FOR_TRUCO_ANSWER",
-          "text": "Toca NO QUIERO. En truco, abandonar a tiempo tambien es jugar bien."
+          "text": "Toca NO QUIERO. Sin cartas ni tanto, perder 1 punto es mejor que arriesgar 2."
         },
         {
           "trigger": "hand_end",
-          "text": "Excelente. Ahora intenta ganarme el resto del partido sin ayuda."
+          "text": "Irse a tiempo tambien es jugar bien. Ahora intenta cerrar el partido sin ayuda."
         }
       ],
       "botActions": [
