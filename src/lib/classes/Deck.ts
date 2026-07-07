@@ -44,13 +44,70 @@ export function Deck(): IDeck {
 
 export const getAllCards = () => Object.keys(CARDS) as Array<ICard>
 
+const normalizeFixedHands = <
+  TPlayer extends { key: string; idx: number; setHand(h: Array<ICard>): void } = IPlayer
+>(
+  table: ITable<TPlayer>,
+  fixedHandsByPlayerIdx: Record<string, ICard[]> | undefined
+) => {
+  if (!fixedHandsByPlayerIdx) {
+    return null
+  }
+
+  const fixedHands = new Map<number, [ICard, ICard, ICard]>()
+  const usedCards = new Set<ICard>()
+  const playersByIdx = new Set(table.players.map((player) => player.idx))
+
+  for (const [playerIdxText, cards] of Object.entries(fixedHandsByPlayerIdx)) {
+    const playerIdx = Number(playerIdxText)
+    if (!Number.isInteger(playerIdx) || !playersByIdx.has(playerIdx)) {
+      throw new Error(`Invalid fixed hand player index: ${playerIdxText}`)
+    }
+
+    if (!Array.isArray(cards) || cards.length !== 3) {
+      throw new Error(`Fixed hand for player ${playerIdx} must contain exactly 3 cards`)
+    }
+
+    for (const card of cards) {
+      if (!(card in CARDS)) {
+        throw new Error(`Invalid fixed hand card: ${card}`)
+      }
+      if (usedCards.has(card)) {
+        throw new Error(`Duplicate fixed hand card: ${card}`)
+      }
+      usedCards.add(card)
+    }
+
+    fixedHands.set(playerIdx, cards as [ICard, ICard, ICard])
+  }
+
+  return fixedHands
+}
+
 export function dealCards<
   TPlayer extends { key: string; idx: number; setHand(h: Array<ICard>): void } = IPlayer
->(table: ITable<TPlayer>, deck: IDeck) {
+>(table: ITable<TPlayer>, deck: IDeck, fixedHandsByPlayerIdx?: Record<string, ICard[]>) {
   const cheat_lots_of_flowers = process.env.APP_CHEAT_LOTS_OF_FLOWERS_FOR_TESTING === "1"
   const cheat_cards = process.env.APP_CHEAT_CARDS || ""
   const playerHands: ICard[][] = []
   const players = table.getPlayersForehandFirst()
+  const fixedHands = normalizeFixedHands(table, fixedHandsByPlayerIdx)
+
+  if (fixedHands) {
+    for (const player of table.players) {
+      const fixedHand = fixedHands.get(player.idx)
+      playerHands[player.idx] = fixedHand
+        ? fixedHand.map((card) => deck.pick(card) || (() => {
+            throw new Error(`Fixed hand card is not available in deck: ${card}`)
+          })())
+        : deck.takeThree()
+    }
+
+    for (const player of table.players) {
+      player.setHand(playerHands[player.idx])
+    }
+    return
+  }
 
   for (let i = 0; i < 3; i++) {
     for (const player of players) {
@@ -83,8 +140,8 @@ export function dealCards<
     }
   }
 
-  for (const [key, player] of table.players.entries()) {
-    player.setHand(playerHands[key])
+  for (const player of table.players) {
+    player.setHand(playerHands[player.idx])
   }
 }
 

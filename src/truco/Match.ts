@@ -1,5 +1,5 @@
 import logger from "../utils/logger"
-import { IDeck, IHandPoints, ILobbyOptions, IPlayer, ITeam } from "../types"
+import { IDeck, IHandPoints, ILobbyOptions, IPlayer, ITeam, ITutorialRuntime } from "../types"
 
 import { Hand, IHand } from "./Hand"
 import { IPlayInstance } from "./Play"
@@ -9,6 +9,7 @@ const log = logger.child({ class: "Match" })
 
 export interface IMatch {
   readonly options: ILobbyOptions
+  readonly tutorial?: ITutorialRuntime
   id: string
   teams: [ITeam, ITeam]
   hands: Array<IHand>
@@ -154,7 +155,8 @@ export function Match(
   id: string,
   table: ITable,
   teams: Array<ITeam> = [],
-  options: ILobbyOptions
+  options: ILobbyOptions,
+  tutorial?: ITutorialRuntime
 ): IMatch {
   const size = teams[0].players.length
 
@@ -164,6 +166,7 @@ export function Match(
 
   const match: IMatch = {
     id,
+    tutorial,
     winner: null,
     deck: Deck(),
     options: structuredClone(options),

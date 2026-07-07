@@ -35,6 +35,8 @@ const ChatMessage = ({
   card,
   hidden,
   sound,
+  tutorial,
+  tutorialContext,
 }: Partial<IChatMessage> & Pick<IChatMessage, "user">): IChatMessage => {
   return {
     id: randomUUID(),
@@ -44,6 +46,8 @@ const ChatMessage = ({
     system: system ?? false,
     command: command ?? false,
     card: card ?? false,
+    tutorial: tutorial ?? false,
+    tutorialContext,
     sound: sound ?? false,
     hidden,
   }
@@ -94,6 +98,17 @@ const ChatRoom = (io: TrucoshiServer, id: string) => {
         content: `${command}`,
         command: true,
         sound,
+      })
+      room.messages.push(message)
+      room.emit(message)
+    },
+    tutorial(user, content, sound, tutorialContext) {
+      const message = ChatMessage({
+        user,
+        content,
+        sound,
+        tutorial: true,
+        tutorialContext,
       })
       room.messages.push(message)
       room.emit(message)

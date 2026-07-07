@@ -1,4 +1,4 @@
-import { GAME_ERROR, ILobbyOptions, IPlayer, ITeam } from "../types"
+import { GAME_ERROR, ILobbyOptions, IPlayer, ITeam, ITutorialRuntime } from "../types"
 import { ITable, Table } from "../lib"
 import { IQueue, Queue } from "../lib/classes/Queue"
 import { SocketError } from "../server"
@@ -38,6 +38,7 @@ export interface IPrivateLobby {
   hostName: string
   playersAtStart: number
   options: ILobbyOptions
+  tutorial?: ITutorialRuntime
   gameLoop?: IGameLoop
   lastTeamIdx: 0 | 1
   _players: Array<IPlayer | { name?: undefined; session?: undefined; teamIdx?: 0 | 1 }>
@@ -114,10 +115,12 @@ export interface ILobby extends Pick<
 export function Lobby(
   matchId: string,
   hostName: string,
-  options: Partial<ILobbyOptions> = {}
+  options: Partial<ILobbyOptions> = {},
+  tutorial?: ITutorialRuntime
 ): ILobby {
   const lobby: IPrivateLobby = {
     options: Object.assign(structuredClone(DEFAULT_LOBBY_OPTIONS), options),
+    tutorial,
     hostName,
     lastTeamIdx: 1,
     playersAtStart: 0,
@@ -289,7 +292,7 @@ const startLobbyMatch = (matchId: string, lobby: IPrivateLobby) => {
   }
 
   lobby.table = Table(matchId, lobby.players)
-  lobby.gameLoop = GameLoop(Match(matchId, lobby.table, lobby.teams, lobby.options))
+  lobby.gameLoop = GameLoop(Match(matchId, lobby.table, lobby.teams, lobby.options, lobby.tutorial))
 
   lobby.teams.forEach((team) => {
     if (team.players.length === 1) {

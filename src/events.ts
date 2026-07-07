@@ -118,6 +118,7 @@ export enum EClientEvent {
   LOGOUT = "LOGOUT",
   LEAVE_MATCH = "LEAVE_MATCH",
   CREATE_MATCH = "CREATE_MATCH",
+  CREATE_TUTORIAL_MATCH = "CREATE_TUTORIAL_MATCH",
   FETCH_ACCOUNT_DETAILS = "FETCH_ACCOUNT_DETAILS",
   FETCH_MATCH_DETAILS = "FETCH_MATCH_DETAILS",
   SET_MATCH_OPTIONS = "SET_MATCH_OPTIONS",
@@ -165,6 +166,10 @@ export interface ClientToServerEvents {
     callback?: IEventCallback<{ activeMatches?: IPublicMatchInfo[] }>
   ) => void
   [EClientEvent.CREATE_MATCH]: (
+    callback: IEventCallback<{ match?: IPublicMatch; activeMatches?: IPublicMatchInfo[] }>
+  ) => void
+  [EClientEvent.CREATE_TUTORIAL_MATCH]: (
+    tutorialId: string | null | undefined,
     callback: IEventCallback<{ match?: IPublicMatch; activeMatches?: IPublicMatchInfo[] }>
   ) => void
   [EClientEvent.SET_MATCH_OPTIONS]: (

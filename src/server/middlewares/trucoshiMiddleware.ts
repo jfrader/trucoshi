@@ -472,6 +472,35 @@ export const trucoshiMiddleware = (server: ITrucoshi) => {
     })
 
     /**
+     * Create Tutorial Match
+     */
+    socket.on(EClientEvent.CREATE_TUTORIAL_MATCH, async (tutorialId, callback) => {
+      try {
+        if (!socket.data.user) {
+          throw new Error("Attempted to create a tutorial match without a session")
+        }
+        const userSession = server.sessions.getOrThrow(socket.data.user.session)
+
+        if (!userSession) {
+          throw new Error("Attempted to create a tutorial match without a user")
+        }
+
+        log.trace(userSession.getPublicInfo(), "User creating tutorial match...")
+
+        const table = await server.createTutorialMatch({ userSession, socket, tutorialId })
+
+        return callback({
+          success: true,
+          match: table.getPublicMatch(userSession.session),
+          activeMatches: server.getSessionActiveMatches(userSession.session),
+        })
+      } catch (e) {
+        log.error(e)
+        return callback({ success: false, error: isSocketError(e) })
+      }
+    })
+
+    /**
      * Set Match Options
      */
     socket.on(EClientEvent.SET_MATCH_OPTIONS, async (matchSessionId, options, callback) => {

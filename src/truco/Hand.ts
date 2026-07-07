@@ -321,7 +321,7 @@ export function Hand(match: IMatch, idx: number) {
 
       match.deck.shuffle(match.table.getPlayerByPosition(0, true).idx)
 
-      dealCards(match.table, match.deck)
+      dealCards(match.table, match.deck, match.tutorial?.scenario.hands[idx - 1]?.cardsByPlayerIdx)
 
       const { secret, clients: clientSecrets } = match.deck.random.reveal()
 

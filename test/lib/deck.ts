@@ -190,6 +190,32 @@ describe("Trucoshi Deck", () => {
     expect(deck.cards).to.have.lengthOf(28) // 40 - 12
   })
 
+  it("should deal fixed tutorial cards by player index", () => {
+    dealCards(table, deck, {
+      "0": ["7o", "6o", "1o"],
+      "1": ["4e", "5b", "rc"],
+      "2": ["1e", "7e", "3b"],
+      "3": ["4c", "5o", "6b"],
+    })
+
+    expect(player1.hand).to.deep.equal(["7o", "6o", "1o"])
+    expect(player1.hasFlor).to.be.true
+    expect(player2.hand).to.deep.equal(["4e", "5b", "rc"])
+    expect(player3.hand).to.deep.equal(["1e", "7e", "3b"])
+    expect(player4.hand).to.deep.equal(["4c", "5o", "6b"])
+    expect(deck.usedCards).to.have.lengthOf(12)
+    expect(deck.cards).to.not.include.members(player1.hand)
+  })
+
+  it("should reject invalid fixed tutorial cards", () => {
+    expect(() =>
+      dealCards(table, deck, {
+        "0": ["7o", "6o", "1o"],
+        "1": ["7o", "5b", "rc"],
+      })
+    ).to.throw("Duplicate fixed hand card: 7o")
+  })
+
   it("should deal specific cards with APP_CHEAT_CARDS", () => {
     process.env.APP_CHEAT_CARDS = JSON.stringify([
       ["7c", "6c", "5c"], // player1

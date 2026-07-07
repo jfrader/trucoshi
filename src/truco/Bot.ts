@@ -62,7 +62,7 @@ interface BotPersonality {
   patience: number
 }
 
-export const BOT_NAMES = [
+export const NORMAL_BOT_NAMES = [
   "Botillo",
   "Hal",
   "Sektor",
@@ -78,6 +78,11 @@ export const BOT_NAMES = [
   "Smith",
   "Neo",
   "Trinity",
+] as const
+
+export const BOT_NAMES = [
+  ...NORMAL_BOT_NAMES,
+  "ProfeTruco",
 ] as const
 
 export type BotProfile = (typeof BOT_NAMES)[number]
@@ -202,6 +207,14 @@ const PERSONALITY_PROFILES: Record<BotProfile, BotPersonality> = {
     envidoConfidence: 0.4,
     riskTolerance: 0.4,
     patience: 0.6,
+  },
+  ProfeTruco: {
+    aggression: 0.4,
+    bluffing: 0.1,
+    caution: 0.8,
+    envidoConfidence: 0.7,
+    riskTolerance: 0.35,
+    patience: 0.2,
   },
 }
 

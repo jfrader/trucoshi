@@ -65,6 +65,7 @@
   "files": [
     "dist/lib/*",
     "dist/cosmetics/*",
+    "dist/tutorials/*",
     "dist/types.js",
     "dist/types.d.ts",
     "dist/events.js",

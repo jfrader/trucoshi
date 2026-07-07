@@ -150,6 +150,37 @@ describe("Socket Server", () => {
       clients[0].emit(EClientEvent.PING, 123)
     })
 
+    it("should create a tutorial match with huge turn timers", async () => {
+      const tutorialClient: Socket<ServerToClientEvents, ClientToServerEvents> = Client(
+        `http://localhost:${process.env.APP_PORT || 9999}`,
+        {
+          withCredentials: true,
+          auth: { name: "tutorial-player", session: "tutorial-player" },
+        }
+      )
+
+      try {
+        await new Promise<void>((resolve, reject) => {
+          tutorialClient.emit(
+            EClientEvent.CREATE_TUTORIAL_MATCH,
+            null,
+            ({ success, match, error }) => {
+              if (!success || !match) {
+                return reject(handleError(error, "Failed to create tutorial match"))
+              }
+
+              expect(match.tutorial?.id).to.equal("basic-truco-v1")
+              expect(match.options.turnTime).to.equal(24 * 60 * 60 * 1000)
+              expect(match.options.abandonTime).to.equal(24 * 60 * 60 * 1000)
+              resolve()
+            }
+          )
+        })
+      } finally {
+        tutorialClient.close()
+      }
+    })
+
     it("should match two queued humans", async () => {
       const player0Match = waitForQueueMatch(clients[0])
       const player1Match = waitForQueueMatch(clients[1])

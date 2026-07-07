@@ -9,6 +9,7 @@ import {
   IPlayer,
   IPublicMatch,
   IPublicMatchInfo,
+  ITutorialRuntime,
 } from "../../types"
 import { IUserSession } from "./UserSession"
 import logger from "../../utils/logger"
@@ -19,6 +20,8 @@ export interface IMatchTable {
   ownerSession: string
   matchSessionId: string
   createdFromQueue: boolean
+  isPrivate: boolean
+  tutorial?: ITutorialRuntime
   queueOptionsBySession: Map<string, IJoinQueueOptions>
   lobby: ILobby
   busy: boolean
@@ -44,17 +47,24 @@ export interface IMatchTable {
 export function MatchTable(
   matchSessionId: string,
   ownerSession: IUserSession,
-  options: Partial<ILobbyOptions> & { createdFromQueue?: boolean } = {}
+  options: Partial<ILobbyOptions> & {
+    createdFromQueue?: boolean
+    isPrivate?: boolean
+    tutorial?: ITutorialRuntime
+  } = {}
 ) {
   const matchLog = logger.child({ matchSessionId })
+  const { createdFromQueue, isPrivate, tutorial, ...lobbyOptions } = options
 
   const table: IMatchTable = {
     ownerSession: ownerSession.session,
     matchSessionId,
-    createdFromQueue: Boolean(options.createdFromQueue),
+    createdFromQueue: Boolean(createdFromQueue),
+    isPrivate: Boolean(isPrivate),
+    tutorial,
     queueOptionsBySession: new Map(),
     busy: false,
-    lobby: Lobby(matchSessionId, ownerSession.name, options),
+    lobby: Lobby(matchSessionId, ownerSession.name, lobbyOptions, tutorial),
     awardedSatsPerPlayer: 0,
     playerSockets: [],
     spectatorSockets: [],
@@ -121,6 +131,7 @@ export function MatchTable(
         winnerTeamIdx: gameLoop?.winner?.id,
         createdFromQueue: table.createdFromQueue,
         queueOptions: session ? table.queueOptionsBySession.get(session) : undefined,
+        isTutorial: Boolean(table.tutorial),
       }
     },
     getHandRounds(hand) {
@@ -223,6 +234,14 @@ const getPublicMatch = (
     lastCommand: gameLoop?.lastCommand,
     lastCard: gameLoop?.lastCard,
     awardedSatsPerPlayer: currentPlayerIdx !== -1 ? table.awardedSatsPerPlayer : undefined,
+    tutorial: table.tutorial
+        ? {
+          id: table.tutorial.scenario.id,
+          title: table.tutorial.scenario.title,
+          botKey: players.find((player) => player.bot === table.tutorial?.scenario.botProfile)?.key || "",
+          inputLocked: table.tutorial.inputLocked,
+        }
+      : undefined,
     freshHand,
     ownerKey: players.find((p) => p.session === table.ownerSession)?.key || "",
     rounds,

@@ -66,6 +66,63 @@ export interface ILobbyOptions {
   satsPerPlayer: number
 }
 
+export type TutorialScenarioId = "basic-truco-v1" | string
+
+export type ITutorialMessageTrigger =
+  | "hand_start"
+  | "before_human_turn"
+  | "after_human_action"
+  | "before_bot_action"
+  | "after_bot_action"
+  | "hand_end"
+
+export interface ITutorialMessage {
+  trigger: ITutorialMessageTrigger
+  text: string
+  roundIdx?: number
+  state?: EHandState
+  playerIdx?: number
+  actionValue?: ECommand | ICard | number
+}
+
+export interface ITutorialBotAction {
+  trigger: Extract<ITutorialMessageTrigger, "before_bot_action">
+  roundIdx?: number
+  state?: EHandState
+  playerIdx?: number
+  action: {
+    type: "card" | "command"
+    value: ICard | ECommand | number
+  }
+}
+
+export interface ITutorialHand {
+  goal: string
+  cardsByPlayerIdx: Record<string, [ICard, ICard, ICard]>
+  messages: ITutorialMessage[]
+  botActions: ITutorialBotAction[]
+}
+
+export interface ITutorialScenario {
+  id: TutorialScenarioId
+  title: string
+  botProfile: BotProfile
+  botName: string
+  options: Pick<ILobbyOptions, "maxPlayers" | "matchPoint" | "flor" | "satsPerPlayer"> &
+    Partial<Omit<ILobbyOptions, "maxPlayers" | "matchPoint" | "flor" | "satsPerPlayer">>
+  hands: ITutorialHand[]
+}
+
+export interface ITutorialRuntime {
+  scenario: ITutorialScenario
+  sentMessageKeys: Set<string>
+  executedActionKeys: Set<string>
+  messageQueue: Promise<void>
+  hasQueuedMessage: boolean
+  inputLocked: boolean
+  messageGeneration: number
+}
+
 export interface IJoinQueueOptions {
   maxPlayers: 0 | 2 | 4 | 6
   allowBots: boolean
@@ -166,6 +223,7 @@ export interface IPublicMatch {
   lastCard?: ICard | null
   lastCommand?: ECommand | number | null
   awardedSatsPerPlayer?: number
+  tutorial?: { id: TutorialScenarioId; title: string; botKey: string; inputLocked?: boolean }
 }
 
 export interface IPublicMatchStats {
@@ -181,6 +239,7 @@ export interface IPublicMatchInfo {
   winnerTeamIdx: 0 | 1 | undefined
   createdFromQueue: boolean
   queueOptions?: IJoinQueueOptions
+  isTutorial?: boolean
 }
 
 export type IPublicChatRoom = Pick<IChatRoom, "id" | "messages">
@@ -192,6 +251,8 @@ export interface IChatMessage {
   hidden?: boolean
   command?: boolean
   card?: boolean
+  tutorial?: boolean
+  tutorialContext?: string
   content: string
   sound: string | boolean
 }
@@ -205,6 +266,12 @@ export interface IChatRoom {
   send(user: IChatMessage["user"], message: string, sound?: string | boolean): void
   card(user: IChatMessage["user"], card: ICard, sound?: string | boolean): void
   command(team: 0 | 1, command: ECommand | number, sound?: string | boolean): void
+  tutorial(
+    user: IChatMessage["user"],
+    message: string,
+    sound?: string | boolean,
+    tutorialContext?: string
+  ): void
   system(message: string, sound?: string | boolean): void
   sound(sound: string, toTeamIdx?: "0" | "1", fromUser?: IChatMessage["user"]): void
   emit(message?: IChatMessage, teamIdxs?: string): void
