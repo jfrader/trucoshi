@@ -83,6 +83,10 @@ export interface ITutorialMessage {
   state?: EHandState
   playerIdx?: number
   actionValue?: ECommand | ICard | number
+  roundComplete?: boolean
+  roundCardCount?: number
+  requiresHandCards?: ICard[]
+  requiresRoundCards?: ICard[]
 }
 
 export interface ITutorialBotAction {

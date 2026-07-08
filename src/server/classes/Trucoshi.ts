@@ -30,11 +30,7 @@ import {
   IQueueProposalParticipant,
   IQueueReadyUpdate,
   IQueueStatus,
-  IChatMessage,
-  IChatRoom,
   ITeam,
-  ITutorialBotAction,
-  ITutorialMessageTrigger,
   ITutorialRuntime,
   TutorialScenarioId,
   ITrucoshiStats,
@@ -70,7 +66,7 @@ import { IInventoryService, InventoryService } from "../services/InventoryServic
 import { getTreasureEligibleAccountIds } from "../services/TreasureEligibility"
 import { ITreasureService, TreasureService } from "../services/TreasureService"
 import { AdminService, IAdminService } from "../services/AdminService"
-import { DEFAULT_TUTORIAL_SCENARIO_ID, getTutorialScenario } from "../../tutorials"
+import { Tutorial } from "./Tutorial"
 
 const log = logger.child({ class: "Trucoshi" })
 
@@ -80,15 +76,8 @@ const QUEUE_BOT_FALLBACK_TIMEOUT = 10000
 const QUEUE_READY_TIMEOUT = 30000
 const QUEUE_START_COUNTDOWN = 3000
 const MATCH_QUEUE_SIZES = [2, 4, 6] as const
-const TUTORIAL_TURN_TIMEOUT_MS = 24 * 60 * 60 * 1000
-const TUTORIAL_INITIAL_MESSAGE_DELAY_MS = 350
-const TUTORIAL_MESSAGE_GAP_MS = 2600
-const TUTORIAL_POST_ACTION_PAUSE_MS = 900
-const TUTORIAL_BOT_RESPONSE_DELAY_MS = 1500
 type MatchQueueSize = (typeof MATCH_QUEUE_SIZES)[number]
 type QueueRequestSize = 0 | MatchQueueSize
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 interface IMatchQueueEntry {
   requestId: string
@@ -399,337 +388,6 @@ export interface ITrucoshi {
     callback: (io: TrucoshiServer) => void,
     options?: { redis?: boolean; lightningAccounts?: boolean; store?: boolean }
   ) => Promise<TrucoshiServer>
-}
-
-const getTutorialBot = (table: IMatchTable): IPlayer | null => {
-  const profile = table.tutorial?.scenario.botProfile
-  if (!profile) {
-    return null
-  }
-  return table.lobby.players.find((player) => player.bot === profile) || null
-}
-
-const matchesTutorialStep = (
-  step: {
-    trigger: ITutorialMessageTrigger
-    roundIdx?: number
-    state?: EHandState
-    playerIdx?: number
-    actionValue?: ECommand | ICard | number
-  },
-  input: {
-    trigger: ITutorialMessageTrigger
-    play?: IPlayInstance
-    actionValue?: ECommand | ICard | number
-  }
-) => {
-  if (step.trigger !== input.trigger) {
-    return false
-  }
-  if (step.roundIdx !== undefined && step.roundIdx !== input.play?.roundIdx) {
-    return false
-  }
-  if (step.state !== undefined && step.state !== input.play?.state) {
-    return false
-  }
-  if (step.playerIdx !== undefined && step.playerIdx !== input.play?.player?.idx) {
-    return false
-  }
-  if (step.actionValue !== undefined && step.actionValue !== input.actionValue) {
-    return false
-  }
-  return true
-}
-
-const enqueueTutorialMessage = (
-  runtime: ITutorialRuntime,
-  chat: IChatRoom,
-  user: IChatMessage["user"],
-  message: string,
-  trigger: ITutorialMessageTrigger,
-  messageGeneration: number,
-  tutorialContext: string
-) => {
-  const delay = runtime.hasQueuedMessage
-    ? TUTORIAL_MESSAGE_GAP_MS
-    : TUTORIAL_INITIAL_MESSAGE_DELAY_MS
-  runtime.hasQueuedMessage = true
-  runtime.messageQueue = runtime.messageQueue
-    .then(async () => {
-      if (runtime.messageGeneration !== messageGeneration) {
-        return
-      }
-      await sleep(delay)
-      if (runtime.messageGeneration !== messageGeneration) {
-        return
-      }
-      chat.tutorial(user, message, "botvoice", tutorialContext)
-      if (trigger === "after_bot_action" || trigger === "after_human_action") {
-        await sleep(TUTORIAL_POST_ACTION_PAUSE_MS)
-      }
-    })
-    .catch((e) => {
-      log.warn({ message: (e as Error)?.message }, "Tutorial message queue failed")
-    })
-
-  return runtime.messageQueue
-}
-
-const getTutorialMessageContext = (
-  trigger: ITutorialMessageTrigger,
-  play?: IPlayInstance,
-  handIdx = play?.handIdx,
-  actionValue?: ECommand | ICard | number
-) =>
-  [
-    handIdx || "match",
-    play?.roundIdx || 0,
-    play?.state || "none",
-    play?.player?.idx ?? "none",
-    trigger,
-    actionValue ?? "none",
-  ].join(":")
-
-const advanceTutorialMessageGeneration = (runtime: ITutorialRuntime) => {
-  runtime.messageGeneration += 1
-  runtime.hasQueuedMessage = false
-  runtime.messageQueue = Promise.resolve()
-  return runtime.messageGeneration
-}
-
-const emitTutorialMessages = async (
-  server: ITrucoshi,
-  table: IMatchTable,
-  trigger: ITutorialMessageTrigger,
-  play?: IPlayInstance,
-  actionValue?: ECommand | ICard | number,
-  handIdx = play?.handIdx,
-  messageGeneration = table.tutorial?.messageGeneration
-) => {
-  const runtime = table.tutorial
-  if (!runtime || !handIdx || messageGeneration === undefined) {
-    return
-  }
-
-  const hand = runtime.scenario.hands[handIdx - 1]
-  const bot = getTutorialBot(table)
-  const chat = server.chat.rooms.get(table.matchSessionId)
-  if (!hand || !bot || !chat) {
-    return
-  }
-
-  hand.messages.forEach((message, messageIdx) => {
-    const messageKey = `${handIdx}:${messageIdx}`
-    if (runtime.sentMessageKeys.has(messageKey)) {
-      return
-    }
-    if (!matchesTutorialStep(message, { trigger, play, actionValue })) {
-      return
-    }
-
-    runtime.sentMessageKeys.add(messageKey)
-    const tutorialContext = getTutorialMessageContext(trigger, play, handIdx, actionValue)
-    enqueueTutorialMessage(
-      runtime,
-      chat,
-      { name: bot.name, key: bot.key, teamIdx: bot.teamIdx },
-      message.text,
-      trigger,
-      messageGeneration,
-      tutorialContext
-    )
-  })
-
-  await runtime.messageQueue
-}
-
-const setTutorialInputLocked = async (
-  server: ITrucoshi,
-  table: IMatchTable,
-  inputLocked: boolean
-) => {
-  if (!table.tutorial || table.tutorial.inputLocked === inputLocked) {
-    return
-  }
-  table.tutorial.inputLocked = inputLocked
-  await server.emitMatchUpdate(table)
-}
-
-const emitTutorialHumanDecisionIntro = async (
-  server: ITrucoshi,
-  table: IMatchTable,
-  play: IPlayInstance
-) => {
-  if (!table.tutorial) {
-    return
-  }
-
-  await setTutorialInputLocked(server, table, true)
-  const messageGeneration = advanceTutorialMessageGeneration(table.tutorial)
-  await emitTutorialMessages(server, table, "hand_start", play, undefined, undefined, messageGeneration)
-  await emitTutorialMessages(
-    server,
-    table,
-    "before_human_turn",
-    play,
-    undefined,
-    undefined,
-    messageGeneration
-  )
-  table.tutorial.inputLocked = false
-}
-
-const emitTutorialMatchEndMessage = (table: IMatchTable, chat: IChatRoom, winner: ITeam) => {
-  if (!table.tutorial) {
-    return
-  }
-
-  const bot = getTutorialBot(table)
-  if (!bot) {
-    return
-  }
-
-  const humanWon = winner.players.some((player) => !player.bot && !player.abandoned)
-  const content = humanWon
-    ? "Felicitaciones, me ganaste. Ya podes jugar partidas reales."
-    : "Buen intento. Ya tenes la base: volve a probar y me ganas la proxima."
-
-  chat.tutorial(
-    { name: bot.name, key: bot.key, teamIdx: bot.teamIdx },
-    content,
-    "botvoice",
-    `match:end:${humanWon ? "win" : "loss"}`
-  )
-}
-
-const getMatchingTutorialBotActions = (
-  table: IMatchTable,
-  play: IPlayInstance
-): Array<{ key: string; action: ITutorialBotAction }> => {
-  const runtime = table.tutorial
-  if (!runtime) {
-    return []
-  }
-
-  const hand = runtime.scenario.hands[play.handIdx - 1]
-  if (!hand) {
-    return []
-  }
-
-  return hand.botActions
-    .map((action, actionIdx) => ({ key: `${play.handIdx}:bot:${actionIdx}`, action }))
-    .filter(({ key, action }) => {
-      if (runtime.executedActionKeys.has(key)) {
-        return false
-      }
-      return matchesTutorialStep(action, { trigger: "before_bot_action", play })
-    })
-}
-
-const tryTutorialBotAction = async (
-  table: IMatchTable,
-  play: IPlayInstance,
-  action: ITutorialBotAction,
-  playCard: ITrucoshi["playCard"],
-  sayCommand: ITrucoshi["sayCommand"]
-) => {
-  const player = play.player
-  if (!player) {
-    return false
-  }
-
-  if (action.action.type === "card") {
-    const card = action.action.value as ICard
-    const cardIdx = player.hand.findIndex((current) => current === card)
-    if (cardIdx === -1 || play.state !== EHandState.WAITING_PLAY) {
-      return false
-    }
-    await playCard({ table, play, player, cardIdx, card })
-    return true
-  }
-
-  const command = action.action.value as ECommand | number
-  if (typeof command === "number") {
-    if (play.state !== EHandState.WAITING_ENVIDO_POINTS_ANSWER) {
-      return false
-    }
-  } else if (!player.commands.includes(command)) {
-    return false
-  }
-  await sayCommand({ table, play, player, command })
-  return true
-}
-
-const playTutorialBotFallback = async (
-  table: IMatchTable,
-  play: IPlayInstance,
-  playCard: ITrucoshi["playCard"],
-  sayCommand: ITrucoshi["sayCommand"]
-) => {
-  const player = play.player
-  if (!player) {
-    return
-  }
-
-  if (play.state === EHandState.WAITING_PLAY && player.hand.length) {
-    const [cardIdx, card] = player.getLowestCard()
-    await playCard({ table, play, player, cardIdx, card })
-    return
-  }
-
-  if (play.state === EHandState.WAITING_ENVIDO_POINTS_ANSWER) {
-    await sayCommand({ table, play, player, command: player.getHighestEnvido() || 0 })
-    return
-  }
-
-  const preferredCommands: Array<ECommand> = [
-    EAnswerCommand.QUIERO,
-    EEnvidoAnswerCommand.SON_BUENAS,
-    EFlorCommand.FLOR,
-    ESayCommand.PASO,
-    EAnswerCommand.NO_QUIERO,
-    ESayCommand.MAZO,
-  ]
-  const command = preferredCommands.find((candidate) => player.commands.includes(candidate))
-  if (command) {
-    await sayCommand({ table, play, player, command })
-  }
-}
-
-const playTutorialBot = async (
-  server: ITrucoshi,
-  table: IMatchTable,
-  play: IPlayInstance,
-  playCard: ITrucoshi["playCard"],
-  sayCommand: ITrucoshi["sayCommand"]
-) => {
-  void emitTutorialMessages(server, table, "hand_start", play)
-  await emitTutorialMessages(server, table, "before_bot_action", play)
-  await sleep(TUTORIAL_BOT_RESPONSE_DELAY_MS)
-
-  const runtime = table.tutorial
-  if (!runtime) {
-    return playTutorialBotFallback(table, play, playCard, sayCommand)
-  }
-
-  for (const { key, action } of getMatchingTutorialBotActions(table, play)) {
-    try {
-      const didAct = await tryTutorialBotAction(table, play, action, playCard, sayCommand)
-      if (didAct) {
-        runtime.executedActionKeys.add(key)
-        void emitTutorialMessages(server, table, "after_bot_action", play, action.action.value)
-        return
-      }
-    } catch (e) {
-      table.log.warn(
-        { message: (e as Error)?.message, action },
-        "Tutorial bot action failed, falling back"
-      )
-    }
-  }
-
-  await playTutorialBotFallback(table, play, playCard, sayCommand)
-  void emitTutorialMessages(server, table, "after_bot_action", play)
 }
 
 export const Trucoshi = ({
@@ -1936,7 +1594,7 @@ export const Trucoshi = ({
       return new Promise<void>((resolve, reject) => {
         if (command || command === 0) {
           const hand = play.getHand()
-          if (!play.waitingPlay || (matchTable.tutorial?.inputLocked && !player.bot)) {
+          if (!play.waitingPlay || Tutorial.isHumanInputLocked(matchTable, player)) {
             matchTable.log.trace(
               {
                 matchSessionId: matchTable.matchSessionId,
@@ -1977,7 +1635,7 @@ export const Trucoshi = ({
               )
 
             if (matchTable.tutorial && !player.bot) {
-              void emitTutorialMessages(
+              void Tutorial.emitMessages(
                 server,
                 matchTable,
                 "after_human_action",
@@ -2016,7 +1674,7 @@ export const Trucoshi = ({
           const hand = play.getHand()
           if (
             !play.waitingPlay ||
-            (matchTable.tutorial?.inputLocked && !player.bot) ||
+            Tutorial.isHumanInputLocked(matchTable, player) ||
             hand.state !== EHandState.WAITING_PLAY ||
             play.player?.key !== player.key
           ) {
@@ -2052,7 +1710,7 @@ export const Trucoshi = ({
 
             server.chat.rooms.getOrThrow(matchTable.matchSessionId).card(player, playedCard, sound)
             if (matchTable.tutorial && !player.bot) {
-              void emitTutorialMessages(server, matchTable, "after_human_action", play, playedCard)
+              void Tutorial.emitMessages(server, matchTable, "after_human_action", play, playedCard)
             }
             return server.resetSocketsMatchState(matchTable).then(resolve).catch(reject)
           }
@@ -2190,7 +1848,7 @@ export const Trucoshi = ({
 
         const turn = () =>
           (table.tutorial
-            ? playTutorialBot(server, table, play, guardedPlayCard, guardedSayCommand)
+            ? Tutorial.playBot(server, table, play, guardedPlayCard, guardedSayCommand)
             : player.playBot(table.lobby.table!, play, guardedPlayCard, guardedSayCommand))
             .then(() => resolveOnce())
             .catch((e) => {
@@ -2749,7 +2407,7 @@ export const Trucoshi = ({
 
         const chat = server.chat.rooms.getOrThrow(table.matchSessionId)
         chat.system(`${winner.name} es el equipo ganador!`)
-        emitTutorialMatchEndMessage(table, chat, winner)
+        Tutorial.emitMatchEndMessage(table, chat, winner)
 
         const winnerIdx = winner.id.toString() as "0" | "1"
         const loserIdx = getOpponentTeam(winner).toString() as "0" | "1"
@@ -2855,72 +2513,7 @@ export const Trucoshi = ({
       socket,
       tutorialId,
     }) {
-      const scenarioId = tutorialId ?? DEFAULT_TUTORIAL_SCENARIO_ID
-      const existingTable = server.tables.find(
-        (table) =>
-          table.tutorial?.scenario.id === scenarioId &&
-          table.state() !== EMatchState.FINISHED &&
-          Boolean(table.isSessionPlaying(userSession.session))
-      )
-
-      if (existingTable) {
-        socket.join(existingTable.matchSessionId)
-        socket.data.matches?.add(existingTable.matchSessionId)
-        await server.emitMatchUpdate(existingTable)
-        return existingTable
-      }
-
-      const scenario = getTutorialScenario(scenarioId)
-      const tutorial: ITutorialRuntime = {
-        scenario,
-        sentMessageKeys: new Set(),
-        executedActionKeys: new Set(),
-        messageQueue: Promise.resolve(),
-        hasQueuedMessage: false,
-        inputLocked: false,
-        messageGeneration: 0,
-      }
-
-      const table = await server.createMatchTable(userSession, socket, {
-        ...scenario.options,
-        turnTime: TUTORIAL_TURN_TIMEOUT_MS,
-        abandonTime: TUTORIAL_TURN_TIMEOUT_MS,
-        isPrivate: true,
-        tutorial,
-      })
-
-      const bot = await table.lobby.addPlayer({
-        key: randomUUID(),
-        name: scenario.botName,
-        session: randomUUID(),
-        isOwner: false,
-        bot: scenario.botProfile,
-        teamIdx: 1,
-      })
-
-      const botSession = UserSession(bot.key, bot.name, bot.session)
-      server.sessions.set(bot.session, botSession)
-
-      await server.setMatchPlayerReady({
-        matchSessionId: table.matchSessionId,
-        ready: true,
-        userSession,
-        emitChat: false,
-      })
-      await server.setMatchPlayerReady({
-        matchSessionId: table.matchSessionId,
-        ready: true,
-        userSession: botSession,
-        emitChat: false,
-      })
-
-      await server.startMatch({
-        identityJwt: socket.data.identity || null,
-        matchSessionId: table.matchSessionId,
-        userSession,
-      })
-
-      return table
+      return Tutorial.createMatch(server, { userSession, socket, tutorialId })
     },
     async addBot(table, userSession, teamIdx) {
       if (table.busy || table.lobby.options.satsPerPlayer > 0) {
@@ -3745,7 +3338,7 @@ export const Trucoshi = ({
         })
         .onHandFinished(async (hand) => {
           if (hand) {
-            void emitTutorialMessages(server, table, "hand_end", undefined, undefined, hand.idx)
+            void Tutorial.emitMessages(server, table, "hand_end", undefined, undefined, hand.idx)
           }
 
           if (server.store && hand) {
@@ -3801,21 +3394,21 @@ export const Trucoshi = ({
             }
           }
 
-          await emitTutorialHumanDecisionIntro(server, table, play)
+          await Tutorial.emitHumanDecisionIntro(server, table, play)
 
           return server.onTurn(table, play)
         })
         .onBotTurn(server.onBotTurn.bind(null, table))
         .onEnvido(async (play, isPointsRound) => {
-          await emitTutorialHumanDecisionIntro(server, table, play)
+          await Tutorial.emitHumanDecisionIntro(server, table, play)
           return server.onEnvido(table, play, isPointsRound)
         })
         .onTruco(async (play) => {
-          await emitTutorialHumanDecisionIntro(server, table, play)
+          await Tutorial.emitHumanDecisionIntro(server, table, play)
           return server.onTruco(table, play)
         })
         .onFlor(async (play) => {
-          await emitTutorialHumanDecisionIntro(server, table, play)
+          await Tutorial.emitHumanDecisionIntro(server, table, play)
           return server.onFlor(table, play)
         })
         .onFlorBattle(server.onFlorBattle.bind(null, table))
