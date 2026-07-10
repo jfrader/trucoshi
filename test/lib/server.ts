@@ -392,7 +392,7 @@ describe("Socket Server", () => {
       expect(match2.filledWithBots).to.equal(false)
     })
 
-    it("should keep same-session devices attached to one queue entry", async () => {
+    it("should restore an existing queue for another device on the same session", async () => {
       const sharedA = Client(`http://localhost:${process.env.APP_PORT || 9999}`, {
         autoConnect: false,
         withCredentials: true,
@@ -425,7 +425,7 @@ describe("Socket Server", () => {
         const sharedBMatch = waitForQueueMatch(sharedB as Socket<ServerToClientEvents, ClientToServerEvents>)
         const opponentMatch = waitForQueueMatch(clients[0])
         let firstQueuedAt = 0
-        let secondQueuedAt = 0
+        let restoredQueueStatus: Awaited<ReturnType<typeof server.fetchQueueStatus>>
 
         await new Promise<void>((resolve, reject) => {
           sharedA.emit(EClientEvent.JOIN_QUEUE, { maxPlayers: 2, allowBots: true }, ({ success, status, error }) => {
@@ -436,14 +436,16 @@ describe("Socket Server", () => {
         })
 
         await new Promise<void>((resolve, reject) => {
-          sharedB.emit(EClientEvent.JOIN_QUEUE, { maxPlayers: 2, allowBots: true }, ({ success, status, error }) => {
-            secondQueuedAt = status?.queuedAt || 0
+          sharedB.emit(EClientEvent.FETCH_QUEUE_STATUS, ({ success, status, error }) => {
+            restoredQueueStatus = status
             if (success) return resolve()
-            reject(handleError(error, "Shared device B failed to rejoin queue"))
+            reject(handleError(error, "Shared device B failed to restore its queue"))
           })
         })
 
-        expect(secondQueuedAt).to.equal(firstQueuedAt)
+        expect(restoredQueueStatus?.queuedAt).to.equal(firstQueuedAt)
+        expect(restoredQueueStatus?.maxPlayers).to.equal(2)
+        expect(restoredQueueStatus?.allowBots).to.equal(true)
 
         await new Promise<void>((resolve, reject) => {
           clients[0].emit(EClientEvent.JOIN_QUEUE, { maxPlayers: 2, allowBots: false }, ({ success, error }) => {

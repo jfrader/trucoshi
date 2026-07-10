@@ -231,6 +231,10 @@ export interface ITrucoshi {
     userSession: IUserSession
     options: IJoinQueueOptions
   }): Promise<IQueueStatus | undefined>
+  fetchQueueStatus(input: {
+    socket: TrucoshiSocket
+    userSession: IUserSession
+  }): IQueueStatus | undefined
   leaveQueue(userSession: IUserSession): Promise<void>
   removeQueueEntry(queueKey: string): IMatchQueueEntry | undefined
   emitQueueStatuses(maxPlayers?: QueueRequestSize): void
@@ -528,6 +532,13 @@ export const Trucoshi = ({
         return current ? server.getQueueStatus(current) : undefined
       })
     },
+    fetchQueueStatus({ socket, userSession }) {
+      const entry = server.matchQueue.get(getQueueKey(userSession))
+      if (entry) {
+        entry.socket = socket
+      }
+      return entry ? server.getQueueStatus(entry) : undefined
+    },
     async leaveQueue(userSession) {
       return server.matchmakingQueue.queue(async () => {
         const removed = server.removeQueueEntry(getQueueKey(userSession))
@@ -564,6 +575,7 @@ export const Trucoshi = ({
       return {
         requestId: entry.requestId,
         maxPlayers: entry.maxPlayers,
+        allowBots: entry.allowBots,
         queuedPlayers: entries.length,
         requiredPlayers: entry.maxPlayers || MATCH_QUEUE_SIZES[0],
         position: Math.max(

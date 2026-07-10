@@ -135,6 +135,7 @@ export interface IJoinQueueOptions {
 export interface IQueueStatus {
   requestId: string
   maxPlayers: 0 | 2 | 4 | 6
+  allowBots: boolean
   queuedPlayers: number
   requiredPlayers: number
   position: number

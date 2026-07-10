@@ -119,6 +119,16 @@ export const trucoshiMiddleware = (server: ITrucoshi) => {
       }
     })
 
+    socket.on(EClientEvent.FETCH_QUEUE_STATUS, (callback) => {
+      try {
+        const userSession = server.sessions.getOrThrow(socket.data.user?.session)
+        callback({ success: true, status: server.fetchQueueStatus({ socket, userSession }) })
+      } catch (e) {
+        log.error(e, "Client event FETCH_QUEUE_STATUS error")
+        callback({ success: false, error: isSocketError(e) })
+      }
+    })
+
     /**
      * Leave matchmaking queue
      */

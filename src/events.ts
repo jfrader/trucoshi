@@ -130,6 +130,7 @@ export enum EClientEvent {
   PAUSE_MATCH = "PAUSE_MATCH",
   PLAY_AGAIN = "PLAY_AGAIN",
   JOIN_QUEUE = "JOIN_QUEUE",
+  FETCH_QUEUE_STATUS = "FETCH_QUEUE_STATUS",
   LEAVE_QUEUE = "LEAVE_QUEUE",
   CONFIRM_QUEUE_MATCH = "CONFIRM_QUEUE_MATCH",
   DECLINE_QUEUE_MATCH = "DECLINE_QUEUE_MATCH",
@@ -214,6 +215,9 @@ export interface ClientToServerEvents {
   ) => void
   [EClientEvent.JOIN_QUEUE]: (
     options: IJoinQueueOptions,
+    callback: IEventCallback<{ status?: IQueueStatus }>
+  ) => void
+  [EClientEvent.FETCH_QUEUE_STATUS]: (
     callback: IEventCallback<{ status?: IQueueStatus }>
   ) => void
   [EClientEvent.LEAVE_QUEUE]: (callback?: IEventCallback<{}>) => void
