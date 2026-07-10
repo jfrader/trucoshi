@@ -8,12 +8,32 @@ TRUCOSHI_CLIENT_DIR="$(cd "$ROOT_DIR/../trucoshi-client" 2>/dev/null && pwd || t
 NODE_ENV="${NODE_ENV:-development}"
 DEV_ALL_DOCKER_SUDO="${DEV_ALL_DOCKER_SUDO:-0}"
 DEV_ALL_YARN_LINK_DIR="${DEV_ALL_YARN_LINK_DIR:-$ROOT_DIR/.dev-yarn-links}"
+DEV_ALL_CLIENT_HOST_PORT="${DEV_ALL_CLIENT_HOST_PORT:-2993}"
+DEV_ALL_PUBLIC_HOST="${DEV_ALL_PUBLIC_HOST:-10.10.1.106}"
+DEV_ALL_LOG_DIR="${DEV_ALL_LOG_DIR:-$ROOT_DIR/.dev-all-logs}"
 
 PIDS=()
 PID_NAMES=()
+PID_LOG_FILES=()
 CLEANING_UP=0
 SUDO_KEEPALIVE_PID=""
 HAVE_SETSID=0
+
+if [ -t 1 ]; then
+  BOLD=$'\033[1m'
+  CYAN=$'\033[36m'
+  GREEN=$'\033[32m'
+  YELLOW=$'\033[33m'
+  DIM=$'\033[2m'
+  RESET=$'\033[0m'
+else
+  BOLD=""
+  CYAN=""
+  GREEN=""
+  YELLOW=""
+  DIM=""
+  RESET=""
+fi
 
 log() {
   echo "[dev:all] $*"
@@ -75,36 +95,44 @@ docker_compose() {
 start_process() {
   local name="$1"
   local dir="$2"
+  local log_file
   shift 2
 
-  log "Starting $name..."
+  log_file="$DEV_ALL_LOG_DIR/${#PIDS[@]}-${name// /-}.log"
+  log "Starting $name (logs: $log_file)..."
   if [ "$HAVE_SETSID" -eq 1 ]; then
-    setsid bash -c 'dir="$1"; shift; cd "$dir" && exec "$@"' bash "$dir" "$@" &
+    setsid bash -c 'dir="$1"; shift; cd "$dir" && exec "$@"' bash "$dir" "$@" >"$log_file" 2>&1 &
   else
-    (cd "$dir" && "$@") &
+    (cd "$dir" && "$@") >"$log_file" 2>&1 &
   fi
   PIDS+=("$!")
   PID_NAMES+=("$name")
+  PID_LOG_FILES+=("$log_file")
 }
 
 start_docker_compose_process() {
   local name="$1"
   local dir="$2"
   local node_env="$3"
+  local log_file
   shift 3
 
-  log "Starting $name..."
+  log_file="$DEV_ALL_LOG_DIR/${#PIDS[@]}-${name// /-}.log"
+  log "Starting $name (logs: $log_file)..."
   if use_sudo_docker; then
-    (cd "$dir" && NODE_ENV="$node_env" sudo -n --preserve-env=NODE_ENV docker compose "$@") &
+    # sudo credentials are tied to the controlling terminal on this setup.
+    # Do not detach this branch with setsid or sudo -n will ask for a password.
+    (cd "$dir" && NODE_ENV="$node_env" sudo -n --preserve-env=NODE_ENV docker compose "$@") >"$log_file" 2>&1 &
   else
     if [ "$HAVE_SETSID" -eq 1 ]; then
-      setsid bash -c 'dir="$1"; node_env="$2"; shift 2; cd "$dir" && exec env NODE_ENV="$node_env" docker compose "$@"' bash "$dir" "$node_env" "$@" &
+      setsid bash -c 'dir="$1"; node_env="$2"; shift 2; cd "$dir" && exec env NODE_ENV="$node_env" docker compose "$@"' bash "$dir" "$node_env" "$@" >"$log_file" 2>&1 &
     else
-      (cd "$dir" && env NODE_ENV="$node_env" docker compose "$@") &
+      (cd "$dir" && env NODE_ENV="$node_env" docker compose "$@") >"$log_file" 2>&1 &
     fi
   fi
   PIDS+=("$!")
   PID_NAMES+=("$name")
+  PID_LOG_FILES+=("$log_file")
 }
 
 authenticate_sudo_docker() {
@@ -153,6 +181,284 @@ stop_process() {
   else
     kill_tree "$pid"
   fi
+}
+
+is_process_running() {
+  local name="$1"
+  local i
+
+  for ((i = ${#PIDS[@]} - 1; i >= 0; i--)); do
+    if [ "${PID_NAMES[$i]}" = "$name" ] && kill -0 "${PIDS[$i]}" 2>/dev/null; then
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+stop_named_processes() {
+  local name="$1"
+  local i
+
+  for ((i = ${#PIDS[@]} - 1; i >= 0; i--)); do
+    if [ "${PID_NAMES[$i]}" = "$name" ]; then
+      stop_process "${PIDS[$i]}" "$name"
+    fi
+  done
+}
+
+latest_log_file() {
+  local name="$1"
+  local i
+
+  for ((i = ${#PIDS[@]} - 1; i >= 0; i--)); do
+    if [ "${PID_NAMES[$i]}" = "$name" ]; then
+      printf '%s\n' "${PID_LOG_FILES[$i]}"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+run_menu_command() {
+  local exit_code
+
+  # A log view should return to the launcher on Ctrl-C, not stop the stack.
+  trap '' INT
+  set +e
+  (
+    trap - INT
+    "$@"
+  )
+  exit_code=$?
+  set -e
+  trap cleanup INT
+
+  return "$exit_code"
+}
+
+follow_process_logs() {
+  local name="$1"
+  local log_file
+
+  if ! log_file="$(latest_log_file "$name")"; then
+    log "No log file exists for $name yet."
+    return
+  fi
+
+  printf '\n%sWatching %s logs — press Ctrl-C to return to the menu.%s\n\n' "$CYAN" "$name" "$RESET"
+  run_menu_command tail -n 120 -F "$log_file" || true
+}
+
+follow_docker_logs() {
+  local name="$1"
+  local dir="$2"
+  local exit_code
+
+  printf '\n%sWatching %s Docker logs — press Ctrl-C to return to the menu.%s\n\n' "$CYAN" "$name" "$RESET"
+  trap '' INT
+  set +e
+  (
+    trap - INT
+    docker_compose "$dir" development logs --tail 120 --follow
+  )
+  exit_code=$?
+  set -e
+  trap cleanup INT
+
+  if [ "$exit_code" -ne 0 ] && [ "$exit_code" -ne 130 ]; then
+    log "Stopped watching $name Docker logs (exit $exit_code)."
+  fi
+}
+
+start_lightning_accounts_docker() {
+  docker_compose "$LIGHTNING_ACCOUNTS_DIR" development up backend1 alice carol bob -d --build
+
+  start_docker_compose_process \
+    "lightning-accounts Docker" \
+    "$LIGHTNING_ACCOUNTS_DIR" \
+    development \
+    up postgres_ln server --build --abort-on-container-exit
+}
+
+start_trucoshi_docker() {
+  start_docker_compose_process \
+    "trucoshi Docker" \
+    "$ROOT_DIR" \
+    development \
+    -f docker-compose.yml \
+    -f docker-compose.local-links.yml \
+    up --build --abort-on-container-exit
+}
+
+start_client_vite() {
+  start_process \
+    "trucoshi-client Vite" \
+    "$TRUCOSHI_CLIENT_DIR" \
+    yarn dev --host --port=2991 --force
+}
+
+start_client_host() {
+  if is_process_running "trucoshi-client host"; then
+    log "trucoshi-client host is already running at http://$DEV_ALL_PUBLIC_HOST:$DEV_ALL_CLIENT_HOST_PORT"
+    return
+  fi
+
+  log "Building trucoshi-client for a local host snapshot..."
+  run_in "$TRUCOSHI_CLIENT_DIR" yarn build
+
+  start_process \
+    "trucoshi-client host" \
+    "$TRUCOSHI_CLIENT_DIR" \
+    env \
+    PORT="$DEV_ALL_CLIENT_HOST_PORT" \
+    HOST=0.0.0.0 \
+    yarn start
+
+  wait_for_managed_process_port \
+    "trucoshi-client host" \
+    "localhost" \
+    "$DEV_ALL_CLIENT_HOST_PORT"
+  log "trucoshi-client host: http://$DEV_ALL_PUBLIC_HOST:$DEV_ALL_CLIENT_HOST_PORT"
+}
+
+restart_lightning_accounts() {
+  log "Restarting lightning-accounts Docker stack..."
+  stop_named_processes "lightning-accounts Docker"
+  docker_compose "$LIGHTNING_ACCOUNTS_DIR" development down
+  start_lightning_accounts_docker
+  wait_for_url "http://localhost:2999/v1/docs" "lightning-accounts"
+}
+
+restart_trucoshi() {
+  log "Restarting trucoshi Docker stack..."
+  stop_named_processes "trucoshi Docker"
+  docker_compose "$ROOT_DIR" development -f docker-compose.yml -f docker-compose.local-links.yml down
+  start_trucoshi_docker
+  wait_for_port "localhost" "2992" "trucoshi"
+}
+
+restart_client_vite() {
+  log "Restarting trucoshi-client Vite..."
+  stop_named_processes "trucoshi-client Vite"
+  start_client_vite
+  wait_for_port "localhost" "2991" "trucoshi-client Vite"
+}
+
+show_status() {
+  local i
+  local j
+  local has_newer_entry
+  local state
+
+  printf '\n%sTrucoshi dev stack%s\n' "$BOLD" "$RESET"
+  printf '%-34s %s\n' "Service" "Status"
+  for ((i = 0; i < ${#PIDS[@]}; i++)); do
+    has_newer_entry=0
+    for ((j = i + 1; j < ${#PIDS[@]}; j++)); do
+      if [ "${PID_NAMES[$i]}" = "${PID_NAMES[$j]}" ]; then
+        has_newer_entry=1
+        break
+      fi
+    done
+    if [ "$has_newer_entry" -eq 1 ]; then
+      continue
+    fi
+
+    if kill -0 "${PIDS[$i]}" 2>/dev/null; then
+      state="${GREEN}running${RESET}"
+    else
+      state="${YELLOW}stopped${RESET}"
+    fi
+    printf '%-34s %b\n' "${PID_NAMES[$i]}" "$state"
+  done
+
+  printf '\n%sTrucoshi Docker%s\n' "$BOLD" "$RESET"
+  docker_compose "$ROOT_DIR" development -f docker-compose.yml -f docker-compose.local-links.yml ps || true
+  printf '\n%sLightning Accounts Docker%s\n' "$BOLD" "$RESET"
+  docker_compose "$LIGHTNING_ACCOUNTS_DIR" development ps || true
+}
+
+show_log_menu() {
+  local choice
+
+  printf '\n%sLive logs%s\n' "$BOLD" "$RESET"
+  printf '  1) Trucoshi Docker\n'
+  printf '  2) Lightning Accounts Docker\n'
+  printf '  3) Trucoshi client (Vite)\n'
+  printf '  4) Trucoshi type watcher\n'
+  printf '  5) Lightning Accounts type watcher\n'
+  printf '  6) Trucoshi client host\n'
+  printf '  0) Back\n'
+  read -r -p "Choose logs: " choice || return
+
+  case "$choice" in
+    1) follow_docker_logs "trucoshi" "$ROOT_DIR" ;;
+    2) follow_docker_logs "lightning-accounts" "$LIGHTNING_ACCOUNTS_DIR" ;;
+    3) follow_process_logs "trucoshi-client Vite" ;;
+    4) follow_process_logs "trucoshi type watcher" ;;
+    5) follow_process_logs "lightning-accounts type watcher" ;;
+    6) follow_process_logs "trucoshi-client host" ;;
+    0|q|Q) return ;;
+    *) log "Unknown log choice: $choice" ;;
+  esac
+}
+
+show_manage_menu() {
+  local choice
+
+  printf '\n%sManage services%s\n' "$BOLD" "$RESET"
+  printf '  1) Restart Lightning Accounts Docker (rebuild)\n'
+  printf '  2) Restart Trucoshi Docker (rebuild)\n'
+  printf '  3) Restart Trucoshi client Vite\n'
+  printf '  4) Stop the hosted client snapshot\n'
+  printf '  0) Back\n'
+  read -r -p "Choose an action: " choice || return
+
+  case "$choice" in
+    1) restart_lightning_accounts ;;
+    2) restart_trucoshi ;;
+    3) restart_client_vite ;;
+    4) stop_named_processes "trucoshi-client host" ;;
+    0|q|Q) return ;;
+    *) log "Unknown management choice: $choice" ;;
+  esac
+}
+
+run_control_panel() {
+  local choice
+
+  if [ ! -t 0 ]; then
+    log "No interactive terminal detected; keeping the dev stack alive until a process exits."
+    set +e
+    wait -n "${PIDS[@]}"
+    exit_code=$?
+    set -e
+    log "A dev process exited; shutting down..."
+    exit "$exit_code"
+  fi
+
+  while true; do
+    printf '\n%s%s╭──────────────────────────────────────╮%s\n' "$CYAN" "$BOLD" "$RESET"
+    printf '%s%s│          TRUCOSHI DEV CONTROL          │%s\n' "$CYAN" "$BOLD" "$RESET"
+    printf '%s%s╰──────────────────────────────────────╯%s\n' "$CYAN" "$BOLD" "$RESET"
+    printf '  %s1%s) Live logs\n' "$GREEN" "$RESET"
+    printf '  %s2%s) Stack status\n' "$GREEN" "$RESET"
+    printf '  %s3%s) Manage / restart services\n' "$GREEN" "$RESET"
+    printf '  %s4%s) Build + host a client snapshot (%shttp://%s:%s%s)\n' "$GREEN" "$RESET" "$DIM" "$DEV_ALL_PUBLIC_HOST" "$DEV_ALL_CLIENT_HOST_PORT" "$RESET"
+    printf '  %s0%s) Stop everything and exit\n' "$YELLOW" "$RESET"
+    read -r -p "\nChoose an action: " choice || exit 0
+
+    case "$choice" in
+      1|l|L) show_log_menu ;;
+      2|s|S) show_status ;;
+      3|m|M) show_manage_menu ;;
+      4|h|H) start_client_host ;;
+      0|q|Q) exit 0 ;;
+      *) log "Unknown choice: $choice" ;;
+    esac
+  done
 }
 
 cleanup() {
@@ -350,12 +656,41 @@ wait_for_port() {
   log "$name is ready."
 }
 
+wait_for_managed_process_port() {
+  local name="$1"
+  local host="$2"
+  local port="$3"
+  local timeout_seconds="${4:-60}"
+  local start
+  local log_file
+
+  start="$(date +%s)"
+  log "Waiting for $name on $host:$port..."
+
+  until (echo >/dev/tcp/"$host"/"$port") >/dev/null 2>&1; do
+    if ! is_process_running "$name"; then
+      log_file="$(latest_log_file "$name" || true)"
+      fail "$name exited before listening on $host:$port. Check ${log_file:-its log file}."
+    fi
+
+    if [ "$(($(date +%s) - start))" -ge "$timeout_seconds" ]; then
+      log_file="$(latest_log_file "$name" || true)"
+      fail "Timed out waiting for $name on $host:$port. Check ${log_file:-its log file}."
+    fi
+
+    sleep 1
+  done
+
+  log "$name is ready."
+}
+
 require_not_root
 require_command yarn
 require_command node
 require_command docker
 require_command curl
 require_command pgrep
+require_command tail
 
 if has_command setsid; then
   HAVE_SETSID=1
@@ -381,6 +716,8 @@ ensure_project_writable_paths "lightning-accounts" "$LIGHTNING_ACCOUNTS_DIR"
 ensure_project_writable_paths "trucoshi" "$ROOT_DIR"
 ensure_project_writable_paths "trucoshi-client" "$TRUCOSHI_CLIENT_DIR"
 ensure_writable_path "local Yarn link folder" "$DEV_ALL_YARN_LINK_DIR"
+ensure_writable_path "dev log folder" "$DEV_ALL_LOG_DIR"
+mkdir -p "$DEV_ALL_LOG_DIR"
 ensure_lightning_accounts_prisma_install
 
 log "Preparing local linked packages..."
@@ -423,42 +760,23 @@ start_process \
 
 stop_lightning_accounts_stacks
 
-docker_compose "$LIGHTNING_ACCOUNTS_DIR" development up backend1 alice carol bob -d --build
-
-start_docker_compose_process \
-  "lightning-accounts Docker" \
-  "$LIGHTNING_ACCOUNTS_DIR" \
-  development \
-  up postgres_ln server --build --abort-on-container-exit
+start_lightning_accounts_docker
 
 wait_for_url "http://localhost:2999/v1/docs" "lightning-accounts"
 
 stop_trucoshi_stacks
 
-start_docker_compose_process \
-  "trucoshi Docker" \
-  "$ROOT_DIR" \
-  development \
-  -f docker-compose.yml \
-  -f docker-compose.local-links.yml \
-  up --build --abort-on-container-exit
+start_trucoshi_docker
 
 wait_for_port "localhost" "2992" "trucoshi"
 
-start_process \
-  "trucoshi-client Vite" \
-  "$TRUCOSHI_CLIENT_DIR" \
-  yarn start --host --force
+start_client_vite
+wait_for_managed_process_port "trucoshi-client Vite" "localhost" "2991"
 
 log "All services are running."
 log "lightning-accounts: http://localhost:2999/v1/docs"
 log "trucoshi: http://localhost:2992"
-log "trucoshi-client: http://localhost:2991"
+log "trucoshi-client: http://$DEV_ALL_PUBLIC_HOST:2991"
+log "Use the control panel to inspect logs, restart services, or host a client snapshot."
 
-set +e
-wait -n "${PIDS[@]}"
-exit_code=$?
-set -e
-
-log "A dev process exited; shutting down..."
-exit "$exit_code"
+run_control_panel
