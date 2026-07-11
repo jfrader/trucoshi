@@ -34,7 +34,7 @@ Run the three-repo local stack from this repo with:
 
 If your user cannot run Docker directly, use `yarn dev:all:sudo-docker`. Do not prefix either command with `sudo`; that mode only elevates Docker commands, so Yarn, Vite, generated Prisma files, and local links remain owned by your user.
 
-The launcher keeps the local stack in development mode: Lightning Accounts, Trucoshi, and the Vite client. Its interactive control panel can show one service's logs at a time, display stack status, restart a service, and optionally build and host a client snapshot at `http://10.10.1.106:2993`. The snapshot is off by default, so it never slows Vite's hot-reload loop. Set `DEV_ALL_PUBLIC_HOST`, `DEV_ALL_CLIENT_HOST_PORT`, or `DEV_ALL_LOG_DIR` if you need different defaults.
+The launcher keeps the local stack in development mode: Lightning Accounts, Trucoshi, and the Vite client. Its home screen continuously refreshes the stack status and service URLs. Use the numbered shortcuts or ↑/↓ to move, Enter or → to select, and ← or Esc to go back. It can also build and host a client snapshot at `http://10.10.1.106:2993`. The snapshot is off by default, so it never slows Vite's hot-reload loop. Set `DEV_ALL_PUBLIC_HOST`, `DEV_ALL_CLIENT_HOST_PORT`, or `DEV_ALL_LOG_DIR` if you need different defaults.
 
 # Test
 

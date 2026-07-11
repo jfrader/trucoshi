@@ -92,6 +92,18 @@ docker_compose() {
   fi
 }
 
+docker_compose_quiet() {
+  local dir="$1"
+  local node_env="$2"
+  shift 2
+
+  if use_sudo_docker; then
+    (cd "$dir" && NODE_ENV="$node_env" sudo -n --preserve-env=NODE_ENV docker compose "$@")
+  else
+    (cd "$dir" && env NODE_ENV="$node_env" docker compose "$@")
+  fi
+}
+
 start_process() {
   local name="$1"
   local dir="$2"
@@ -293,10 +305,15 @@ start_trucoshi_docker() {
 }
 
 start_client_vite() {
+  wait_for_port_to_be_available \
+    "localhost" \
+    "2991" \
+    "trucoshi-client Vite"
+
   start_process \
     "trucoshi-client Vite" \
     "$TRUCOSHI_CLIENT_DIR" \
-    yarn dev --host --port=2991 --force
+    yarn dev --host --port=2991 --strictPort
 }
 
 start_client_host() {
@@ -335,24 +352,34 @@ restart_trucoshi() {
   log "Restarting trucoshi Docker stack..."
   stop_named_processes "trucoshi Docker"
   docker_compose "$ROOT_DIR" development -f docker-compose.yml -f docker-compose.local-links.yml down
+  wait_for_port_to_be_available "localhost" "2992" "trucoshi"
   start_trucoshi_docker
-  wait_for_port "localhost" "2992" "trucoshi"
+  wait_for_managed_process_url \
+    "trucoshi Docker" \
+    "http://localhost:2992/socket.io/?EIO=4&transport=polling" \
+    "trucoshi"
 }
 
 restart_client_vite() {
   log "Restarting trucoshi-client Vite..."
   stop_named_processes "trucoshi-client Vite"
   start_client_vite
-  wait_for_port "localhost" "2991" "trucoshi-client Vite"
+  wait_for_managed_process_port "trucoshi-client Vite" "localhost" "2991"
 }
 
-show_status() {
+render_stack_status() {
   local i
   local j
   local has_newer_entry
   local state
 
-  printf '\n%sTrucoshi dev stack%s\n' "$BOLD" "$RESET"
+  printf '%sStack status%s\n' "$BOLD" "$RESET"
+  printf '  Lightning Accounts  http://localhost:2999/v1/docs  (port 2999)\n'
+  printf '  Trucoshi            http://localhost:2992          (port 2992)\n'
+  printf '  Client (Vite)       http://%s:2991        (port 2991)\n' "$DEV_ALL_PUBLIC_HOST"
+  printf '  Client snapshot     http://%s:%s        (port %s)\n' "$DEV_ALL_PUBLIC_HOST" "$DEV_ALL_CLIENT_HOST_PORT" "$DEV_ALL_CLIENT_HOST_PORT"
+
+  printf '\n%sManaged processes%s\n' "$BOLD" "$RESET"
   printf '%-34s %s\n' "Service" "Status"
   for ((i = 0; i < ${#PIDS[@]}; i++)); do
     has_newer_entry=0
@@ -375,59 +402,200 @@ show_status() {
   done
 
   printf '\n%sTrucoshi Docker%s\n' "$BOLD" "$RESET"
-  docker_compose "$ROOT_DIR" development -f docker-compose.yml -f docker-compose.local-links.yml ps || true
+  docker_compose_quiet "$ROOT_DIR" development -f docker-compose.yml -f docker-compose.local-links.yml ps 2>&1 || true
   printf '\n%sLightning Accounts Docker%s\n' "$BOLD" "$RESET"
-  docker_compose "$LIGHTNING_ACCOUNTS_DIR" development ps || true
+  docker_compose_quiet "$LIGHTNING_ACCOUNTS_DIR" development ps 2>&1 || true
 }
 
-show_log_menu() {
-  local choice
+tui_clear() {
+  printf '\033[2J\033[H'
+}
 
-  printf '\n%sLive logs%s\n' "$BOLD" "$RESET"
-  printf '  1) Trucoshi Docker\n'
-  printf '  2) Lightning Accounts Docker\n'
-  printf '  3) Trucoshi client (Vite)\n'
-  printf '  4) Trucoshi type watcher\n'
-  printf '  5) Lightning Accounts type watcher\n'
-  printf '  6) Trucoshi client host\n'
-  printf '  0) Back\n'
-  read -r -p "Choose logs: " choice || return
+tui_read_key() {
+  local key
+  local escape_sequence
+  local timeout_seconds="${1:-}"
 
-  case "$choice" in
-    1) follow_docker_logs "trucoshi" "$ROOT_DIR" ;;
-    2) follow_docker_logs "lightning-accounts" "$LIGHTNING_ACCOUNTS_DIR" ;;
-    3) follow_process_logs "trucoshi-client Vite" ;;
-    4) follow_process_logs "trucoshi type watcher" ;;
-    5) follow_process_logs "lightning-accounts type watcher" ;;
-    6) follow_process_logs "trucoshi-client host" ;;
-    0|q|Q) return ;;
-    *) log "Unknown log choice: $choice" ;;
+  if [ -n "$timeout_seconds" ]; then
+    IFS= read -rsn1 -t "$timeout_seconds" key || {
+      TUI_KEY="refresh"
+      return
+    }
+  else
+    IFS= read -rsn1 key || {
+      TUI_KEY="exit"
+      return
+    }
+  fi
+
+  case "$key" in
+    '') TUI_KEY="enter" ;;
+    $'\r'|$'\n') TUI_KEY="enter" ;;
+    $'\e')
+      IFS= read -rsn2 -t 0.05 escape_sequence || true
+      case "$escape_sequence" in
+        '[A'|'OA') TUI_KEY="up" ;;
+        '[B'|'OB') TUI_KEY="down" ;;
+        '[C'|'OC') TUI_KEY="right" ;;
+        '[D'|'OD') TUI_KEY="back" ;;
+        *) TUI_KEY="back" ;;
+      esac
+      ;;
+    k|K) TUI_KEY="up" ;;
+    j|J) TUI_KEY="down" ;;
+    q|Q) TUI_KEY="exit" ;;
+    0|1|2|3|4|5|6|7|8|9) TUI_KEY="number:$key" ;;
+    *) TUI_KEY="other" ;;
   esac
 }
 
-show_manage_menu() {
-  local choice
+tui_draw_menu() {
+  local title="$1"
+  local selected="$2"
+  local details="$3"
+  shift 3
+  local items=("$@")
+  local i
+  local prefix
 
-  printf '\n%sManage services%s\n' "$BOLD" "$RESET"
-  printf '  1) Restart Lightning Accounts Docker (rebuild)\n'
-  printf '  2) Restart Trucoshi Docker (rebuild)\n'
-  printf '  3) Restart Trucoshi client Vite\n'
-  printf '  4) Stop the hosted client snapshot\n'
-  printf '  0) Back\n'
-  read -r -p "Choose an action: " choice || return
+  tui_clear
+  printf '%s%s╭──────────────────────────────────────╮%s\n' "$CYAN" "$BOLD" "$RESET"
+  printf '%s%s│          TRUCOSHI DEV CONTROL          │%s\n' "$CYAN" "$BOLD" "$RESET"
+  printf '%s%s╰──────────────────────────────────────╯%s\n\n' "$CYAN" "$BOLD" "$RESET"
+  printf '%s%s%s\n' "$BOLD" "$title" "$RESET"
 
-  case "$choice" in
-    1) restart_lightning_accounts ;;
-    2) restart_trucoshi ;;
-    3) restart_client_vite ;;
-    4) stop_named_processes "trucoshi-client host" ;;
-    0|q|Q) return ;;
-    *) log "Unknown management choice: $choice" ;;
-  esac
+  if [ -n "$details" ]; then
+    printf '\n%s\n' "$details"
+  fi
+
+  printf '\n%sActions%s\n' "$BOLD" "$RESET"
+
+  for ((i = 0; i < ${#items[@]}; i++)); do
+    if [ "$i" -eq "$selected" ]; then
+      prefix="${GREEN}${BOLD}›${RESET}"
+      printf '  %s %s%s%s\n' "$prefix" "$BOLD" "${items[$i]}" "$RESET"
+    else
+      printf '    %s\n' "${items[$i]}"
+    fi
+  done
+
+  printf '\n%s↑/↓%s Move   %sEnter/→%s Select   %s←/Esc%s Back   %s0–9%s Shortcut   %sq%s Exit\n' "$DIM" "$RESET" "$DIM" "$RESET" "$DIM" "$RESET" "$DIM" "$RESET" "$DIM" "$RESET"
+}
+
+tui_select_menu() {
+  local title="$1"
+  local selected="$2"
+  local details="$3"
+  local number
+  shift 3
+  local items=("$@")
+
+  while true; do
+    if [ "$details" = "__LIVE_STACK_STATUS__" ]; then
+      tui_draw_menu "$title" "$selected" "$(render_stack_status)" "${items[@]}"
+      tui_read_key 2
+    else
+      tui_draw_menu "$title" "$selected" "$details" "${items[@]}"
+      tui_read_key
+    fi
+
+    case "$TUI_KEY" in
+      refresh) ;;
+      up)
+        selected=$(( (selected - 1 + ${#items[@]}) % ${#items[@]} ))
+        ;;
+      down)
+        selected=$(( (selected + 1) % ${#items[@]} ))
+        ;;
+      enter|right)
+        TUI_SELECTED="$selected"
+        TUI_ACTION="select"
+        return
+        ;;
+      number:*)
+        number="${TUI_KEY#number:}"
+        if [ "$number" = "0" ]; then
+          selected=$((${#items[@]} - 1))
+        elif [ "$number" -le "${#items[@]}" ]; then
+          selected=$((number - 1))
+        else
+          continue
+        fi
+        TUI_SELECTED="$selected"
+        TUI_ACTION="select"
+        return
+        ;;
+      back|exit)
+        TUI_SELECTED="$selected"
+        TUI_ACTION="$TUI_KEY"
+        return
+        ;;
+    esac
+  done
+}
+
+run_log_menu() {
+  local selected=0
+  local items=(
+    "1) Trucoshi Docker"
+    "2) Lightning Accounts Docker"
+    "3) Trucoshi client (Vite)"
+    "4) Trucoshi type watcher"
+    "5) Lightning Accounts type watcher"
+    "6) Trucoshi client host"
+    "0) ← Back"
+  )
+
+  while true; do
+    tui_select_menu "Live logs" "$selected" "" "${items[@]}"
+    selected="$TUI_SELECTED"
+
+    case "$TUI_ACTION:$selected" in
+      select:0) follow_docker_logs "trucoshi" "$ROOT_DIR" ;;
+      select:1) follow_docker_logs "lightning-accounts" "$LIGHTNING_ACCOUNTS_DIR" ;;
+      select:2) follow_process_logs "trucoshi-client Vite" ;;
+      select:3) follow_process_logs "trucoshi type watcher" ;;
+      select:4) follow_process_logs "lightning-accounts type watcher" ;;
+      select:5) follow_process_logs "trucoshi-client host" ;;
+      select:6|back:*) return ;;
+      exit:*) exit 0 ;;
+    esac
+  done
+}
+
+run_manage_menu() {
+  local selected=0
+  local items=(
+    "1) Restart Lightning Accounts Docker (rebuild)"
+    "2) Restart Trucoshi Docker (rebuild)"
+    "3) Restart Trucoshi client Vite"
+    "4) Stop the hosted client snapshot"
+    "0) ← Back"
+  )
+
+  while true; do
+    tui_select_menu "Manage services" "$selected" "" "${items[@]}"
+    selected="$TUI_SELECTED"
+
+    case "$TUI_ACTION:$selected" in
+      select:0) restart_lightning_accounts ;;
+      select:1) restart_trucoshi ;;
+      select:2) restart_client_vite ;;
+      select:3) stop_named_processes "trucoshi-client host" ;;
+      select:4|back:*) return ;;
+      exit:*) exit 0 ;;
+    esac
+  done
 }
 
 run_control_panel() {
-  local choice
+  local selected=0
+  local items=(
+    "1) Live logs"
+    "2) Manage / restart services"
+    "3) Build + host a client snapshot (http://$DEV_ALL_PUBLIC_HOST:$DEV_ALL_CLIENT_HOST_PORT)"
+    "0) Stop everything and exit"
+  )
 
   if [ ! -t 0 ]; then
     log "No interactive terminal detected; keeping the dev stack alive until a process exits."
@@ -440,23 +608,14 @@ run_control_panel() {
   fi
 
   while true; do
-    printf '\n%s%s╭──────────────────────────────────────╮%s\n' "$CYAN" "$BOLD" "$RESET"
-    printf '%s%s│          TRUCOSHI DEV CONTROL          │%s\n' "$CYAN" "$BOLD" "$RESET"
-    printf '%s%s╰──────────────────────────────────────╯%s\n' "$CYAN" "$BOLD" "$RESET"
-    printf '  %s1%s) Live logs\n' "$GREEN" "$RESET"
-    printf '  %s2%s) Stack status\n' "$GREEN" "$RESET"
-    printf '  %s3%s) Manage / restart services\n' "$GREEN" "$RESET"
-    printf '  %s4%s) Build + host a client snapshot (%shttp://%s:%s%s)\n' "$GREEN" "$RESET" "$DIM" "$DEV_ALL_PUBLIC_HOST" "$DEV_ALL_CLIENT_HOST_PORT" "$RESET"
-    printf '  %s0%s) Stop everything and exit\n' "$YELLOW" "$RESET"
-    read -r -p "\nChoose an action: " choice || exit 0
+    tui_select_menu "Home" "$selected" "__LIVE_STACK_STATUS__" "${items[@]}"
+    selected="$TUI_SELECTED"
 
-    case "$choice" in
-      1|l|L) show_log_menu ;;
-      2|s|S) show_status ;;
-      3|m|M) show_manage_menu ;;
-      4|h|H) start_client_host ;;
-      0|q|Q) exit 0 ;;
-      *) log "Unknown choice: $choice" ;;
+    case "$TUI_ACTION:$selected" in
+      select:0) run_log_menu ;;
+      select:1) run_manage_menu ;;
+      select:2) start_client_host ;;
+      select:3|back:*|exit:*) exit 0 ;;
     esac
   done
 }
@@ -656,6 +815,25 @@ wait_for_port() {
   log "$name is ready."
 }
 
+wait_for_port_to_be_available() {
+  local host="$1"
+  local port="$2"
+  local name="$3"
+  local timeout_seconds="${4:-15}"
+  local start
+
+  start="$(date +%s)"
+  log "Checking that $name can use $host:$port..."
+
+  while (echo >/dev/tcp/"$host"/"$port") >/dev/null 2>&1; do
+    if [ "$(($(date +%s) - start))" -ge "$timeout_seconds" ]; then
+      fail "$name cannot start because $host:$port is already in use. Stop the process using that port, then run yarn dev:all again."
+    fi
+
+    sleep 1
+  done
+}
+
 wait_for_managed_process_port() {
   local name="$1"
   local host="$2"
@@ -667,10 +845,14 @@ wait_for_managed_process_port() {
   start="$(date +%s)"
   log "Waiting for $name on $host:$port..."
 
-  until (echo >/dev/tcp/"$host"/"$port") >/dev/null 2>&1; do
+  while true; do
     if ! is_process_running "$name"; then
       log_file="$(latest_log_file "$name" || true)"
       fail "$name exited before listening on $host:$port. Check ${log_file:-its log file}."
+    fi
+
+    if (echo >/dev/tcp/"$host"/"$port") >/dev/null 2>&1; then
+      break
     fi
 
     if [ "$(($(date +%s) - start))" -ge "$timeout_seconds" ]; then
@@ -679,6 +861,38 @@ wait_for_managed_process_port() {
     fi
 
     sleep 1
+  done
+
+  log "$name is ready."
+}
+
+wait_for_managed_process_url() {
+  local process_name="$1"
+  local url="$2"
+  local name="$3"
+  local timeout_seconds="${4:-180}"
+  local start
+  local log_file
+
+  start="$(date +%s)"
+  log "Waiting for $name at $url..."
+
+  while true; do
+    if ! is_process_running "$process_name"; then
+      log_file="$(latest_log_file "$process_name" || true)"
+      fail "$process_name exited before $name became ready. Check ${log_file:-its log file}."
+    fi
+
+    if curl -fsS "$url" >/dev/null 2>&1; then
+      break
+    fi
+
+    if [ "$(($(date +%s) - start))" -ge "$timeout_seconds" ]; then
+      log_file="$(latest_log_file "$process_name" || true)"
+      fail "Timed out waiting for $name at $url. Check ${log_file:-its log file}."
+    fi
+
+    sleep 2
   done
 
   log "$name is ready."
@@ -766,9 +980,13 @@ wait_for_url "http://localhost:2999/v1/docs" "lightning-accounts"
 
 stop_trucoshi_stacks
 
+wait_for_port_to_be_available "localhost" "2992" "trucoshi"
 start_trucoshi_docker
 
-wait_for_port "localhost" "2992" "trucoshi"
+wait_for_managed_process_url \
+  "trucoshi Docker" \
+  "http://localhost:2992/socket.io/?EIO=4&transport=polling" \
+  "trucoshi"
 
 start_client_vite
 wait_for_managed_process_port "trucoshi-client Vite" "localhost" "2991"
