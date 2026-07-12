@@ -58,7 +58,12 @@ import {
 import { NORMAL_BOT_NAMES } from "../../truco/Bot"
 import { getCardSound, getCommandSound } from "../sounds"
 import { getOpponentTeam } from "../../lib/utils"
-import { PAUSE_REQUEST_TIMEOUT, PLAYER_ABANDON_TIMEOUT, UNPAUSE_TIME } from "../../lib"
+import {
+  getQueueMatchPoint,
+  PAUSE_REQUEST_TIMEOUT,
+  PLAYER_ABANDON_TIMEOUT,
+  UNPAUSE_TIME,
+} from "../../lib"
 import { TrucoshiTurn } from "./Turn"
 import { getWordsId } from "../../utils/string/getRandomWord"
 import { IQueue, Queue } from "../../lib/classes/Queue"
@@ -543,6 +548,7 @@ export const Trucoshi = ({
       return server.matchmakingQueue.queue(async () => {
         const removed = server.removeQueueEntry(getQueueKey(userSession))
         if (removed) {
+          server.io.to(removed.queueRoom).emit(EServerEvent.QUEUE_UPDATE, null)
           server.emitQueueStatuses(removed.maxPlayers)
         }
       })
@@ -827,6 +833,7 @@ export const Trucoshi = ({
       try {
         table = await server.createMatchTable(ownerEntry.userSession, ownerEntry.socket, {
           maxPlayers,
+          matchPoint: getQueueMatchPoint(maxPlayers),
           satsPerPlayer: 0,
           createdFromQueue: true,
         })
@@ -1861,7 +1868,8 @@ export const Trucoshi = ({
         const turn = () =>
           (table.tutorial
             ? Tutorial.playBot(server, table, play, guardedPlayCard, guardedSayCommand)
-            : player.playBot(table.lobby.table!, play, guardedPlayCard, guardedSayCommand))
+            : player.playBot(table.lobby.table!, play, guardedPlayCard, guardedSayCommand)
+          )
             .then(() => resolveOnce())
             .catch((e) => {
               if (settled) {
@@ -2520,11 +2528,7 @@ export const Trucoshi = ({
 
       return table
     },
-    async createTutorialMatch({
-      userSession,
-      socket,
-      tutorialId,
-    }) {
+    async createTutorialMatch({ userSession, socket, tutorialId }) {
       return Tutorial.createMatch(server, { userSession, socket, tutorialId })
     },
     async addBot(table, userSession, teamIdx) {

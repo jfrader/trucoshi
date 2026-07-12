@@ -431,6 +431,7 @@ export type IEquippedDeck = Partial<Record<ICard, CardSkinId>>
 export interface IInventoryCardSkin extends ICardSkin {
   unlocked: boolean
   equipped: boolean
+  quantity: number
 }
 
 export interface IInventoryCardGroup {
@@ -462,6 +463,14 @@ export interface ITreasureOpenResult {
   cardSkin: ICardSkin | null
   duplicate: boolean
   granted: boolean
+}
+
+export interface ISkinRollResult {
+  rollId: number
+  inputRarity: CardSkinRarity
+  outputRarity: CardSkinRarity
+  consumedSkinIds: CardSkinId[]
+  rewardedSkin: ICardSkin
 }
 
 export interface IAdminOnlineAccount {

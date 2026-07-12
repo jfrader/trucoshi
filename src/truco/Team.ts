@@ -1,4 +1,5 @@
 import { IPlayer, ITeam } from "../types"
+import { getDefaultTeamName } from "../lib/constants"
 
 export function Team(id: 0 | 1, name?: string) {
   const team: ITeam = {
@@ -12,7 +13,7 @@ export function Team(id: 0 | 1, name?: string) {
       )
     },
     id,
-    name: name || (id ? "Ellos" : "Nosotros"),
+    name: name ?? getDefaultTeamName(id),
     points: {
       buenas: 0,
       malas: 0,

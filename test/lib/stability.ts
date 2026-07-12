@@ -1,10 +1,50 @@
 import { expect } from "chai"
-import { Table } from "../../src/lib"
+import { getQueueMatchPoint, Table } from "../../src/lib"
 import { EEnvidoCommand, EHandState, ESayCommand, ILobbyOptions, IPlayer } from "../../src/types"
-import { DEFAULT_LOBBY_OPTIONS, GameLoop, Hand, Match, Player, Team } from "../../src/truco"
+import {
+  DEFAULT_LOBBY_OPTIONS,
+  GameLoop,
+  getPicaPicaLimits,
+  Hand,
+  Match,
+  Player,
+  Team,
+} from "../../src/truco"
 import logger from "../../src/utils/logger"
 
 describe("Trucoshi Stability", () => {
+  it("should use the intended match points for each queue size", () => {
+    expect(getQueueMatchPoint(2)).to.equal(9)
+    expect(getQueueMatchPoint(4)).to.equal(12)
+    expect(getQueueMatchPoint(6)).to.equal(15)
+  })
+
+  it("should scale pica-pica limits with custom match points", () => {
+    expect(getPicaPicaLimits(9)).to.deep.equal({ startMalas: 3, endBuenas: 6 })
+    expect(getPicaPicaLimits(12)).to.deep.equal({ startMalas: 4, endBuenas: 8 })
+    expect(getPicaPicaLimits(15)).to.deep.equal({ startMalas: 5, endBuenas: 10 })
+  })
+
+  it("should allow envido when only a disabled pica teammate has flor", () => {
+    const { match, players } = createSixPlayerMatch({ flor: true })
+    const [activePlayer, , disabledTeammate, opponent] = players
+
+    activePlayer.setHand(["7c", "6c", "5b"])
+    opponent.setHand(["7b", "6b", "5c"])
+    disabledTeammate.setHand(["7e", "6e", "5e"])
+
+    players.forEach((player) => {
+      if (player !== activePlayer && player !== opponent) player.disable()
+    })
+
+    const hand = Hand(match, 1)
+    hand.setCurrentPlayer(activePlayer)
+    hand.setTurnCommands()
+
+    expect(disabledTeammate.hasFlor).to.equal(true)
+    expect(activePlayer.commands).to.include(EEnvidoCommand.ENVIDO)
+  })
+
   function createTwoPlayerMatch(options: Partial<ILobbyOptions> = {}) {
     const player1 = Player({
       key: "p1",
@@ -205,12 +245,19 @@ describe("Trucoshi Stability", () => {
         "stability-pica",
         table,
         [team1, team2],
-        Object.assign(structuredClone(DEFAULT_LOBBY_OPTIONS), options, { maxPlayers: 6, flor: false })
+        Object.assign(structuredClone(DEFAULT_LOBBY_OPTIONS), options, {
+          maxPlayers: 6,
+          flor: false,
+        })
       ),
     }
   }
 
-  function recordHandStarts(handStarts: Map<number, number[]>, players: IPlayer[], handIdx: number) {
+  function recordHandStarts(
+    handStarts: Map<number, number[]>,
+    players: IPlayer[],
+    handIdx: number
+  ) {
     if (handStarts.has(handIdx)) {
       return
     }
@@ -248,14 +295,18 @@ describe("Trucoshi Stability", () => {
   })
 
   it("should alternate pica-pica cycles with fixed opposite-seat pairs", async () => {
-    const { match, team1, players } = createSixPlayerMatch({ matchPoint: 3 })
+    const { match, team1, players } = createSixPlayerMatch({ matchPoint: 15 })
     const handStarts = new Map<number, number[]>()
+    const firstTurnCommands = new Map<number, string[]>()
 
-    team1.addPoints(match.options.matchPoint, 2)
+    team1.addPoints(match.options.matchPoint, 5)
 
     await GameLoop(match)
       .onTurn(async (play) => {
         recordHandStarts(handStarts, players, play.handIdx)
+        if (!firstTurnCommands.has(play.handIdx)) {
+          firstTurnCommands.set(play.handIdx, play.player?.commands || [])
+        }
         if (play.player?.commands.includes(ESayCommand.MAZO)) {
           play.say(ESayCommand.MAZO, play.player)
         }
@@ -276,6 +327,38 @@ describe("Trucoshi Stability", () => {
       [0, 3],
       [1, 4],
       [2, 5],
+    ])
+    for (const handIdx of [1, 2, 3, 5, 6, 7]) {
+      expect(firstTurnCommands.get(handIdx)).to.include(EEnvidoCommand.ENVIDO)
+    }
+  })
+
+  it("should end pica-pica as soon as a team reaches the buenas limit", async () => {
+    const { match, team1, players } = createSixPlayerMatch({ matchPoint: 15 })
+    const handStarts = new Map<number, number[]>()
+
+    team1.addPoints(match.options.matchPoint, 5)
+
+    await GameLoop(match)
+      .onTurn(async (play) => {
+        recordHandStarts(handStarts, players, play.handIdx)
+        if (play.player?.commands.includes(ESayCommand.MAZO)) {
+          play.say(ESayCommand.MAZO, play.player)
+        }
+      })
+      .onHandFinished(async () => {
+        if (handStarts.size === 1) {
+          team1.points.buenas = 10
+        } else if (handStarts.size === 2) {
+          match.setWinner(match.teams[0])
+        }
+      })
+      .onWinner(async () => {})
+      .begin()
+
+    expect([...handStarts.values()]).to.deep.equal([
+      [0, 3],
+      [0, 1, 2, 3, 4, 5],
     ])
   })
 })

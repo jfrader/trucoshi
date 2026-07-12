@@ -31,4 +31,12 @@ describe("Card skin registry", () => {
     expect(uniqueIds.size).to.equal(ids.length)
     expect(CARD_SKINS.every((skin) => validCards.has(skin.card))).to.equal(true)
   })
+
+  it("derives asset paths from release and file name", () => {
+    expect(
+      CARD_SKINS.every(
+        (skin) => skin.assetPath === `web/releases/${skin.release}/${skin.fileName}`
+      )
+    ).to.equal(true)
+  })
 })

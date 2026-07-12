@@ -224,6 +224,39 @@ export const trucoshiMiddleware = (server: ITrucoshi) => {
     })
 
     /**
+     * Consume five owned skins of one rarity and award one skin of the next rarity.
+     */
+    socket.on(EClientEvent.ROLL_CARD_SKINS, async (cardSkinIds, callback) => {
+      try {
+        const accountId = socket.data.user?.account?.id
+
+        if (!accountId) {
+          throw new SocketError("GAME_REQUIRES_ACCOUNT", "Necesitas iniciar sesion")
+        }
+
+        if (!server.inventory) {
+          throw new SocketError("NOT_FOUND", "Este server no soporta inventario")
+        }
+
+        const rollResult = await server.inventory.rollSkins(accountId, cardSkinIds)
+        const [inventory, equippedDeck] = await Promise.all([
+          server.inventory.getInventory(accountId),
+          server.inventory.getEffectiveDeck(accountId),
+        ])
+
+        callback({ success: true, rollResult, inventory, equippedDeck })
+      } catch (e) {
+        log.error(e, "Client event ROLL_CARD_SKINS error")
+        callback({
+          success: false,
+          inventory: [],
+          equippedDeck: {},
+          error: isSocketError(e),
+        })
+      }
+    })
+
+    /**
      * Fetch treasure chest progress
      */
     socket.on(EClientEvent.FETCH_TREASURE_STATUS, async (callback) => {

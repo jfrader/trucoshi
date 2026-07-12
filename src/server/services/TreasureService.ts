@@ -190,13 +190,19 @@ export function TreasureService(
         })
         const duplicate = Boolean(owned)
 
-        if (!duplicate) {
-          await tx.userCardSkin.upsert({
-            where: { accountId_cardSkinId: { accountId, cardSkinId: selected.id } },
-            create: { accountId, cardSkinId: selected.id, source: `treasure-chest:${chestId}` },
-            update: { source: `treasure-chest:${chestId}` },
-          })
-        }
+        await tx.userCardSkin.upsert({
+          where: { accountId_cardSkinId: { accountId, cardSkinId: selected.id } },
+          create: {
+            accountId,
+            cardSkinId: selected.id,
+            source: `treasure-chest:${chestId}`,
+            quantity: 1,
+          },
+          update: {
+            source: `treasure-chest:${chestId}`,
+            quantity: { increment: 1 },
+          },
+        })
 
         await tx.userTreasureChest.update({
           where: { id: chestId },

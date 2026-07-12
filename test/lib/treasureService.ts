@@ -15,7 +15,10 @@ const toFakeSkin = (skin: ICardSkin): FakeCardSkin => ({
 
 function createFakeStore(randomSkins: FakeCardSkin[] = CARD_SKINS.map(toFakeSkin)) {
   const cardSkins = new Map(randomSkins.map((skin) => [skin.id, skin]))
-  const userSkins = new Map<string, { accountId: number; cardSkinId: string; source?: string }>()
+  const userSkins = new Map<
+    string,
+    { accountId: number; cardSkinId: string; source?: string; quantity: number }
+  >()
   const progress = new Map<number, { id: number; accountId: number; progress: number }>()
   const credits = new Map<string, { id: number; accountId: number; matchId: number }>()
   const chests = new Map<
@@ -53,7 +56,14 @@ function createFakeStore(randomSkins: FakeCardSkin[] = CARD_SKINS.map(toFakeSkin
       },
       async upsert({ where, create, update }: any) {
         const key = `${where.accountId_cardSkinId.accountId}:${where.accountId_cardSkinId.cardSkinId}`
-        const row = { ...(userSkins.get(key) || create), ...update }
+        const existing = userSkins.get(key)
+        const row = {
+          ...(existing || create),
+          ...update,
+          quantity: existing
+            ? existing.quantity + (update.quantity?.increment || 0)
+            : create.quantity || 1,
+        }
         userSkins.set(key, row)
         return row
       },
@@ -200,7 +210,7 @@ describe("TreasureService", () => {
     expect(status.unopenedChests[0].sourceMatchId).to.equal(null)
   })
 
-  it("opens duplicate rewards without granting a second copy", async () => {
+  it("opens duplicate rewards and stores the additional copy", async () => {
     const store = createFakeStore()
     const service = TreasureService(store, (_max) => 0)
 
@@ -217,6 +227,7 @@ describe("TreasureService", () => {
     expect(result.rarity).to.equal("COMMON")
     expect(result.granted).to.equal(false)
     expect(result.duplicate).to.equal(true)
+    expect(store.__rows.userSkins.values().next().value?.quantity).to.equal(2)
   })
 
   it("only allows one concurrent open for the same chest", async () => {

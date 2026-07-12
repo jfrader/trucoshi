@@ -29,6 +29,7 @@ import {
   IPublicNoticeBanner,
   ITreasureOpenResult,
   ITreasureStatus,
+  ISkinRollResult,
   ITrucoshiStats,
   IUserData,
   IWaitingPlayData,
@@ -71,7 +72,7 @@ export interface ServerToClientEvents {
   [EServerEvent.PONG]: (serverTime: number, clientTime: number) => void
   [EServerEvent.UPDATE_CHAT]: (room: IPublicChatRoom) => void
   [EServerEvent.UPDATE_STATS]: (room: ITrucoshiStats) => void
-  [EServerEvent.QUEUE_UPDATE]: (status: IQueueStatus) => void
+  [EServerEvent.QUEUE_UPDATE]: (status: IQueueStatus | null) => void
   [EServerEvent.QUEUE_MATCH_FOUND]: (match: IQueueMatchFound) => void
   [EServerEvent.QUEUE_READY_UPDATE]: (update: IQueueReadyUpdate) => void
   [EServerEvent.QUEUE_MATCH_STARTING]: (starting: IQueueMatchStarting) => void
@@ -136,6 +137,7 @@ export enum EClientEvent {
   DECLINE_QUEUE_MATCH = "DECLINE_QUEUE_MATCH",
   FETCH_INVENTORY = "FETCH_INVENTORY",
   SET_DECK_CARD_SKIN = "SET_DECK_CARD_SKIN",
+  ROLL_CARD_SKINS = "ROLL_CARD_SKINS",
   FETCH_TREASURE_STATUS = "FETCH_TREASURE_STATUS",
   OPEN_TREASURE_CHEST = "OPEN_TREASURE_CHEST",
   DEV_GRANT_TREASURE_CHEST = "DEV_GRANT_TREASURE_CHEST",
@@ -236,6 +238,14 @@ export interface ClientToServerEvents {
     card: ICard,
     cardSkinId: CardSkinId | null,
     callback: IEventCallback<{ inventory: IInventoryCardGroup[]; equippedDeck: IEquippedDeck }>
+  ) => void
+  [EClientEvent.ROLL_CARD_SKINS]: (
+    cardSkinIds: CardSkinId[],
+    callback: IEventCallback<{
+      rollResult?: ISkinRollResult
+      inventory: IInventoryCardGroup[]
+      equippedDeck: IEquippedDeck
+    }>
   ) => void
   [EClientEvent.FETCH_TREASURE_STATUS]: (
     callback: IEventCallback<{ treasureStatus: ITreasureStatus }>

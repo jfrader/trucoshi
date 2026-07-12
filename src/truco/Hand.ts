@@ -52,7 +52,7 @@ export interface IHand {
   set currentPlayer(player: IPlayer | null)
   currentRound: IRound | null
   playedCards: IPlayedCard[]
-  init(): Promise<IHand>
+  init(activePlayerKeys?: ReadonlySet<string>): Promise<IHand>
   setBitcoinBlock(hash: string, height: number): void
   setTrucoWinner(teamIdx: 0 | 1): void
   setEnvidoWinner(teamIdx: 0 | 1): void
@@ -305,13 +305,17 @@ export function Hand(match: IMatch, idx: number) {
       }
       return player
     },
-    async init() {
+    async init(activePlayerKeys) {
       for (const team of match.teams) {
         for (const player of team.players) {
           if (player.abandoned) {
             continue
           }
-          player.enable()
+          if (!activePlayerKeys || activePlayerKeys.has(player.key)) {
+            player.enable()
+          } else {
+            player.disable()
+          }
           player.resetCommands()
         }
       }
@@ -542,7 +546,7 @@ const handleEnvido = (match: IMatch, hand: IHand, currentPlayer: IPlayer) => {
     !envido.started &&
     (!match.options.flor || !hand.flor.started) &&
     !hand.truco.answer &&
-    match.teams[currentPlayer.teamIdx].players.every(
+    match.teams[currentPlayer.teamIdx].activePlayers.every(
       (p) => !p.hasSaidTruco && (!match.options.flor || !p.hasFlor)
     )
   ) {

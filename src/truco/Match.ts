@@ -3,7 +3,13 @@ import { IDeck, IHandPoints, ILobbyOptions, IPlayer, ITeam, ITutorialRuntime } f
 
 import { Hand, IHand } from "./Hand"
 import { IPlayInstance } from "./Play"
-import { Deck, ITable, PICA_PICA_TEAM_SIZE, PICA_PICA_TRIGGER_PERCENT } from "../lib"
+import {
+  Deck,
+  ITable,
+  PICA_PICA_END_PERCENT,
+  PICA_PICA_TEAM_SIZE,
+  PICA_PICA_TRIGGER_PERCENT,
+} from "../lib"
 
 const log = logger.child({ class: "Match" })
 
@@ -43,9 +49,14 @@ const getPicaPairs = (players: IPlayer[]): IPicaPair[] => {
   return pairs
 }
 
+export const getPicaPicaLimits = (matchPoint: number) => ({
+  startMalas: Math.ceil(matchPoint * PICA_PICA_TRIGGER_PERCENT),
+  endBuenas: Math.ceil(matchPoint * PICA_PICA_END_PERCENT),
+})
+
 async function* matchTurnGeneratorSequence(match: IMatch) {
   const picaPairs = getPicaPairs(match.table.players)
-  const picaTriggerPoints = Math.ceil(match.options.matchPoint * PICA_PICA_TRIGGER_PERCENT)
+  const { startMalas, endBuenas } = getPicaPicaLimits(match.options.matchPoint)
   let picaActivated = false
   let picaEnded = false
   let nextModeIsPica = false
@@ -68,18 +79,23 @@ async function* matchTurnGeneratorSequence(match: IMatch) {
       }
     }
 
+    if (!picaEnded && match.teams.some((team) => team.points.buenas >= endBuenas)) {
+      picaEnded = true
+      if (picaActivated) {
+        log.info({ matchId: match.id, endBuenas }, "Pica-pica ended: a team reached the limit")
+      }
+    }
+
     if (
       !picaActivated &&
       !picaEnded &&
       match.table.players.length === PICA_PICA_TEAM_SIZE &&
-      match.teams.some(
-        (team) => Math.max(team.points.malas, team.points.buenas) >= picaTriggerPoints
-      )
+      match.teams.some((team) => team.points.malas >= startMalas)
     ) {
       picaActivated = true
       nextModeIsPica = true
       log.info(
-        { matchId: match.id, trigger: picaTriggerPoints, pairs: picaPairs.map((pair) => pair.map((p) => p.idx)) },
+        { matchId: match.id, startMalas, pairs: picaPairs.map((pair) => pair.map((p) => p.idx)) },
         "Pica-pica mode activated"
       )
     }
@@ -95,17 +111,15 @@ async function* matchTurnGeneratorSequence(match: IMatch) {
       match.setCurrentHand(null)
       yield match
 
-      const newHand = Hand(match, match.hands.length + 1)
-      const hand = match.setCurrentHand(await newHand.init()) as IHand
-
-      if (pair) {
-        const pairPlayers = new Set(pair.map((player) => player.key))
-        for (const player of match.table.players) {
-          if (!pairPlayers.has(player.key)) {
-            player.disable()
-          }
-        }
+      const activePlayerKeys = pair ? new Set(pair.map((player) => player.key)) : undefined
+      for (const player of match.table.players) {
+        if (player.abandoned) continue
+        if (!activePlayerKeys || activePlayerKeys.has(player.key)) player.enable()
+        else player.disable()
       }
+
+      const newHand = Hand(match, match.hands.length + 1)
+      const hand = match.setCurrentHand(await newHand.init(activePlayerKeys)) as IHand
 
       match.pushHand(hand)
 
@@ -119,7 +133,11 @@ async function* matchTurnGeneratorSequence(match: IMatch) {
       while (!hand.finished()) {
         const { value } = hand.getNextTurn()
         if (value) {
-          if (value.currentPlayer && value.currentPlayer.disabled && !hand.displayingPreviousHand()) {
+          if (
+            value.currentPlayer &&
+            value.currentPlayer.disabled &&
+            !hand.displayingPreviousHand()
+          ) {
             value.nextTurn()
             continue
           }
@@ -142,6 +160,12 @@ async function* matchTurnGeneratorSequence(match: IMatch) {
         break
       }
       match.table.nextHand()
+
+      if (pair && match.teams.some((team) => team.points.buenas >= endBuenas)) {
+        picaEnded = true
+        log.info({ matchId: match.id, endBuenas }, "Pica-pica ended: a team reached the limit")
+        break
+      }
     }
 
     if (match.winner) {

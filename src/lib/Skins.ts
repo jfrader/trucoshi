@@ -1,7 +1,10 @@
 import skinReleases from "../cosmetics/skins.json"
 import type { CardSkinRarity, ICard, ICardSkin } from "../types"
 
-type RawSkinDefinition = Omit<ICardSkin, "release" | "enabled" | "unlockable" | "rarity"> & {
+type RawSkinDefinition = Omit<
+  ICardSkin,
+  "release" | "assetPath" | "enabled" | "unlockable" | "rarity"
+> & {
   rarity: CardSkinRarity
   enabled?: boolean
   unlockable?: boolean
@@ -24,8 +27,9 @@ export type ICardSkinRelease = {
 const normalizeSkin = (release: string, skin: RawSkinDefinition): ICardSkin => ({
   enabled: true,
   unlockable: true,
-  release,
   ...skin,
+  release,
+  assetPath: `web/releases/${release}/${skin.fileName}`,
 })
 
 export const SKIN_RELEASES: ICardSkinRelease[] = (skinReleases as RawSkinRelease[]).map(

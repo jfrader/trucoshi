@@ -105,6 +105,7 @@ model CardSkin {
   userSkins UserCardSkin[]
   deckCards UserDeckCard[]
   treasureChests UserTreasureChest[]
+  skinRollRewards UserSkinRoll[]
 
   @@index([release])
   @@index([card])
@@ -117,11 +118,27 @@ model UserCardSkin {
   cardSkinId String
   unlockedAt DateTime @default(now())
   source     String?
+  quantity   Int      @default(1)
 
   cardSkin CardSkin @relation(fields: [cardSkinId], references: [id])
 
   @@unique([accountId, cardSkinId])
   @@index([accountId])
+}
+
+model UserSkinRoll {
+  id               Int            @id @default(autoincrement())
+  accountId        Int
+  inputRarity      CardSkinRarity
+  outputRarity     CardSkinRarity
+  consumedSkinIds  Json
+  rewardedSkinId   String
+  createdAt        DateTime       @default(now())
+
+  rewardedSkin CardSkin @relation(fields: [rewardedSkinId], references: [id])
+
+  @@index([accountId])
+  @@index([createdAt])
 }
 
 model UserDeckCard {

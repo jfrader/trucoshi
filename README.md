@@ -40,6 +40,12 @@ The launcher keeps the local stack in development mode: Lightning Accounts, Truc
 
 `yarn test`
 
+### Card skins
+
+Skin metadata and user inventory behavior live in this repository; image files
+live in the sibling client. See [`docs/card-skins.md`](docs/card-skins.md) for
+the publish, synchronization, validation, and stable-ID workflow.
+
 ### Docker e2e
 
 Trucoshi e2e tests depend on a running Lightning Accounts e2e server. Start that first in one

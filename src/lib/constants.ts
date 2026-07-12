@@ -102,5 +102,17 @@ export const SUITS_HUMAN_READABLE = {
 }
 
 export const TEAM_SIZE_VALUES = [1, 2, 3]
-export const PICA_PICA_TRIGGER_PERCENT = 0.5
+export const DEFAULT_TEAM_NAMES: Record<0 | 1, string> = {
+  0: "Naranja",
+  1: "Violeta",
+}
+export const getDefaultTeamName = (teamIdx: 0 | 1): string => DEFAULT_TEAM_NAMES[teamIdx]
+export const PICA_PICA_TRIGGER_PERCENT = 1 / 3
+export const PICA_PICA_END_PERCENT = 2 / 3
 export const PICA_PICA_TEAM_SIZE = 6
+
+export const getQueueMatchPoint = (maxPlayers: 2 | 4 | 6): 9 | 12 | 15 => {
+  if (maxPlayers === 6) return 15
+  if (maxPlayers === 4) return 12
+  return 9
+}

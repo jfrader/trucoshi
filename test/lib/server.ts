@@ -187,20 +187,28 @@ describe("Socket Server", () => {
       let player0QueuedAt = 0
 
       await new Promise<void>((resolve, reject) => {
-        clients[0].emit(EClientEvent.JOIN_QUEUE, { maxPlayers: 2, allowBots: false }, ({ success, status, error }) => {
-          if (status?.queuedAt) {
-            player0QueuedAt = status.queuedAt
+        clients[0].emit(
+          EClientEvent.JOIN_QUEUE,
+          { maxPlayers: 2, allowBots: false },
+          ({ success, status, error }) => {
+            if (status?.queuedAt) {
+              player0QueuedAt = status.queuedAt
+            }
+            if (success) return resolve()
+            reject(handleError(error, "Player 0 failed to join queue"))
           }
-          if (success) return resolve()
-          reject(handleError(error, "Player 0 failed to join queue"))
-        })
+        )
       })
 
       await new Promise<void>((resolve, reject) => {
-        clients[1].emit(EClientEvent.JOIN_QUEUE, { maxPlayers: 2, allowBots: false }, ({ success, error }) => {
-          if (success) return resolve()
-          reject(handleError(error, "Player 1 failed to join queue"))
-        })
+        clients[1].emit(
+          EClientEvent.JOIN_QUEUE,
+          { maxPlayers: 2, allowBots: false },
+          ({ success, error }) => {
+            if (success) return resolve()
+            reject(handleError(error, "Player 1 failed to join queue"))
+          }
+        )
       })
 
       const [match0, match1] = await Promise.all([player0Match, player1Match])
@@ -227,10 +235,14 @@ describe("Socket Server", () => {
       const player0Ready = waitForQueueReadyUpdate(clients[0])
 
       await new Promise<void>((resolve, reject) => {
-        clients[0].emit(EClientEvent.CONFIRM_QUEUE_MATCH, match0.proposalId, ({ success, error }) => {
-          if (success) return resolve()
-          reject(handleError(error, "Player 0 failed to confirm queue match"))
-        })
+        clients[0].emit(
+          EClientEvent.CONFIRM_QUEUE_MATCH,
+          match0.proposalId,
+          ({ success, error }) => {
+            if (success) return resolve()
+            reject(handleError(error, "Player 0 failed to confirm queue match"))
+          }
+        )
       })
 
       const readyUpdate = await player0Ready
@@ -244,10 +256,14 @@ describe("Socket Server", () => {
       const player1Starting = waitForQueueStarting(clients[1])
 
       await new Promise<void>((resolve, reject) => {
-        clients[1].emit(EClientEvent.CONFIRM_QUEUE_MATCH, match0.proposalId, ({ success, error }) => {
-          if (success) return resolve()
-          reject(handleError(error, "Player 1 failed to confirm queue match"))
-        })
+        clients[1].emit(
+          EClientEvent.CONFIRM_QUEUE_MATCH,
+          match0.proposalId,
+          ({ success, error }) => {
+            if (success) return resolve()
+            reject(handleError(error, "Player 1 failed to confirm queue match"))
+          }
+        )
       })
 
       const [starting0, starting1] = await Promise.all([player0Starting, player1Starting])
@@ -265,10 +281,14 @@ describe("Socket Server", () => {
       const starting = waitForQueueStarting(clients[2], 12000)
 
       await new Promise<void>((resolve, reject) => {
-        clients[2].emit(EClientEvent.JOIN_QUEUE, { maxPlayers: 0, allowBots: true }, ({ success, error }) => {
-          if (success) return resolve()
-          reject(handleError(error, "Player failed to join bot fallback queue"))
-        })
+        clients[2].emit(
+          EClientEvent.JOIN_QUEUE,
+          { maxPlayers: 0, allowBots: true },
+          ({ success, error }) => {
+            if (success) return resolve()
+            reject(handleError(error, "Player failed to join bot fallback queue"))
+          }
+        )
       })
 
       const match = await queuedMatch
@@ -292,35 +312,51 @@ describe("Socket Server", () => {
       const player3Match = waitForQueueMatch(clients[3])
 
       await new Promise<void>((resolve, reject) => {
-        clients[2].emit(EClientEvent.JOIN_QUEUE, { maxPlayers: 2, allowBots: false }, ({ success, error }) => {
-          if (success) return resolve()
-          reject(handleError(error, "Player 2 failed to join cancellable queue"))
-        })
+        clients[2].emit(
+          EClientEvent.JOIN_QUEUE,
+          { maxPlayers: 2, allowBots: false },
+          ({ success, error }) => {
+            if (success) return resolve()
+            reject(handleError(error, "Player 2 failed to join cancellable queue"))
+          }
+        )
       })
 
       await new Promise<void>((resolve, reject) => {
-        clients[3].emit(EClientEvent.JOIN_QUEUE, { maxPlayers: 2, allowBots: false }, ({ success, error }) => {
-          if (success) return resolve()
-          reject(handleError(error, "Player 3 failed to join cancellable queue"))
-        })
+        clients[3].emit(
+          EClientEvent.JOIN_QUEUE,
+          { maxPlayers: 2, allowBots: false },
+          ({ success, error }) => {
+            if (success) return resolve()
+            reject(handleError(error, "Player 3 failed to join cancellable queue"))
+          }
+        )
       })
 
       const [match2, match3] = await Promise.all([player2Match, player3Match])
       expect(match2.matchSessionId).to.equal(match3.matchSessionId)
 
       await new Promise<void>((resolve, reject) => {
-        clients[2].emit(EClientEvent.CONFIRM_QUEUE_MATCH, match2.proposalId, ({ success, error }) => {
-          if (success) return resolve()
-          reject(handleError(error, "Player 2 failed to confirm cancellable queue"))
-        })
+        clients[2].emit(
+          EClientEvent.CONFIRM_QUEUE_MATCH,
+          match2.proposalId,
+          ({ success, error }) => {
+            if (success) return resolve()
+            reject(handleError(error, "Player 2 failed to confirm cancellable queue"))
+          }
+        )
       })
 
       const cancelled = waitForQueueCancelled(clients[2])
       await new Promise<void>((resolve, reject) => {
-        clients[3].emit(EClientEvent.DECLINE_QUEUE_MATCH, match2.proposalId, ({ success, error }) => {
-          if (success) return resolve()
-          reject(handleError(error, "Player 3 failed to decline queue proposal"))
-        })
+        clients[3].emit(
+          EClientEvent.DECLINE_QUEUE_MATCH,
+          match2.proposalId,
+          ({ success, error }) => {
+            if (success) return resolve()
+            reject(handleError(error, "Player 3 failed to decline queue proposal"))
+          }
+        )
       })
 
       const cancellation = await cancelled
@@ -329,8 +365,12 @@ describe("Socket Server", () => {
 
       const player2Session = server.sessions.find((session) => session.name === "player2")
       const player3Session = server.sessions.find((session) => session.name === "player3")
-      expect(server.matchQueue.find((entry) => entry.userSession.session === player2Session?.session)).to.exist
-      expect(server.matchQueue.find((entry) => entry.userSession.session === player3Session?.session)).to.equal(undefined)
+      expect(
+        server.matchQueue.find((entry) => entry.userSession.session === player2Session?.session)
+      ).to.exist
+      expect(
+        server.matchQueue.find((entry) => entry.userSession.session === player3Session?.session)
+      ).to.equal(undefined)
 
       await new Promise<void>((resolve, reject) => {
         clients[2].emit(EClientEvent.LEAVE_QUEUE, ({ success, error }) => {
@@ -345,17 +385,25 @@ describe("Socket Server", () => {
       const player3Match = waitForQueueMatch(clients[3])
 
       await new Promise<void>((resolve, reject) => {
-        clients[2].emit(EClientEvent.JOIN_QUEUE, { maxPlayers: 2, allowBots: true }, ({ success, error }) => {
-          if (success) return resolve()
-          reject(handleError(error, "Player 2 failed to join mixed queue"))
-        })
+        clients[2].emit(
+          EClientEvent.JOIN_QUEUE,
+          { maxPlayers: 2, allowBots: true },
+          ({ success, error }) => {
+            if (success) return resolve()
+            reject(handleError(error, "Player 2 failed to join mixed queue"))
+          }
+        )
       })
 
       await new Promise<void>((resolve, reject) => {
-        clients[3].emit(EClientEvent.JOIN_QUEUE, { maxPlayers: 2, allowBots: false }, ({ success, error }) => {
-          if (success) return resolve()
-          reject(handleError(error, "Player 3 failed to join mixed queue"))
-        })
+        clients[3].emit(
+          EClientEvent.JOIN_QUEUE,
+          { maxPlayers: 2, allowBots: false },
+          ({ success, error }) => {
+            if (success) return resolve()
+            reject(handleError(error, "Player 3 failed to join mixed queue"))
+          }
+        )
       })
 
       const [match2, match3] = await Promise.all([player2Match, player3Match])
@@ -371,17 +419,25 @@ describe("Socket Server", () => {
       const player3Match = waitForQueueMatch(clients[3])
 
       await new Promise<void>((resolve, reject) => {
-        clients[2].emit(EClientEvent.JOIN_QUEUE, { allowBots: true } as any, ({ success, error }) => {
-          if (success) return resolve()
-          reject(handleError(error, "Player 2 failed to join default-size mixed queue"))
-        })
+        clients[2].emit(
+          EClientEvent.JOIN_QUEUE,
+          { allowBots: true } as any,
+          ({ success, error }) => {
+            if (success) return resolve()
+            reject(handleError(error, "Player 2 failed to join default-size mixed queue"))
+          }
+        )
       })
 
       await new Promise<void>((resolve, reject) => {
-        clients[3].emit(EClientEvent.JOIN_QUEUE, { allowBots: false } as any, ({ success, error }) => {
-          if (success) return resolve()
-          reject(handleError(error, "Player 3 failed to join default-size mixed queue"))
-        })
+        clients[3].emit(
+          EClientEvent.JOIN_QUEUE,
+          { allowBots: false } as any,
+          ({ success, error }) => {
+            if (success) return resolve()
+            reject(handleError(error, "Player 3 failed to join default-size mixed queue"))
+          }
+        )
       })
 
       const [match2, match3] = await Promise.all([player2Match, player3Match])
@@ -421,18 +477,26 @@ describe("Socket Server", () => {
           sharedB.connect()
         })
 
-        const sharedAMatch = waitForQueueMatch(sharedA as Socket<ServerToClientEvents, ClientToServerEvents>)
-        const sharedBMatch = waitForQueueMatch(sharedB as Socket<ServerToClientEvents, ClientToServerEvents>)
+        const sharedAMatch = waitForQueueMatch(
+          sharedA as Socket<ServerToClientEvents, ClientToServerEvents>
+        )
+        const sharedBMatch = waitForQueueMatch(
+          sharedB as Socket<ServerToClientEvents, ClientToServerEvents>
+        )
         const opponentMatch = waitForQueueMatch(clients[0])
         let firstQueuedAt = 0
         let restoredQueueStatus: Awaited<ReturnType<typeof server.fetchQueueStatus>>
 
         await new Promise<void>((resolve, reject) => {
-          sharedA.emit(EClientEvent.JOIN_QUEUE, { maxPlayers: 2, allowBots: true }, ({ success, status, error }) => {
-            firstQueuedAt = status?.queuedAt || 0
-            if (success) return resolve()
-            reject(handleError(error, "Shared device A failed to join queue"))
-          })
+          sharedA.emit(
+            EClientEvent.JOIN_QUEUE,
+            { maxPlayers: 2, allowBots: true },
+            ({ success, status, error }) => {
+              firstQueuedAt = status?.queuedAt || 0
+              if (success) return resolve()
+              reject(handleError(error, "Shared device A failed to join queue"))
+            }
+          )
         })
 
         await new Promise<void>((resolve, reject) => {
@@ -447,11 +511,50 @@ describe("Socket Server", () => {
         expect(restoredQueueStatus?.maxPlayers).to.equal(2)
         expect(restoredQueueStatus?.allowBots).to.equal(true)
 
+        const sharedBQueueLeft = new Promise<void>((resolve, reject) => {
+          const timer = setTimeout(() => {
+            sharedB.off(EServerEvent.QUEUE_UPDATE, handleQueueUpdate)
+            reject(new Error("Timed out waiting for shared device queue leave update"))
+          }, 7000)
+          const handleQueueUpdate = (
+            status: Awaited<ReturnType<typeof server.fetchQueueStatus>> | null
+          ) => {
+            if (status) return
+            clearTimeout(timer)
+            sharedB.off(EServerEvent.QUEUE_UPDATE, handleQueueUpdate)
+            resolve()
+          }
+          sharedB.on(EServerEvent.QUEUE_UPDATE, handleQueueUpdate)
+        })
+
         await new Promise<void>((resolve, reject) => {
-          clients[0].emit(EClientEvent.JOIN_QUEUE, { maxPlayers: 2, allowBots: false }, ({ success, error }) => {
+          sharedA.emit(EClientEvent.LEAVE_QUEUE, ({ success, error }) => {
             if (success) return resolve()
-            reject(handleError(error, "Opponent failed to join shared-session queue"))
+            reject(handleError(error, "Shared device A failed to leave queue"))
           })
+        })
+        await sharedBQueueLeft
+
+        await new Promise<void>((resolve, reject) => {
+          sharedA.emit(
+            EClientEvent.JOIN_QUEUE,
+            { maxPlayers: 2, allowBots: true },
+            ({ success, error }) => {
+              if (success) return resolve()
+              reject(handleError(error, "Shared device A failed to rejoin queue"))
+            }
+          )
+        })
+
+        await new Promise<void>((resolve, reject) => {
+          clients[0].emit(
+            EClientEvent.JOIN_QUEUE,
+            { maxPlayers: 2, allowBots: false },
+            ({ success, error }) => {
+              if (success) return resolve()
+              reject(handleError(error, "Opponent failed to join shared-session queue"))
+            }
+          )
         })
 
         const [matchA, matchB, matchOpponent] = await Promise.all([
@@ -474,23 +577,28 @@ describe("Socket Server", () => {
       const botAllowedMatch = waitForQueueMatch(clients[3])
 
       await new Promise<void>((resolve, reject) => {
-        clients[2].emit(EClientEvent.JOIN_QUEUE, { maxPlayers: 2, allowBots: false }, ({ success, error }) => {
-          if (success) return resolve()
-          reject(handleError(error, "Humans-only player failed to join queue"))
-        })
+        clients[2].emit(
+          EClientEvent.JOIN_QUEUE,
+          { maxPlayers: 2, allowBots: false },
+          ({ success, error }) => {
+            if (success) return resolve()
+            reject(handleError(error, "Humans-only player failed to join queue"))
+          }
+        )
       })
 
       await new Promise<void>((resolve, reject) => {
-        clients[3].emit(EClientEvent.JOIN_QUEUE, { maxPlayers: 2, allowBots: true }, ({ success, error }) => {
-          if (success) return resolve()
-          reject(handleError(error, "Bot-allowed player failed to join queue"))
-        })
+        clients[3].emit(
+          EClientEvent.JOIN_QUEUE,
+          { maxPlayers: 2, allowBots: true },
+          ({ success, error }) => {
+            if (success) return resolve()
+            reject(handleError(error, "Bot-allowed player failed to join queue"))
+          }
+        )
       })
 
-      const [matchHumanOnly, matchBotAllowed] = await Promise.all([
-        humanOnlyMatch,
-        botAllowedMatch,
-      ])
+      const [matchHumanOnly, matchBotAllowed] = await Promise.all([humanOnlyMatch, botAllowedMatch])
       expect(matchHumanOnly.matchSessionId).to.equal(matchBotAllowed.matchSessionId)
       expect(matchHumanOnly.maxPlayers).to.equal(2)
       expect(matchHumanOnly.humanPlayers).to.equal(2)
@@ -505,10 +613,14 @@ describe("Socket Server", () => {
       })
 
       await new Promise<void>((resolve, reject) => {
-        clients[3].emit(EClientEvent.JOIN_QUEUE, { maxPlayers: 2, allowBots: false }, ({ success, error }) => {
-          if (success) return resolve()
-          reject(handleError(error, "Player failed to join humans-only queue"))
-        })
+        clients[3].emit(
+          EClientEvent.JOIN_QUEUE,
+          { maxPlayers: 2, allowBots: false },
+          ({ success, error }) => {
+            if (success) return resolve()
+            reject(handleError(error, "Player failed to join humans-only queue"))
+          }
+        )
       })
 
       await new Promise((resolve) => setTimeout(resolve, 5500))
@@ -527,21 +639,30 @@ describe("Socket Server", () => {
       const player5Match = waitForQueueMatch(clients[5])
 
       await new Promise<void>((resolve, reject) => {
-        clients[4].emit(EClientEvent.JOIN_QUEUE, { maxPlayers: 4, allowBots: true }, ({ success, error }) => {
-          if (success) return resolve()
-          reject(handleError(error, "Player 4 failed to join partial queue"))
-        })
+        clients[4].emit(
+          EClientEvent.JOIN_QUEUE,
+          { maxPlayers: 4, allowBots: true },
+          ({ success, error }) => {
+            if (success) return resolve()
+            reject(handleError(error, "Player 4 failed to join partial queue"))
+          }
+        )
       })
       await new Promise<void>((resolve, reject) => {
-        clients[5].emit(EClientEvent.JOIN_QUEUE, { maxPlayers: 4, allowBots: true }, ({ success, error }) => {
-          if (success) return resolve()
-          reject(handleError(error, "Player 5 failed to join partial queue"))
-        })
+        clients[5].emit(
+          EClientEvent.JOIN_QUEUE,
+          { maxPlayers: 4, allowBots: true },
+          ({ success, error }) => {
+            if (success) return resolve()
+            reject(handleError(error, "Player 5 failed to join partial queue"))
+          }
+        )
       })
 
       const [match4, match5] = await Promise.all([player4Match, player5Match])
       expect(match4.matchSessionId).to.equal(match5.matchSessionId)
       expect(match4.maxPlayers).to.equal(4)
+      expect(server.tables.get(match4.matchSessionId)?.lobby.options.matchPoint).to.equal(12)
       expect(match4.humanPlayers).to.equal(2)
       expect(match4.botPlayers).to.equal(2)
       expect(match4.filledWithBots).to.equal(true)
@@ -598,8 +719,9 @@ describe("Socket Server", () => {
           expect(match?.createdFromQueue).to.equal(false)
           expect(match?.queueOptions).to.equal(undefined)
           expect(
-            activeMatches?.find((activeMatch) => activeMatch.matchSessionId === match?.matchSessionId)
-              ?.createdFromQueue
+            activeMatches?.find(
+              (activeMatch) => activeMatch.matchSessionId === match?.matchSessionId
+            )?.createdFromQueue
           ).to.equal(false)
           matchId = match?.matchSessionId
           match0 = match
