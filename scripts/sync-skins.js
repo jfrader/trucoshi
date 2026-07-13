@@ -78,7 +78,7 @@ if (options.rarity && !VALID_RARITIES.has(options.rarity)) {
 if (!options.assetsDir) {
   options.assetsDir = path.resolve(
     repoRoot,
-    `../trucoshi-client/assets/cards/owned/web/releases/${options.release}`
+    `../trucoshi-client/src/generated/cards/releases/${options.release}`
   )
 }
 

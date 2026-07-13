@@ -11,10 +11,12 @@ yarn sync:skins argentino --rarity COMMON
 ```
 
 The command reads
-`../trucoshi-client/assets/cards/owned/web/releases/<release>/` by default. It
+`../trucoshi-client/src/generated/cards/releases/<release>/` by default. It
 adds missing definitions to `src/cosmetics/skins.json` and never stores
 `assetPath`; runtime code derives that path as
-`web/releases/<release>/<fileName>`.
+`web/releases/<release>/<fileName>`. That value is a stable logical API path;
+the client resolves it from its generated card module rather than using it as a
+filesystem path.
 
 Review every new definition and change `rarity` where appropriate. Valid values
 are `COMMON`, `RARE`, `EPIC`, `LEGENDARY`, and `PROMO`.
