@@ -118,6 +118,30 @@
         "rarity": "COMMON"
       },
       {
+        "id": "argentino/3e_argentino_002",
+        "card": "3e",
+        "fileName": "3e_argentino_002.png",
+        "rarity": "COMMON"
+      },
+      {
+        "id": "argentino/5c_argentino_002",
+        "card": "5c",
+        "fileName": "5c_argentino_002.png",
+        "rarity": "COMMON"
+      },
+      {
+        "id": "argentino/7c_argentino_001",
+        "card": "7c",
+        "fileName": "7c_argentino_001.png",
+        "rarity": "COMMON"
+      },
+      {
+        "id": "argentino/rb_argentino_004",
+        "card": "rb",
+        "fileName": "rb_argentino_004.png",
+        "rarity": "COMMON"
+      },
+      {
         "id": "argentino/1b_argentino_002",
         "card": "1b",
         "fileName": "1b_argentino_002.png",
