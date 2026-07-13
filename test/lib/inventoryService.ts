@@ -269,6 +269,23 @@ describe("InventoryService", () => {
     expect(await service.getEffectiveDeck(1)).to.deep.equal({})
   })
 
+  it("rolls five legendary copies into one legendary skin", async () => {
+    const store = createFakeStore()
+    const service = InventoryService(store, (_max) => 0)
+    const legendaryId = "argentino/rb_argentino_003"
+
+    await service.seedInitialCardSkins()
+    for (let i = 0; i < 5; i += 1) {
+      await service.grantSkin(1, legendaryId, "test")
+    }
+
+    const result = await service.rollSkins(1, Array(5).fill(legendaryId))
+
+    expect(result.inputRarity).to.equal("LEGENDARY")
+    expect(result.outputRarity).to.equal("LEGENDARY")
+    expect(result.rewardedSkin.rarity).to.equal("LEGENDARY")
+  })
+
   it("rejects mixed-rarity rolls before consuming anything", async () => {
     const store = createFakeStore()
     const service = InventoryService(store, (_max) => 0)

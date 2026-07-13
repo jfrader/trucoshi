@@ -25,6 +25,7 @@ const NEXT_ROLL_RARITY: Partial<Record<CardSkinRarity, CardSkinRarity>> = {
   COMMON: "RARE",
   RARE: "EPIC",
   EPIC: "LEGENDARY",
+  LEGENDARY: "LEGENDARY",
 }
 
 const toCardSkin = (skin: {
