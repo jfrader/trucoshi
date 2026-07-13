@@ -94,52 +94,28 @@
         "rarity": "COMMON"
       },
       {
-        "id": "argentino/cb_argentino_004",
-        "card": "cb",
-        "fileName": "cb_argentino_004.png",
-        "rarity": "COMMON"
-      },
-      {
-        "id": "argentino/cc_argentino_002",
-        "card": "cc",
-        "fileName": "cc_argentino_002.png",
-        "rarity": "COMMON"
-      },
-      {
-        "id": "argentino/po_argentino_001",
-        "card": "po",
-        "fileName": "po_argentino_001.png",
-        "rarity": "COMMON"
-      },
-      {
-        "id": "argentino/re_argentino_002",
-        "card": "re",
-        "fileName": "re_argentino_002.png",
-        "rarity": "COMMON"
-      },
-      {
-        "id": "argentino/3e_argentino_002",
-        "card": "3e",
-        "fileName": "3e_argentino_002.png",
-        "rarity": "COMMON"
-      },
-      {
-        "id": "argentino/5c_argentino_002",
-        "card": "5c",
-        "fileName": "5c_argentino_002.png",
-        "rarity": "COMMON"
-      },
-      {
         "id": "argentino/7c_argentino_001",
         "card": "7c",
         "fileName": "7c_argentino_001.png",
         "rarity": "COMMON"
       },
       {
+        "id": "argentino/3e_argentino_002",
+        "card": "3e",
+        "fileName": "3e_argentino_002.png",
+        "rarity": "RARE"
+      },
+      {
+        "id": "argentino/5c_argentino_002",
+        "card": "5c",
+        "fileName": "5c_argentino_002.png",
+        "rarity": "RARE"
+      },
+      {
         "id": "argentino/rb_argentino_004",
         "card": "rb",
         "fileName": "rb_argentino_004.png",
-        "rarity": "COMMON"
+        "rarity": "RARE"
       },
       {
         "id": "argentino/1b_argentino_002",
@@ -218,6 +194,30 @@
         "card": "rc",
         "fileName": "rc_argentino_001.png",
         "rarity": "RARE"
+      },
+      {
+        "id": "argentino/cb_argentino_004",
+        "card": "cb",
+        "fileName": "cb_argentino_004.png",
+        "rarity": "EPIC"
+      },
+      {
+        "id": "argentino/cc_argentino_002",
+        "card": "cc",
+        "fileName": "cc_argentino_002.png",
+        "rarity": "EPIC"
+      },
+      {
+        "id": "argentino/po_argentino_001",
+        "card": "po",
+        "fileName": "po_argentino_001.png",
+        "rarity": "EPIC"
+      },
+      {
+        "id": "argentino/re_argentino_002",
+        "card": "re",
+        "fileName": "re_argentino_002.png",
+        "rarity": "EPIC"
       },
       {
         "id": "argentino/1e_argentino_003",
