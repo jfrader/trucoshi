@@ -1,0 +1,7 @@
+#!/usr/bin/env node
+require("dotenv/config")
+const trucoshi = require("../build/server/index")
+
+console.log("Starting server")
+
+trucoshi.default()

@@ -1,0 +1,98 @@
+name: Publish approved npm package
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: publish-trucoshi-15.0.4
+  cancel-in-progress: false
+
+env:
+  ARTIFACT: .release/trucoshi-15.0.4.tgz
+  PACKAGE_SPEC: trucoshi@15.0.4
+  EXPECTED_SHA256: 3c4ef4dd826073d83a4c43dbe6cf606cf079366c3490ae2c082d9863aa802804
+  EXPECTED_INTEGRITY: sha512-rZVRvTmFiu/B5Vj+fTQOvuqt+1oud6AOFVuhdr2hsYftjmgflNTh8c+CvZSCCvXUtCnZ9UINhyAhDx6JUUobdQ==
+
+jobs:
+  publish:
+    if: github.repository == 'jfrader/trucoshi'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out the exact public release
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: .nvmrc
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - name: Install the pinned OIDC-capable npm CLI
+        run: |
+          set -euo pipefail
+          npm install --global npm@11.18.0 --ignore-scripts
+          test "$(npm --version)" = '11.18.0'
+
+      - name: Verify the approved artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s  %s\n' "$EXPECTED_SHA256" "$ARTIFACT" |
+            sha256sum --check --strict -
+
+          actual_spec="$(
+            tar -xOf "$ARTIFACT" package/package.json |
+              node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync(0));process.stdout.write(p.name+'@'+p.version)"
+          )"
+          test "$actual_spec" = "$PACKAGE_SPEC"
+
+      - name: Check the npm registry
+        id: registry
+        shell: bash
+        run: |
+          set -euo pipefail
+          output="$RUNNER_TEMP/npm-view.json"
+          errors="$RUNNER_TEMP/npm-view.err"
+
+          if npm view "$PACKAGE_SPEC" dist.integrity --json >"$output" 2>"$errors"; then
+            actual="$(node -p "JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'))" "$output")"
+            test "$actual" = "$EXPECTED_INTEGRITY"
+            echo 'publish=false' >>"$GITHUB_OUTPUT"
+          elif grep -q 'E404' "$errors"; then
+            echo 'publish=true' >>"$GITHUB_OUTPUT"
+          else
+            cat "$errors" >&2
+            exit 1
+          fi
+
+      - name: Publish the exact artifact through npm OIDC
+        if: steps.registry.outputs.publish == 'true'
+        run: npm publish "$ARTIFACT" --access public --ignore-scripts
+
+      - name: Verify the published integrity
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 12); do
+            if actual="$(npm view "$PACKAGE_SPEC" dist.integrity 2>/dev/null)"; then
+              test "$actual" = "$EXPECTED_INTEGRITY"
+              echo "$PACKAGE_SPEC has the approved integrity."
+              exit 0
+            fi
+            sleep 5
+          done
+
+          echo "$PACKAGE_SPEC did not become visible in time." >&2
+          exit 1

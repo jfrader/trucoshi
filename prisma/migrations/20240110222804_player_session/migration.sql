@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "MatchPlayer" ADD COLUMN     "session" TEXT NOT NULL DEFAULT '',
+ALTER COLUMN "idx" DROP NOT NULL;

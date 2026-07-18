@@ -1,0 +1,33 @@
+name: "trucoshi-${NODE_ENV:-development}"
+
+include:
+  - path: docker-compose.networks.yml
+
+services:
+  postgres_trucoshi:
+    extends:
+      file: docker-compose.base.yml
+      service: postgres
+    ports:
+      - 25432:5432
+  redis:
+    extends:
+      file: docker-compose.base.yml
+      service: redis
+  server:
+    volumes:
+      - ./src:/opt/app/src
+    depends_on:
+      postgres_trucoshi:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    command: ["yarn", "start:migrate"]
+    env_file:
+      - path: ./.env
+    environment:
+      DATABASE_URL: "postgresql://${APP_DB_USER}:${APP_DB_PASSWORD}@postgres_trucoshi:5432/${APP_DB_NAME}?schema=public"
+      APP_REDIS_URL: "redis://redis:6379"
+    extends:
+      file: docker-compose.base.yml
+      service: server

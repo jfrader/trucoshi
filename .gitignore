@@ -1,0 +1,17 @@
+node_modules
+dist
+build
+volumes
+.dev-all-yarn-links
+
+# profiler
+isolate*.log
+processed*.txt
+
+# Environment varibales
+.env*
+!.env*.example
+!.env*.test
+
+prisma/client
+*.log

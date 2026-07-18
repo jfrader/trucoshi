@@ -1,0 +1,725 @@
+import { io as Client, Socket } from "socket.io-client"
+import { assert, expect } from "chai"
+import { ESayCommand, ICard, IPublicMatch, IQueueMatchFound } from "../../src/types"
+import { ITrucoshi, Trucoshi } from "../../src/server/classes"
+import { playBotsMatch, playRandomMatch } from "../serverHelpers"
+import {
+  ClientToServerEvents,
+  EClientEvent,
+  EServerEvent,
+  ServerToClientEvents,
+} from "../../src/events"
+import { sessionMiddleware, trucoshiMiddleware } from "../../src/server"
+import * as sinon from "sinon"
+import logger from "../../src/utils/logger"
+import { Logger } from "pino"
+
+describe("Socket Server", () => {
+  let clients: Socket<ServerToClientEvents, ClientToServerEvents>[] = []
+  let server: ITrucoshi
+
+  const waitForQueueMatch = (
+    client: Socket<ServerToClientEvents, ClientToServerEvents>,
+    timeout = 7000
+  ) =>
+    new Promise<IQueueMatchFound>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        client.off(EServerEvent.QUEUE_MATCH_FOUND, handleMatchFound)
+        reject(new Error("Timed out waiting for queue match"))
+      }, timeout)
+      const handleMatchFound = (match: IQueueMatchFound) => {
+        clearTimeout(timer)
+        resolve(match)
+      }
+      client.once(EServerEvent.QUEUE_MATCH_FOUND, handleMatchFound)
+    })
+
+  const handleError = (error: unknown, message: string): Error => {
+    const err = error instanceof Error ? error : new Error(message)
+    throw err
+  }
+
+  before((done) => {
+    server = Trucoshi({ port: Number(process.env.APP_PORT) || 9999, serverVersion: "1" })
+
+    server.listen(
+      async (io) => {
+        io.use(sessionMiddleware(server))
+        io.use(trucoshiMiddleware(server))
+
+        for (let i = 0; i < 6; i++) {
+          const client = Client(`http://localhost:${process.env.APP_PORT || 9999}`, {
+            autoConnect: false,
+            withCredentials: true,
+            auth: { name: "player" + i, session: "player" + i },
+          })
+          clients.push(client)
+
+          client.on("connect_error", (e) => {
+            console.log("CONNECT ERROR")
+            console.error(e)
+          })
+
+          client.connect()
+        }
+
+        io.on("connection", (socket) => {
+          socket.setMaxListeners(250)
+        })
+
+        done()
+      },
+      { redis: false, lightningAccounts: false, store: false }
+    )
+  })
+
+  after(() => {
+    server.io.close()
+    clients.forEach((c) => c.close())
+  })
+
+  beforeEach(() => {
+    clients.forEach((c) => {
+      c.removeAllListeners()
+    })
+  })
+
+  describe("Happy paths", () => {
+    it("should send ping", (done) => {
+      clients[0].on(EServerEvent.PONG, (_a, b) => {
+        assert.equal(b, 123)
+        done()
+      })
+      clients[0].emit(EClientEvent.PING, 123)
+    })
+
+    it("should match two queued humans", async () => {
+      const player0Match = waitForQueueMatch(clients[0])
+      const player1Match = waitForQueueMatch(clients[1])
+      let player0QueuedAt = 0
+
+      await new Promise<void>((resolve, reject) => {
+        clients[0].emit(EClientEvent.JOIN_QUEUE, { maxPlayers: 2, allowBots: false }, ({ success, status, error }) => {
+          if (status?.queuedAt) {
+            player0QueuedAt = status.queuedAt
+          }
+          if (success) return resolve()
+          reject(handleError(error, "Player 0 failed to join queue"))
+        })
+      })
+
+      await new Promise<void>((resolve, reject) => {
+        clients[1].emit(EClientEvent.JOIN_QUEUE, { maxPlayers: 2, allowBots: false }, ({ success, error }) => {
+          if (success) return resolve()
+          reject(handleError(error, "Player 1 failed to join queue"))
+        })
+      })
+
+      const [match0, match1] = await Promise.all([player0Match, player1Match])
+      expect(match0.matchSessionId).to.equal(match1.matchSessionId)
+      expect(match0.maxPlayers).to.equal(2)
+      expect(match0.humanPlayers).to.equal(2)
+      expect(match0.botPlayers).to.equal(0)
+      expect(match0.filledWithBots).to.equal(false)
+      expect(player0QueuedAt).to.be.greaterThan(0)
+      const player0Session = server.sessions.find((session) => session.name === "player0")?.session
+      const player1Session = server.sessions.find((session) => session.name === "player1")?.session
+      expect(server.getSessionActiveMatches(player0Session)[0]?.createdFromQueue).to.equal(true)
+      expect(
+        server.tables.get(match0.matchSessionId)?.getPublicMatch(player0Session).queueOptions
+      ).to.deep.equal({ maxPlayers: 2, allowBots: false })
+      expect(
+        server.tables.get(match1.matchSessionId)?.getPublicMatch(player1Session).queueOptions
+      ).to.deep.equal({ maxPlayers: 2, allowBots: false })
+    })
+
+    it("should fill a queued any-size match with a bot after fallback", async () => {
+      const queuedMatch = waitForQueueMatch(clients[2])
+
+      await new Promise<void>((resolve, reject) => {
+        clients[2].emit(EClientEvent.JOIN_QUEUE, { maxPlayers: 0, allowBots: true }, ({ success, error }) => {
+          if (success) return resolve()
+          reject(handleError(error, "Player failed to join bot fallback queue"))
+        })
+      })
+
+      const match = await queuedMatch
+      expect(match.maxPlayers).to.equal(2)
+      expect(match.humanPlayers).to.equal(1)
+      expect(match.botPlayers).to.equal(1)
+      expect(match.filledWithBots).to.equal(true)
+      const player2Session = server.sessions.find((session) => session.name === "player2")?.session
+      expect(
+        server.tables.get(match.matchSessionId)?.getPublicMatch(player2Session).queueOptions
+      ).to.deep.equal({ maxPlayers: 0, allowBots: true })
+    })
+
+    it("should keep waiting when bot fallback is disabled", async () => {
+      let matched = false
+      clients[3].once(EServerEvent.QUEUE_MATCH_FOUND, () => {
+        matched = true
+      })
+
+      await new Promise<void>((resolve, reject) => {
+        clients[3].emit(EClientEvent.JOIN_QUEUE, { maxPlayers: 2, allowBots: false }, ({ success, error }) => {
+          if (success) return resolve()
+          reject(handleError(error, "Player failed to join humans-only queue"))
+        })
+      })
+
+      await new Promise((resolve) => setTimeout(resolve, 5500))
+      expect(matched).to.equal(false)
+
+      await new Promise<void>((resolve, reject) => {
+        clients[3].emit(EClientEvent.LEAVE_QUEUE, ({ success, error }) => {
+          if (success) return resolve()
+          reject(handleError(error, "Player failed to leave humans-only queue"))
+        })
+      })
+    })
+
+    it("should fill a partial 2v2 queue with bots after fallback", async () => {
+      const player4Match = waitForQueueMatch(clients[4])
+      const player5Match = waitForQueueMatch(clients[5])
+
+      await new Promise<void>((resolve, reject) => {
+        clients[4].emit(EClientEvent.JOIN_QUEUE, { maxPlayers: 4, allowBots: true }, ({ success, error }) => {
+          if (success) return resolve()
+          reject(handleError(error, "Player 4 failed to join partial queue"))
+        })
+      })
+      await new Promise<void>((resolve, reject) => {
+        clients[5].emit(EClientEvent.JOIN_QUEUE, { maxPlayers: 4, allowBots: true }, ({ success, error }) => {
+          if (success) return resolve()
+          reject(handleError(error, "Player 5 failed to join partial queue"))
+        })
+      })
+
+      const [match4, match5] = await Promise.all([player4Match, player5Match])
+      expect(match4.matchSessionId).to.equal(match5.matchSessionId)
+      expect(match4.maxPlayers).to.equal(4)
+      expect(match4.humanPlayers).to.equal(2)
+      expect(match4.botPlayers).to.equal(2)
+      expect(match4.filledWithBots).to.equal(true)
+    })
+
+    it("should play an entire match", async () => {
+      let matchId: string | undefined
+      let match0: IPublicMatch | undefined
+      let match1: IPublicMatch | undefined
+
+      let winningResolve = () => {}
+      const WinnerPromise = new Promise<void>((res) => {
+        winningResolve = res
+      })
+
+      clients[0].on(EServerEvent.UPDATE_MATCH, (match) => {
+        match0 = match
+      })
+
+      clients[1].on(EServerEvent.UPDATE_MATCH, (match) => {
+        match1 = match
+        if (match.winner) {
+          winningResolve()
+        }
+      })
+
+      clients[0].on(EServerEvent.WAITING_PLAY, (match, callback) => {
+        match0 = match
+        const data = { card: match.me?.hand.at(0) as ICard, cardIdx: 0 }
+        if (!data.card || data.cardIdx === undefined) {
+          handleError(
+            null,
+            `Player 0 failed to select a valid card in match ${match.matchSessionId}`
+          )
+        }
+        callback(data)
+      })
+
+      clients[1].on(EServerEvent.WAITING_PLAY, (match, callback) => {
+        match1 = match
+        const data = { card: match.me?.hand.at(0) as ICard, cardIdx: 0 }
+        if (!data.card || data.cardIdx === undefined) {
+          handleError(
+            null,
+            `Player 1 failed to select a valid card in match ${match.matchSessionId}`
+          )
+        }
+        callback(data)
+      })
+
+      await new Promise<void>((res) => {
+        clients[0].emit(EClientEvent.CREATE_MATCH, ({ match, activeMatches }) => {
+          expect(Boolean(match?.matchSessionId)).to.equal(true)
+          expect(match?.createdFromQueue).to.equal(false)
+          expect(match?.queueOptions).to.equal(undefined)
+          expect(
+            activeMatches?.find((activeMatch) => activeMatch.matchSessionId === match?.matchSessionId)
+              ?.createdFromQueue
+          ).to.equal(false)
+          matchId = match?.matchSessionId
+          match0 = match
+          res()
+        })
+      })
+
+      await new Promise<void>((resolve, reject) => {
+        clients[0].emit(
+          EClientEvent.SET_MATCH_OPTIONS,
+          matchId as string,
+          { flor: false },
+          ({ success, match, error }) => {
+            if (success && match) {
+              match0 = match
+              return resolve()
+            }
+            reject(handleError(error, "Failed to set match options"))
+          }
+        )
+      })
+
+      await new Promise<void>((res) => {
+        clients[1].emit(EClientEvent.JOIN_MATCH, matchId as string, 1, ({ success, match }) => {
+          expect(success).to.equal(true)
+          expect(match?.matchSessionId).to.equal(matchId)
+          expect(Boolean(match?.players.find((player) => player.name === "player1"))).to.equal(true)
+          match1 = match
+          res()
+        })
+      })
+
+      const setReady = [
+        new Promise<void>((res) => {
+          clients[0].emit(EClientEvent.SET_PLAYER_READY, matchId as string, true, ({ success }) => {
+            expect(success).to.equal(true)
+            res()
+          })
+        }),
+        new Promise<void>((res) => {
+          clients[1].emit(EClientEvent.SET_PLAYER_READY, matchId as string, true, ({ success }) => {
+            expect(success).to.equal(true)
+            res()
+          })
+        }),
+      ]
+      await Promise.all(setReady)
+
+      await new Promise<void>((res) => {
+        clients[0].emit(
+          EClientEvent.START_MATCH,
+          match0?.matchSessionId as string,
+          ({ success, matchSessionId }) => {
+            expect(success).to.equal(true)
+            expect(matchSessionId).to.equal(matchId)
+            res()
+          }
+        )
+      })
+
+      await WinnerPromise
+
+      expect(match0?.winner?.points.buenas).to.be.greaterThanOrEqual(9)
+    })
+
+    it("should play a random match of 2 players", async () => {
+      await playRandomMatch(clients.slice(0, 2))
+    })
+
+    it("should play a random match of 4 players", async () => {
+      await playRandomMatch(clients.slice(0, 4))
+    })
+
+    it("should play a random match of 6 players", async () => {
+      await playRandomMatch(clients)
+    })
+
+    it("should play 5 matches in parallel", (done) => {
+      const promises: Array<() => Promise<void>> = []
+      for (let i = 0; i < 5; i++) {
+        promises.push(() => playRandomMatch(clients))
+      }
+
+      Promise.all(promises.map((p) => p()))
+        .then(() => done())
+        .catch((e) => {
+          done(e)
+        })
+    })
+
+    it("should play 5 matches in series", async () => {
+      for (let i = 0; i < 5; i++) {
+        await playRandomMatch(clients)
+      }
+    })
+
+    it("should play a match between 1 abandoning player and 1 bot", (done) => {
+      playBotsMatch([clients[0]], 1)
+        .then(() => done())
+        .catch((e) => {
+          done(e)
+        })
+    })
+
+    it("should play 100 matches between 1 abandoning player and 3 bots", (done) => {
+      const promises: Array<() => Promise<void>> = []
+      for (let i = 0; i < 100; i++) {
+        promises.push(() => playBotsMatch([clients[0]], 3))
+      }
+
+      Promise.all(promises.map((p) => p()))
+        .then(() => done())
+        .catch((e) => {
+          done(e)
+        })
+    })
+
+    it("should play 100 matches between 1 abandoning player and 5 bots", (done) => {
+      const promises: Array<() => Promise<void>> = []
+      for (let i = 0; i < 100; i++) {
+        promises.push(() => playBotsMatch([clients[0]], 5))
+      }
+
+      Promise.all(promises.map((p) => p()))
+        .then(() => done())
+        .catch((e) => {
+          done(e)
+        })
+    })
+
+    it("should play 100 matches with lots of flowers and 5 bots", (done) => {
+      const previousCheatFlowers = process.env.APP_CHEAT_LOTS_OF_FLOWERS_FOR_TESTING
+      process.env.APP_CHEAT_LOTS_OF_FLOWERS_FOR_TESTING = "1"
+
+      const promises: Array<() => Promise<void>> = []
+      for (let i = 0; i < 100; i++) {
+        promises.push(() => playBotsMatch([clients[0]], 5))
+      }
+
+      Promise.all(promises.map((p) => p()))
+        .then(() => done())
+        .catch((e) => {
+          done(e)
+        })
+
+      process.env.APP_CHEAT_LOTS_OF_FLOWERS_FOR_TESTING = previousCheatFlowers
+    })
+  })
+
+  describe("Invalid paths", () => {
+    let warnStub: sinon.SinonStub
+    let errorStub: sinon.SinonStub
+    let childStub: sinon.SinonStub
+
+    const childLogger = {
+      warn: sinon.stub().callsFake(() => {}),
+      error: sinon.stub().callsFake(() => {}),
+      info: sinon.stub().callsFake(() => {}),
+      debug: sinon.stub().callsFake(() => {}),
+      trace: sinon.stub().callsFake(() => {}),
+      fatal: sinon.stub().callsFake(() => {}),
+      silent: sinon.stub().callsFake(() => {}),
+    }
+
+    before(() => {
+      warnStub = sinon.stub(logger, "warn").callsFake(() => {})
+      errorStub = sinon.stub(logger, "error").callsFake(() => {})
+      childStub = sinon.stub(logger, "child").callsFake(() => {
+        return childLogger as unknown as Logger<string, boolean>
+      })
+    })
+
+    beforeEach(() => {
+      childLogger.warn.resetHistory()
+      childLogger.error.resetHistory()
+    })
+
+    after(() => {
+      sinon.restore()
+    })
+
+    it("should handle invalid cards gracefully", async () => {
+      const rejectedCardCanary = "raw-invalid-card-canary"
+      let matchId: string | undefined
+      let match0: IPublicMatch | undefined
+      let match1: IPublicMatch | undefined
+      let playedInvalid = false
+
+      let winningResolve = () => {}
+      const WinnerPromise = new Promise<void>((res) => {
+        winningResolve = res
+      })
+
+      clients[0].on(EServerEvent.UPDATE_MATCH, (match) => {
+        match0 = match
+      })
+
+      clients[1].on(EServerEvent.UPDATE_MATCH, (match) => {
+        match1 = match
+        if (match.winner) {
+          winningResolve()
+        }
+      })
+
+      clients[0].on(EServerEvent.WAITING_PLAY, (match, callback) => {
+        match0 = match
+
+        if (!playedInvalid) {
+          playedInvalid = true
+          callback({ card: rejectedCardCanary as any, cardIdx: 999 })
+          return
+        }
+
+        const data = { card: match.me?.hand.at(0) as ICard, cardIdx: 0 }
+        if (!data.card || data.cardIdx === undefined) {
+          handleError(
+            null,
+            `Player 0 failed to select a valid card in match ${match.matchSessionId}`
+          )
+        }
+        callback(data)
+      })
+
+      clients[1].on(EServerEvent.WAITING_PLAY, (match, callback) => {
+        match1 = match
+        const data = { card: match.me?.hand.at(0) as ICard, cardIdx: 0 }
+        if (!data.card || data.cardIdx === undefined) {
+          handleError(
+            null,
+            `Player 1 failed to select a valid card in match ${match.matchSessionId}`
+          )
+        }
+        callback(data)
+      })
+
+      await new Promise<void>((res) => {
+        clients[0].emit(EClientEvent.CREATE_MATCH, ({ match }) => {
+          expect(Boolean(match?.matchSessionId)).to.equal(true)
+          matchId = match?.matchSessionId
+          match0 = match
+          res()
+        })
+      })
+
+      await new Promise<void>((resolve, reject) => {
+        clients[0].emit(
+          EClientEvent.SET_MATCH_OPTIONS,
+          matchId as string,
+          { flor: false },
+          ({ success, match, error }) => {
+            if (success && match) {
+              match0 = match
+              return resolve()
+            }
+            reject(handleError(error, "Failed to set match options"))
+          }
+        )
+      })
+
+      await new Promise<void>((res) => {
+        clients[1].emit(EClientEvent.JOIN_MATCH, matchId as string, 1, ({ success, match }) => {
+          expect(success).to.equal(true)
+          expect(match?.matchSessionId).to.equal(matchId)
+          expect(Boolean(match?.players.find((player) => player.name === "player1"))).to.equal(true)
+          match1 = match
+          res()
+        })
+      })
+
+      const setReady = [
+        new Promise<void>((res) => {
+          clients[0].emit(EClientEvent.SET_PLAYER_READY, matchId as string, true, ({ success }) => {
+            expect(success).to.equal(true)
+            res()
+          })
+        }),
+        new Promise<void>((res) => {
+          clients[1].emit(EClientEvent.SET_PLAYER_READY, matchId as string, true, ({ success }) => {
+            expect(success).to.equal(true)
+            res()
+          })
+        }),
+      ]
+      await Promise.all(setReady)
+
+      await new Promise<void>((res) => {
+        clients[0].emit(
+          EClientEvent.START_MATCH,
+          match0?.matchSessionId as string,
+          ({ success, matchSessionId }) => {
+            expect(success).to.equal(true)
+            expect(matchSessionId).to.equal(matchId)
+            res()
+          }
+        )
+      })
+
+      await WinnerPromise
+
+      expect(childLogger.warn.called).to.be.true
+      expect(childLogger.error.called).to.be.true
+      expect(
+        childLogger.warn.calledWithMatch(
+          sinon.match({ payloadType: "object" }),
+          "Rejected invalid card play payload"
+        )
+      ).to.equal(true)
+      const rejectedCardWasLogged = [...childLogger.warn.args, ...childLogger.error.args]
+        .flat()
+        .some((argument) => {
+          if (typeof argument === "string") {
+            return argument.includes(rejectedCardCanary)
+          }
+          return (
+            typeof argument === "object" &&
+            argument !== null &&
+            Object.values(argument).includes(rejectedCardCanary)
+          )
+        })
+      expect(rejectedCardWasLogged).to.equal(false)
+      expect(match0?.winner?.points.buenas).to.be.greaterThanOrEqual(9)
+    })
+
+    it("should handle invalid commands gracefully", async () => {
+      let matchId: string | undefined
+      let match0: IPublicMatch | undefined
+      let match1: IPublicMatch | undefined
+      let playedInvalid = false
+      let playedValid = false
+
+      let winningResolve = () => {}
+      const WinnerPromise = new Promise<void>((res) => {
+        winningResolve = res
+      })
+
+      clients[0].on(EServerEvent.UPDATE_MATCH, (match) => {
+        match0 = match
+      })
+
+      clients[1].on(EServerEvent.UPDATE_MATCH, (match) => {
+        match1 = match
+        if (match.winner) {
+          winningResolve()
+        }
+      })
+
+      clients[0].on(EServerEvent.WAITING_POSSIBLE_SAY, (match, callback) => {
+        match0 = match
+
+        if (!match.me?.isTurn) {
+          return
+        }
+
+        if (!playedInvalid) {
+          callback({ command: 999 })
+          playedInvalid = true
+          return
+        }
+
+        if (!playedValid) {
+          callback({ command: ESayCommand.MAZO })
+          playedValid = true
+        }
+      })
+
+      clients[0].on(EServerEvent.WAITING_PLAY, (match, callback) => {
+        match0 = match
+
+        if (!playedInvalid || !playedValid) {
+          return
+        }
+
+        const data = { card: match.me?.hand.at(0) as ICard, cardIdx: 0 }
+        if (!data.card || data.cardIdx === undefined) {
+          handleError(
+            null,
+            `Player 0 failed to select a valid card in match ${match.matchSessionId}`
+          )
+        }
+        callback(data)
+      })
+
+      clients[1].on(EServerEvent.WAITING_PLAY, (match, callback) => {
+        match1 = match
+        const data = { card: match.me?.hand.at(0) as ICard, cardIdx: 0 }
+        if (!data.card || data.cardIdx === undefined) {
+          handleError(
+            null,
+            `Player 1 failed to select a valid card in match ${match.matchSessionId}`
+          )
+        }
+        callback(data)
+      })
+
+      await new Promise<void>((res) => {
+        clients[0].emit(EClientEvent.CREATE_MATCH, ({ match }) => {
+          expect(Boolean(match?.matchSessionId)).to.equal(true)
+          matchId = match?.matchSessionId
+          match0 = match
+          res()
+        })
+      })
+
+      await new Promise<void>((resolve, reject) => {
+        clients[0].emit(
+          EClientEvent.SET_MATCH_OPTIONS,
+          matchId as string,
+          { flor: false },
+          ({ success, match, error }) => {
+            if (success && match) {
+              match0 = match
+              return resolve()
+            }
+            reject(handleError(error, "Failed to set match options"))
+          }
+        )
+      })
+
+      await new Promise<void>((res) => {
+        clients[1].emit(EClientEvent.JOIN_MATCH, matchId as string, 1, ({ success, match }) => {
+          expect(success).to.equal(true)
+          expect(match?.matchSessionId).to.equal(matchId)
+          expect(Boolean(match?.players.find((player) => player.name === "player1"))).to.equal(true)
+          match1 = match
+          res()
+        })
+      })
+
+      const setReady = [
+        new Promise<void>((res) => {
+          clients[0].emit(EClientEvent.SET_PLAYER_READY, matchId as string, true, ({ success }) => {
+            expect(success).to.equal(true)
+            res()
+          })
+        }),
+        new Promise<void>((res) => {
+          clients[1].emit(EClientEvent.SET_PLAYER_READY, matchId as string, true, ({ success }) => {
+            expect(success).to.equal(true)
+            res()
+          })
+        }),
+      ]
+      await Promise.all(setReady)
+
+      await new Promise<void>((res) => {
+        clients[0].emit(
+          EClientEvent.START_MATCH,
+          match0?.matchSessionId as string,
+          ({ success, matchSessionId }) => {
+            if (!success) {
+              handleError(null, `Failed to start match ${match0?.matchSessionId}`)
+            }
+            expect(success).to.equal(true)
+            expect(matchSessionId).to.equal(matchId)
+            res()
+          }
+        )
+      })
+
+      await WinnerPromise
+
+      expect(childLogger.warn.called).to.be.true
+      expect(childLogger.error.called).to.be.true
+      expect(match0?.winner?.points.buenas).to.be.greaterThanOrEqual(9)
+    })
+  })
+})

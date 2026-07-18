@@ -1,0 +1,88 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model UserStats {
+  id        Int  @id @default(autoincrement())
+  accountId Int? @unique
+  win       Int  @default(0)
+  loss      Int  @default(0)
+  elo       Int  @default(1000)
+  satsBet   Int  @default(0)
+  satsWon   Int  @default(0)
+  satsLost  Int  @default(0)
+}
+
+model Match {
+  id             Int           @id @default(autoincrement())
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  sessionId      String
+  state          EMatchState   @default(UNREADY)
+  ownerAccountId Int?
+  options        Json          @default("{}")
+  results        Json          @default("[{\"malas\": 0, \"buenas\": 0}, {\"malas\": 0, \"buenas\": 0}]")
+  winnerIdx      Int?
+  bet            MatchBet?
+  hands          MatchHand[]
+  players        MatchPlayer[]
+}
+
+model MatchBet {
+  id             Int      @id @default(autoincrement())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  matchId        Int      @unique
+  satsPerPlayer  Int
+  allPlayersPaid Boolean
+  winnerAwarded  Boolean
+  refunded       Boolean  @default(false)
+  match          Match    @relation(fields: [matchId], references: [id])
+}
+
+model MatchHand {
+  id              Int      @id @default(autoincrement())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  idx             Int
+  secret          String   @default("")
+  clientSecrets   String[] @default([])
+  rounds          Json     @default("[[]]")
+  results         Json     @default("[0, 0]")
+  matchId         Int
+  trucoWinnerIdx  Int?
+  envidoWinnerIdx Int?
+  florWinnerIdx   Int?
+  bitcoinHash     String   @default("")
+  bitcoinHeight   Int      @default(0)
+  match           Match    @relation(fields: [matchId], references: [id])
+}
+
+model MatchPlayer {
+  id           Int      @id @default(autoincrement())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  idx          Int?
+  name         String   @default("Satoshi")
+  accountId    Int?
+  session      String
+  teamIdx      Int
+  satsPaid     Int      @default(0)
+  satsReceived Int      @default(0)
+  payRequestId Int?
+  bot          Boolean  @default(false)
+  matchId      Int
+  match        Match    @relation(fields: [matchId], references: [id])
+}
+
+enum EMatchState {
+  UNREADY
+  READY
+  STARTED
+  FINISHED
+}

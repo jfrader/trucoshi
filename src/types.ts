@@ -1,0 +1,595 @@
+export * from "./events"
+
+export { CARDS, CARDS_HUMAN_READABLE, SUITS_HUMAN_READABLE, BURNT_CARD } from "./lib/constants"
+
+import { CARDS, ITable } from "./lib"
+
+export type AccountRole = "USER" | "ADMIN" | "APPLICATION"
+
+export interface IAccountWallet {
+  id?: number
+  createdAt?: string
+  updatedAt: string
+  balanceInSats: number
+  disabled?: boolean
+  busy?: boolean
+}
+
+/**
+ * Public Lightning Accounts profile fields transported by Trucoshi.
+ *
+ * Keep this as an explicit allowlist. The upstream `User` model also contains
+ * authentication and wallet fields that must never cross Trucoshi's socket
+ * boundary.
+ */
+export interface IAccountUser {
+  id?: number
+  avatarUrl?: string | null
+  name: string
+}
+
+export interface IHttpDataResponse<T> {
+  data: T
+}
+
+export type LatestBitcoinBlockFetcher = () => Promise<
+  IHttpDataResponse<{ hash: string; height: number }>
+>
+
+export enum EMatchState {
+  UNREADY = "UNREADY",
+  READY = "READY",
+  STARTED = "STARTED",
+  FINISHED = "FINISHED",
+  PAUSED = "PAUSED",
+}
+
+export interface IPublicUserStats {
+  id: number
+  accountId: number | null
+  win: number
+  loss: number
+  /** Present only when a user requests their own account details. */
+  satsBet?: number
+  satsWon?: number
+  satsLost?: number
+}
+
+export type IPlayerRanking = Omit<
+  IPublicUserStats,
+  "id" | "satsBet" | "satsWon" | "satsLost"
+> &
+  Pick<IAccountUser, "name" | "avatarUrl">
+
+export type IMatchRecordState = "UNREADY" | "READY" | "STARTED" | "FINISHED"
+
+/**
+ * Database dates are Date objects inside the server and ISO strings after the
+ * Socket.IO transport serializes them for clients.
+ */
+export type ISerializedDate = Date | string
+
+export interface IMatchRecord {
+  id: number
+  createdAt: ISerializedDate
+  updatedAt: ISerializedDate
+  sessionId: string
+  state: IMatchRecordState
+  ownerAccountId: number | null
+  options: unknown
+  results: unknown
+  winnerIdx: number | null
+}
+
+export interface IMatchPlayerDetails {
+  accountId: number | null
+  teamIdx: number
+  name: string
+  idx: number | null
+  bot: boolean
+}
+
+export interface IMatchHandDetails {
+  id: number
+  createdAt: ISerializedDate
+  updatedAt: ISerializedDate
+  idx: number
+  secret: string
+  clientSecrets: string[]
+  rounds: unknown
+  results: unknown
+  matchId: number
+  trucoWinnerIdx: number | null
+  envidoWinnerIdx: number | null
+  florWinnerIdx: number | null
+  bitcoinHash: string
+  bitcoinHeight: number
+}
+
+export interface IMatchDetails extends IMatchRecord {
+  players: IMatchPlayerDetails[]
+  hands: IMatchHandDetails[]
+}
+
+export interface IAccountMatchDetails extends IMatchRecord {
+  players: IMatchPlayerDetails[]
+  bet: { id: number; satsPerPlayer?: number } | null
+}
+
+export interface IAccountDetails {
+  stats: IPublicUserStats | null
+  matches: IAccountMatchDetails[]
+  account: IAccountUser | null
+}
+
+export interface IUserData {
+  key: string
+  name: string
+  session: string
+  account: IAccountUser | null
+}
+
+export interface ILobbyOptions {
+  maxPlayers: 2 | 4 | 6
+  faltaEnvido: 1 | 2
+  flor: boolean
+  matchPoint: number
+  handAckTime: number
+  turnTime: number
+  abandonTime: number
+  satsPerPlayer: number
+}
+
+export interface IJoinQueueOptions {
+  maxPlayers: 0 | 2 | 4 | 6
+  allowBots: boolean
+}
+
+export interface IQueueStatus {
+  requestId: string
+  maxPlayers: 0 | 2 | 4 | 6
+  queuedPlayers: number
+  requiredPlayers: number
+  position: number
+  queuedAt: number
+  botFallbackAt?: number
+}
+
+export interface IQueueMatchFound {
+  matchSessionId: string
+  maxPlayers: 2 | 4 | 6
+  humanPlayers: number
+  botPlayers: number
+  filledWithBots: boolean
+}
+
+export interface ISaidCommand {
+  player: IPlayer | IPublicPlayer
+  command: ECommand | number
+}
+
+export interface IMatchFlorBattle {
+  matchSessionId: string
+  playersWithFlor: { team: 0 | 1; idx: number; cards?: ICard[]; points: number }[]
+  winnerTeamIdx: 0 | 1 | null
+  winner: IPublicPlayer | null
+}
+
+export interface IMatchPreviousHand {
+  envido: { winner: IPublicPlayer; data?: { value: number; cards: ICard[] } } | null
+  flor: {
+    winner: IPublicPlayer | null
+    data: Array<{ idx: number; value: number; cards: ICard[] }>
+  } | null
+  rounds: IPlayedCard[][]
+  points: IHandPoints
+  matchSessionId: string
+}
+
+export interface IPublicMatch {
+  id?: number
+  options: ILobbyOptions
+  createdFromQueue: boolean
+  queueOptions?: IJoinQueueOptions
+  busy: boolean
+  state: EMatchState
+  handState: EHandState | null
+  florBattle: IMatchFlorBattle | null
+  previousHand: IMatchPreviousHand | null
+  winner: ITeam | null
+  matchSessionId: string
+  forehandIdx: number
+  ownerKey: string
+  teams: Array<IPublicTeam>
+  players: Array<IPublicPlayer>
+  me: IPublicPlayer | null
+  freshHand: boolean
+  rounds: IPlayedCard[][]
+  lastCard?: ICard | null
+  lastCommand?: ECommand | number | null
+  awardedSatsPerPlayer?: number
+}
+
+export interface IPublicMatchStats {
+  spectators: number
+}
+
+export interface IPublicMatchInfo {
+  ownerId: string
+  matchSessionId: string
+  players: number
+  options: ILobbyOptions
+  state: EMatchState
+  winnerTeamIdx: 0 | 1 | undefined
+  createdFromQueue: boolean
+  queueOptions?: IJoinQueueOptions
+}
+
+export type IPublicChatRoom = Pick<IChatRoom, "id" | "messages">
+export interface IChatMessage {
+  id: string
+  date: number
+  user: { name: string; key: string; teamIdx?: 0 | 1 }
+  system?: boolean
+  hidden?: boolean
+  command?: boolean
+  card?: boolean
+  content: string
+  sound: string | boolean
+}
+
+export interface IChatRoom {
+  id: string
+  messages: Array<IChatMessage>
+  socket: {
+    emit(socket: string): void
+  }
+  send(user: IChatMessage["user"], message: string, sound?: string | boolean): void
+  card(user: IChatMessage["user"], card: ICard, sound?: string | boolean): void
+  command(team: 0 | 1, command: ECommand | number, sound?: string | boolean): void
+  system(message: string, sound?: string | boolean): void
+  sound(sound: string, toTeamIdx?: "0" | "1", fromUser?: IChatMessage["user"]): void
+  emit(message?: IChatMessage, teamIdxs?: string): void
+}
+
+export enum EChatSystem {
+  TEAM_0 = 0,
+  TEAM_1 = 1,
+  SYSTEM = "SYSTEM",
+}
+
+export enum ESayCommand {
+  MAZO = "MAZO",
+  PASO = "PASO",
+}
+
+export enum EFlorCommand {
+  FLOR = "FLOR",
+  CONTRAFLOR = "CONTRAFLOR",
+  CONTRAFLOR_AL_RESTO = "CONTRAFLOR_AL_RESTO",
+  ACHICO = "ACHICO",
+}
+
+export enum ETrucoCommand {
+  TRUCO = "TRUCO",
+  RE_TRUCO = "RE_TRUCO",
+  VALE_CUATRO = "VALE_CUATRO",
+}
+
+export enum EAnswerCommand {
+  QUIERO = "QUIERO",
+  NO_QUIERO = "NO_QUIERO",
+}
+
+export enum EEnvidoAnswerCommand {
+  SON_BUENAS = "SON_BUENAS",
+}
+
+export enum EEnvidoCommand {
+  FALTA_ENVIDO = "FALTA_ENVIDO",
+  REAL_ENVIDO = "REAL_ENVIDO",
+  ENVIDO = "ENVIDO",
+}
+
+export enum EHandState {
+  WAITING_PLAY = "WAITING_PLAY",
+  WAITING_FOR_TRUCO_ANSWER = "WAITING_FOR_TRUCO_ANSWER",
+  WAITING_ENVIDO_ANSWER = "WAITING_ENVIDO_ANSWER",
+  WAITING_ENVIDO_POINTS_ANSWER = "WAITING_ENVIDO_POINTS_ANSWER",
+  WAITING_FLOR_ANSWER = "WAITING_FLOR_ANSWER",
+  DISPLAY_FLOR_BATTLE = "DISPLAY_FLOR_BATTLE",
+  DISPLAY_PREVIOUS_HAND = "DISPLAY_PREVIOUS_HAND",
+  FINISHED = "FINISHED",
+}
+
+export type ECommand =
+  | ESayCommand
+  | EEnvidoCommand
+  | EAnswerCommand
+  | EEnvidoAnswerCommand
+  | ETrucoCommand
+  | EFlorCommand
+
+export type IWaitingPlayData = { cardIdx: number; card: ICard }
+export type IWaitingPlayCallback = (data: IWaitingPlayData) => void | null
+
+export type IWaitingSayData = { command: ECommand | number }
+export type IWaitingSayCallback = (data: IWaitingSayData) => void | null
+
+export enum GAME_ERROR {
+  INVALID_IDENTITY = "INVALID_IDENTITY",
+  UNEXPECTED_ERROR = "UNEXPECTED_ERROR",
+  FORBIDDEN = "FORBIDDEN",
+  NOT_FOUND = "NOT_FOUND",
+  MATCH_ALREADY_STARTED = "MATCH_ALREADY_STARTED",
+  LOBBY_IS_FULL = "LOBBY_IS_FULL",
+  UNEXPECTED_TEAM_SIZE = "UNEXPECTED_TEAM_SIZE",
+  TEAM_NOT_READY = "TEAM_NOT_READY",
+  TEAM_IS_FULL = "TEAM_IS_FULL",
+  ENVIDO_NOT_ACCEPTED = "ENVIDO_NOT_ACCEPTED",
+  INVALID_COMMAND = "INVALID_COMMAND",
+  INSUFFICIENT_BALANCE = "INSUFFICIENT_BALANCE",
+  GAME_REQUIRES_ACCOUNT = "GAME_REQUIRES_ACCOUNT",
+  NO_FLOR = "NO_FLOR",
+  INVALID_SESSION = "INVALID_SESSION",
+  PAYMENT_REQUIRED = "PAYMENT_REQUIRED",
+  PAYMENT_ERROR = "PAYMENT_ERROR",
+}
+
+export interface EnvidoState {
+  accept: number
+  decline: number
+  teamIdx: 0 | 1 | null
+}
+
+export type IEnvidoCalculatorResult = {
+  accept: number
+  replace?: number
+  next: Array<ECommand>
+}
+
+export type IFaltaEnvidoCalculatorArgs = {
+  teams: [ITeam, ITeam]
+  options: ILobbyOptions
+}
+
+export type IEnvidoCalculatorArgs = {
+  stake: number
+} & (IFaltaEnvidoCalculatorArgs | never)
+
+export type IEnvidoCalculator = {
+  [key in EEnvidoCommand]: (args?: IEnvidoCalculatorArgs) => IEnvidoCalculatorResult
+}
+
+export interface IDeck {
+  random: IRandom
+  cards: Array<ICard>
+  usedCards: Array<ICard>
+  pick(card: ICard): ICard | null
+  takeCard(): ICard
+  takeThree(): [ICard, ICard, ICard]
+  shuffle(dealerIdx: number): IDeck
+}
+
+export type ICard = keyof typeof CARDS
+
+export interface IPlayedCard {
+  key: string
+  player: IPlayer | IPublicPlayer
+  card: ICard
+}
+
+export interface IHandPoints {
+  0: number
+  1: number
+}
+
+export interface IRandom {
+  secret: string
+  clients: string[]
+  bitcoinHash: string
+  bitcoinHeight: number
+  nonce: number
+  getLatestBitcoinBlock(
+    fn: LatestBitcoinBlockFetcher
+  ): Promise<void>
+  next(): void
+  pick(idx: number, max: number): number
+  reveal(): { secret: string; clients: string[]; bitcoinHash: string; bitcoinHeight: number }
+}
+
+export type IPublicPlayer = Pick<
+  IPlayer,
+  | "idx"
+  | "key"
+  | "name"
+  | "bot"
+  | "abandonedTime"
+  | "accountId"
+  | "avatarUrl"
+  | "disabled"
+  | "abandoned"
+  | "ready"
+  | "hand"
+  | "usedHand"
+  | "prevHand"
+  | "teamIdx"
+  | "isTurn"
+  | "turnExpiresAt"
+  | "turnExtensionExpiresAt"
+  | "isEnvidoTurn"
+  | "isOwner"
+  | "hasSaidFlor"
+  | "hasSaidEnvidoPoints"
+  | "hasSaidTruco"
+  | "hasPassed"
+> &
+  (
+    | {
+        isMe?: true
+        commands: IPlayer["commands"]
+        hasFlor: IPlayer["hasFlor"]
+        envido: IPlayer["envido"]
+        payRequestId?: IPlayer["payRequestId"]
+      }
+    | {
+        isMe?: false
+        commands?: undefined
+        hasFlor?: undefined
+        envido?: undefined
+        payRequestId?: undefined
+      }
+  )
+
+export type IPublicTeam = Pick<ITeam, "points" | "id" | "name"> & { players: Array<IPublicPlayer> }
+
+export interface OpponentProfile {
+  bluffCount: number
+  foldCount: number
+  aggression: number
+}
+
+export const BOT_NAMES = [
+  "Botillo",
+  "Hal",
+  "Sektor",
+  "Cyrax",
+  "Smoke",
+  "Nick",
+  "Adam",
+  "Hodlbot",
+  "Lambot",
+  "Morpheus",
+  "Jack",
+  "Bender",
+  "Smith",
+  "Neo",
+  "Trinity",
+] as const
+
+export type BotProfile = (typeof BOT_NAMES)[number]
+
+/** Internal bot actions are passed through by Player but are not part of the wire protocol. */
+export type IOpaqueBotAction = (...args: never[]) => Promise<void>
+
+export interface IPlayer {
+  idx: number
+  secret: string
+  teamIdx: 0 | 1
+  accountId: number | undefined
+  matchPlayerId: number | undefined
+  avatarUrl: string | undefined | null
+  name: string
+  key: string
+  bot: BotProfile | null
+  session: string
+  payRequestId?: number
+  abandonedTime: number
+  disconnectedAt: number | null
+  hand: Array<ICard>
+  usedHand: Array<ICard>
+  prevHand: Array<ICard>
+  envido: Array<{ value: number; cards: ICard[] }>
+  _commands: Set<ECommand>
+  get commands(): Array<ECommand>
+  isTurn: boolean
+  turnExpiresAt: number | null
+  turnExtensionExpiresAt: number | null
+  hasFlor: boolean
+  flor: { value: number; cards: ICard[] } | null
+  _didSomething: boolean
+  get didSomething(): boolean
+  set didSomething(value: boolean)
+  hasSaidFlor: boolean
+  hasSaidEnvidoPoints: boolean
+  hasSaidTruco: boolean
+  hasPassed: boolean
+  isEnvidoTurn: boolean
+  isOwner: boolean
+  disabled: boolean
+  abandoned: boolean
+  ready: boolean
+  opponentProfiles: Record<string, OpponentProfile>
+  getRandomCard(): [number, ICard]
+  getHighestCard(): [number, ICard]
+  getLowestCard(): [number, ICard]
+  getHighestEnvido(): number
+  saidEnvidoPoints(): void
+  saidFlor(): void
+  saidTruco(): void
+  passed(): void
+  resetPassed(): void
+  resetCommands(): void
+  calculateEnvido(): Array<{ value: number; cards: ICard[] }>
+  setIdx(idx: number): void
+  setPayRequest(id?: number): void
+  setMatchPlayerId(id?: number): void
+  setTurn(turn: boolean): void
+  delayTurnExpiration(ms: number): void
+  setTurnExpiration(...args: [number, number | null] | [null, null]): void
+  setEnvidoTurn(turn: boolean): void
+  getPublicPlayer(session?: string | "log"): IPublicPlayer
+  setSession(session: string): void
+  setIsOwner(isOwner: boolean): void
+  addDisconnectedTime(time: number): void
+  rename(name: string): void
+  enable(): void
+  disable(): void
+  abandon(): void
+  setReady(ready: boolean): void
+  setHand(hand: Array<ICard>): Array<ICard>
+  useCard(idx: number, card: ICard): ICard | null
+  sayCommand(command: ECommand | number, force?: boolean): false | ECommand | number
+  playBot(
+    table: ITable,
+    play: unknown,
+    playCard: IOpaqueBotAction,
+    sayCommand: IOpaqueBotAction
+  ): Promise<void>
+}
+
+export interface ITeam {
+  _players: Map<string, IPlayer>
+  id: 0 | 1
+  name: string
+  players: Array<IPlayer>
+  points: ITeamPoints
+  get activePlayers(): IPlayer[]
+  setPlayers(players: IPlayer[]): ITeam
+  pointsToWin(matchPoint: number): number
+  getPublicTeam(playerSession?: string): IPublicTeam
+  isTeamDisabled(): boolean
+  isTeamAbandoned(): boolean
+  disable(player: IPlayer): boolean
+  abandon(player: IPlayer): boolean
+  enable(player?: IPlayer): boolean
+  resetPassed(): void
+  addPoints(matchPoint: number, points: number, simulate?: boolean): ITeamPoints
+}
+
+export interface ITeamPoints {
+  buenas: number
+  malas: number
+  winner: boolean
+}
+
+export type IHandRoundLog = {
+  player: number
+  card?: ICard
+  command?: ECommand | number
+}
+
+export type IPublicUser = Pick<IAccountUser, "id" | "name" | "avatarUrl">
+
+export const DANGEROUS_COMMANDS: ECommand[] = [
+  ESayCommand.MAZO,
+  EAnswerCommand.NO_QUIERO,
+  EEnvidoAnswerCommand.SON_BUENAS,
+  EFlorCommand.ACHICO,
+]
+
+export const WARNING_COMMANDS: ECommand[] = [ESayCommand.PASO]
+
+export type ITrucoshiStats = {
+  onlinePlayers: number[]
+}

@@ -1,0 +1,14 @@
+[Unit]
+Description=Trucoshi Server
+Documentation=https://github.com/jfrader/trucoshi.git
+After=network.target
+
+[Service]
+EnvironmentFile=/home/www/trucoshi/.env
+Type=simple
+User=web
+ExecStart=/usr/bin/node /home/www/trucoshi/bin/trucoshi-server
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

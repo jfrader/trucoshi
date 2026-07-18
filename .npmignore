@@ -1,0 +1,5 @@
+.env.test
+build/
+node_modules/
+test/
+volumes/

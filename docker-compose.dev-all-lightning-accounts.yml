@@ -1,0 +1,395 @@
+# Local development only. JWT keys are generated inside Docker and stored only
+# in this Compose project's named development volumes.
+services:
+  server:
+    depends_on:
+      lightning_accounts_server:
+        condition: service_healthy
+    environment:
+      APP_LIGHTNING_ACCOUNTS_URL: "http://lightning_accounts_server:2999/v1"
+    volumes:
+      - lightning_accounts_public_key_data:/run/lightning-accounts/public:ro
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        export APP_LIGHTNING_ACCOUNTS_JWT_PUBLIC_KEY="$$(base64 < /run/lightning-accounts/public/jwt-public.pem | tr -d '\n')"
+        exec yarn start:migrate
+
+  lightning_accounts_postgres:
+    image: postgres:16
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lightning_accounts -d lightning_accounts"]
+      interval: 5s
+      start_period: 1s
+      timeout: 5s
+      retries: 10
+    environment:
+      POSTGRES_DB: lightning_accounts
+      POSTGRES_USER: lightning_accounts
+      POSTGRES_PASSWORD: lightning_accounts_dev_only
+    volumes:
+      - lightning_accounts_postgres_data:/var/lib/postgresql/data
+    networks:
+      lightningaccountsnet:
+        ipv4_address: 10.29.0.11
+
+  lightning_accounts_backend:
+    image: polarlightning/bitcoind:29.0
+    healthcheck:
+      test:
+        - CMD
+        - bitcoin-cli
+        - -rpcport=18443
+        - -rpcuser=polaruser
+        - -rpcpassword=polarpass
+        - getblockchaininfo
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    environment:
+      USERID: "${USERID:-1000}"
+      GROUPID: "${GROUPID:-1000}"
+    command: >-
+      bitcoind -server=1 -regtest=1
+      -rpcauth=polaruser:5e5e98c21f5c814568f8b55d83b23c1c$$066b03f92df30b11de8e4b1b1cd5b1b4281aa25205bd57df9be82caf97a05526
+      -debug=0 -zmqpubrawblock=tcp://0.0.0.0:28336
+      -zmqpubrawtx=tcp://0.0.0.0:28335 -zmqpubhashblock=tcp://0.0.0.0:28334
+      -txindex=1 -dnsseed=0 -upnp=0 -rpcbind=0.0.0.0 -rpcallowip=0.0.0.0/0
+      -rpcport=18443 -rest -listen=1 -listenonion=0 -fallbackfee=0.0002
+      -blockfilterindex=1 -peerblockfilters=1
+    volumes:
+      - lightning_accounts_bitcoind_data:/home/bitcoin/.bitcoin
+    ports:
+      - "18443:18443"
+      - "19444:18444"
+      - "28334:28334"
+      - "28335:28335"
+      - "28336:28336"
+    networks:
+      lightningaccountsnet:
+        ipv4_address: 10.29.0.12
+
+  lightning_accounts_alice:
+    image: polarlightning/lnd:0.19.2-beta
+    depends_on:
+      lightning_accounts_backend:
+        condition: service_healthy
+    environment:
+      USERID: "${USERID:-1000}"
+      GROUPID: "${GROUPID:-1000}"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          test -f /home/lnd/.lnd/tls.cert &&
+          test -f /home/lnd/.lnd/data/chain/bitcoin/regtest/admin.macaroon &&
+          lncli --rpcserver=localhost:10009
+          --macaroonpath=/home/lnd/.lnd/data/chain/bitcoin/regtest/admin.macaroon
+          --tlscertpath=/home/lnd/.lnd/tls.cert getinfo
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    command: >-
+      lnd --noseedbackup --trickledelay=5000 --alias=alice
+      --externalip=lightning_accounts_alice --tlsextradomain=lightning_accounts_alice
+      --tlsextradomain=10.29.0.13 --tlsextradomain=host.docker.internal
+      --listen=0.0.0.0:9735 --allow-circular-route
+      --rpclisten=0.0.0.0:10009 --restlisten=0.0.0.0:8080
+      --bitcoin.active --bitcoin.regtest --bitcoin.node=bitcoind
+      --bitcoin.timelockdelta=18
+      --bitcoind.rpchost=lightning_accounts_backend --bitcoind.rpcuser=polaruser
+      --bitcoind.rpcpass=polarpass
+      --bitcoind.zmqpubrawblock=tcp://lightning_accounts_backend:28336
+      --bitcoind.zmqpubrawtx=tcp://lightning_accounts_backend:28335
+    restart: always
+    volumes:
+      - lightning_accounts_alice_data:/home/lnd/.lnd
+    ports:
+      - "8081:8080"
+      - "10001:10009"
+      - "9735:9735"
+    networks:
+      lightningaccountsnet:
+        ipv4_address: 10.29.0.13
+
+  lightning_accounts_bob:
+    image: polarlightning/lnd:0.19.2-beta
+    depends_on:
+      lightning_accounts_backend:
+        condition: service_healthy
+    environment:
+      USERID: "${USERID:-1000}"
+      GROUPID: "${GROUPID:-1000}"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          test -f /home/lnd/.lnd/tls.cert &&
+          test -f /home/lnd/.lnd/data/chain/bitcoin/regtest/admin.macaroon &&
+          lncli --rpcserver=localhost:10009
+          --macaroonpath=/home/lnd/.lnd/data/chain/bitcoin/regtest/admin.macaroon
+          --tlscertpath=/home/lnd/.lnd/tls.cert getinfo
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    command: >-
+      lnd --noseedbackup --trickledelay=5000 --alias=bob
+      --externalip=lightning_accounts_bob --tlsextradomain=lightning_accounts_bob
+      --tlsextradomain=10.29.0.14 --tlsextradomain=host.docker.internal
+      --listen=0.0.0.0:9735 --allow-circular-route
+      --rpclisten=0.0.0.0:10009 --restlisten=0.0.0.0:8080
+      --bitcoin.active --bitcoin.regtest --bitcoin.node=bitcoind
+      --bitcoin.timelockdelta=18
+      --bitcoind.rpchost=lightning_accounts_backend --bitcoind.rpcuser=polaruser
+      --bitcoind.rpcpass=polarpass
+      --bitcoind.zmqpubrawblock=tcp://lightning_accounts_backend:28336
+      --bitcoind.zmqpubrawtx=tcp://lightning_accounts_backend:28335
+    restart: always
+    volumes:
+      - lightning_accounts_bob_data:/home/lnd/.lnd
+    ports:
+      - "8085:8080"
+      - "10005:10009"
+      - "9739:9735"
+    networks:
+      lightningaccountsnet:
+        ipv4_address: 10.29.0.14
+
+  lightning_accounts_bootstrap:
+    image: node:24.18.0-alpine
+    user: "0:0"
+    depends_on:
+      lightning_accounts_alice:
+        condition: service_healthy
+    volumes:
+      - lightning_accounts_alice_data:/run/lightning-accounts/alice:ro
+      - lightning_accounts_bootstrap_data:/run/lightning-accounts/bootstrap
+      - lightning_accounts_public_key_data:/run/lightning-accounts/public
+    command:
+      - node
+      - -e
+      - |
+        const crypto = require("node:crypto")
+        const fs = require("node:fs")
+        const output = "/run/lightning-accounts/bootstrap"
+        const publicOutput = "/run/lightning-accounts/public"
+        const publicPath = publicOutput + "/jwt-public.pem"
+        const privatePath = output + "/jwt-private.pem"
+
+        fs.mkdirSync(output, { recursive: true })
+        fs.mkdirSync(publicOutput, { recursive: true })
+        if (!fs.existsSync(publicPath) || !fs.existsSync(privatePath)) {
+          const { publicKey, privateKey } = crypto.generateKeyPairSync("rsa", {
+            modulusLength: 2048,
+            publicKeyEncoding: { type: "spki", format: "pem" },
+            privateKeyEncoding: { type: "pkcs8", format: "pem" },
+          })
+          fs.writeFileSync(publicPath, publicKey, { mode: 0o444 })
+          fs.writeFileSync(privatePath, privateKey, { mode: 0o400 })
+        }
+
+        const encode = (source, destination) => {
+          fs.writeFileSync(destination, fs.readFileSync(source).toString("base64"), {
+            mode: 0o400,
+          })
+        }
+
+        encode(
+          "/run/lightning-accounts/alice/tls.cert",
+          output + "/lnd-cert.base64"
+        )
+        encode(
+          "/run/lightning-accounts/alice/data/chain/bitcoin/regtest/admin.macaroon",
+          output + "/lnd-admin-macaroon.base64"
+        )
+        for (const file of fs.readdirSync(output)) {
+          fs.chownSync(output + "/" + file, 1000, 1000)
+          fs.chmodSync(output + "/" + file, 0o400)
+        }
+        fs.chownSync(publicPath, 1000, 1000)
+        fs.chmodSync(publicPath, 0o444)
+
+  lightning_accounts_carol:
+    image: polarlightning/lnd:0.19.2-beta
+    depends_on:
+      lightning_accounts_backend:
+        condition: service_healthy
+    environment:
+      USERID: "${USERID:-1000}"
+      GROUPID: "${GROUPID:-1000}"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          test -f /home/lnd/.lnd/tls.cert &&
+          test -f /home/lnd/.lnd/data/chain/bitcoin/regtest/admin.macaroon &&
+          lncli --rpcserver=localhost:10009
+          --macaroonpath=/home/lnd/.lnd/data/chain/bitcoin/regtest/admin.macaroon
+          --tlscertpath=/home/lnd/.lnd/tls.cert getinfo
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    command: >-
+      lnd --noseedbackup --trickledelay=5000 --alias=carol
+      --externalip=lightning_accounts_carol --tlsextradomain=lightning_accounts_carol
+      --tlsextradomain=10.29.0.15 --tlsextradomain=host.docker.internal
+      --listen=0.0.0.0:9735 --allow-circular-route
+      --rpclisten=0.0.0.0:10009 --restlisten=0.0.0.0:8080
+      --bitcoin.active --bitcoin.regtest --bitcoin.node=bitcoind
+      --bitcoin.timelockdelta=18
+      --bitcoind.rpchost=lightning_accounts_backend --bitcoind.rpcuser=polaruser
+      --bitcoind.rpcpass=polarpass
+      --bitcoind.zmqpubrawblock=tcp://lightning_accounts_backend:28336
+      --bitcoind.zmqpubrawtx=tcp://lightning_accounts_backend:28335
+    restart: always
+    volumes:
+      - lightning_accounts_carol_data:/home/lnd/.lnd
+    ports:
+      - "8083:8080"
+      - "10003:10009"
+      - "9737:9735"
+    networks:
+      lightningaccountsnet:
+        ipv4_address: 10.29.0.15
+
+  lightning_accounts_server:
+    build:
+      context: "https://github.com/jfrader/lightning-accounts.git#000fd10dabc00fa797eb6e2526cea77740b2d52c"
+      args:
+        NODE_PORT: 2999
+    depends_on:
+      lightning_accounts_postgres:
+        condition: service_healthy
+      lightning_accounts_bootstrap:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: development
+      NODE_PORT: "2999"
+      NODE_HOST: "http://localhost:2999"
+      NODE_ORIGIN: "${APP_ORIGIN:-http://localhost:2991}"
+      NODE_DOMAIN: ""
+      NODE_TRUST_PROXY_HOPS: "0"
+      NODE_DEBUG_LEVEL: info
+      APPLICATION_EMAILS: "${APP_LIGHTNING_ACCOUNTS_EMAIL:?set APP_LIGHTNING_ACCOUNTS_EMAIL in .env}"
+      APPLICATION_PASSWORD: "${APP_LIGHTNING_ACCOUNTS_PASSWORD:?set APP_LIGHTNING_ACCOUNTS_PASSWORD in .env}"
+      APPLICATION_ADDRESS: ""
+      DATABASE_URL: "postgresql://lightning_accounts:lightning_accounts_dev_only@lightning_accounts_postgres:5432/lightning_accounts?schema=public"
+      JWT_SECRET: lightning-accounts-dev-only-cookie-secret
+      JWT_COOKIE_PREFIX: "${APP_LIGHTNING_ACCOUNTS_COOKIE_PREFIX:-}"
+      JWT_ACCESS_EXPIRATION_MINUTES: "30"
+      JWT_REFRESH_EXPIRATION_DAYS: "30"
+      JWT_RESET_PASSWORD_EXPIRATION_MINUTES: "10"
+      JWT_VERIFY_EMAIL_EXPIRATION_MINUTES: "10"
+      JWT_MAGIC_LINK_EXPIRATION_MINUTES: "10"
+      BCRYPT_ROUNDS: "10"
+      SEED_HASH_SECRET: lightning-accounts-dev-only-seed-secret
+      WALLET_ENABLED: "1"
+      WALLET_LIMIT: "1000000"
+      WALLET_RECONCILE_DRY_RUN: "0"
+      LND_SOCKET: "lightning_accounts_alice:10009"
+    configs:
+      - source: lightning_accounts_dev_seed
+        target: /opt/app/scripts/dev-all-seed.cjs
+    volumes:
+      - lightning_accounts_bootstrap_data:/run/lightning-accounts/bootstrap:ro
+      - lightning_accounts_public_key_data:/run/lightning-accounts/public:ro
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        export JWT_BASE64_PUBLIC_KEY="$$(base64 < /run/lightning-accounts/public/jwt-public.pem | tr -d '\n')"
+        export JWT_BASE64_PRIVATE_KEY="$$(base64 < /run/lightning-accounts/bootstrap/jwt-private.pem | tr -d '\n')"
+        export LND_CERT="$$(cat /run/lightning-accounts/bootstrap/lnd-cert.base64)"
+        export LND_ADMIN_MACAROON="$$(cat /run/lightning-accounts/bootstrap/lnd-admin-macaroon.base64)"
+        yarn prisma db push
+        node /opt/app/scripts/dev-all-seed.cjs
+        exec node ./bin/lightning-accounts-server
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:2999/v1/docs"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    ports:
+      - "2999:2999"
+    networks:
+      lightningaccountsnet:
+        ipv4_address: 10.29.0.10
+
+volumes:
+  lightning_accounts_postgres_data:
+  lightning_accounts_bitcoind_data:
+  lightning_accounts_alice_data:
+  lightning_accounts_bob_data:
+  lightning_accounts_carol_data:
+  lightning_accounts_bootstrap_data:
+  lightning_accounts_public_key_data:
+
+configs:
+  lightning_accounts_dev_seed:
+    content: |
+      const { PrismaClient } = require("@prisma/client")
+      const bcrypt = require("bcryptjs")
+
+      const prisma = new PrismaClient()
+
+      async function main() {
+        const email = process.env.APPLICATION_EMAILS.split(",")[0].trim()
+        const plainPassword = process.env.APPLICATION_PASSWORD
+
+        if (!email || !plainPassword) {
+          throw new Error("Lightning Accounts development credentials are required")
+        }
+
+        const password = await bcrypt.hash(plainPassword, Number(process.env.BCRYPT_ROUNDS || 10))
+        const byEmail = await prisma.user.findUnique({ where: { email } })
+
+        if (byEmail && byEmail.role !== "APPLICATION") {
+          throw new Error(
+            `Refusing to replace the existing $${byEmail.role} account at $${email}; configure a dedicated Lightning Accounts application email`
+          )
+        }
+
+        const application =
+          byEmail || (await prisma.user.findFirst({ where: { role: "APPLICATION" } }))
+
+        if (application) {
+          await prisma.user.update({
+            where: { id: application.id },
+            data: {
+              email,
+              password,
+              name: "Trucoshi",
+              role: "APPLICATION",
+              wallet: {
+                upsert: {
+                  create: { balanceInSats: 24000, disabled: false },
+                  update: { disabled: false },
+                },
+              },
+            },
+          })
+          return
+        }
+
+        await prisma.user.create({
+          data: {
+            email,
+            password,
+            name: "Trucoshi",
+            role: "APPLICATION",
+            wallet: { create: { balanceInSats: 24000, disabled: false } },
+          },
+        })
+      }
+
+      main()
+        .finally(() => prisma[String.fromCharCode(36) + "disconnect"]())
+        .catch((error) => {
+          console.error(error)
+          process.exit(1)
+        })

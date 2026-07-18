@@ -1,0 +1,21 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "target": "es2015",
+    "module": "commonjs",
+    "outDir": "dist",
+    "rootDir": "src",
+    "types": ["node"]
+  },
+  "include": [
+    "src/events.ts",
+    "src/lib/classes/Deck.ts",
+    "src/lib/classes/Random.ts",
+    "src/lib/classes/Table.ts",
+    "src/lib/classes/index.ts",
+    "src/lib/constants.ts",
+    "src/lib/index.ts",
+    "src/types.ts"
+  ],
+  "exclude": ["node_modules", "dist", "test"]
+}
