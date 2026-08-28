@@ -145,13 +145,13 @@
     "axios/form-data": "4.0.6",
     "defu": "6.1.7",
     "effect": "3.21.0",
-    "js-yaml": "4.3.0",
-    "brace-expansion": "5.0.6",
+    "js-yaml": "^4.3.1",
+    "brace-expansion": "5.0.9",
     "mocha/diff": "8.0.3",
     "mocha/serialize-javascript": "7.0.5",
     "nodemon/**/picomatch": "2.3.2",
     "path-to-regexp": "8.4.2",
-    "postcss": "8.5.19",
+    "postcss": "8.5.26",
     "qs": "6.15.3",
     "ws": "8.21.1"
   }
