@@ -14,7 +14,7 @@ const publishedRuntimeDependencies = ["node-forge"]
 const sourceBuildDependencies = {
   "@types/node": "^24.12.0",
   "@types/node-forge": "^1.3.14",
-  "node-forge": "^1.3.3",
+  "node-forge": "^1.4.2",
   rimraf: "^6.1.3",
   typescript: "5.9.3",
 }

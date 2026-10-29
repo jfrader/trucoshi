@@ -3676,6 +3676,7 @@ export const Trucoshi = ({
             { playerId: player.id, matchSessionId: table.matchSessionId },
             "Player has no accountId, skipping refund"
           )
+          await server.store.matchPlayer.delete({ where: { id: player.id } })
           return
         }
 
@@ -3754,6 +3755,8 @@ export const Trucoshi = ({
             },
             "Wallet balance after refund"
           )
+
+          await tx.matchPlayer.delete({ where: { id: player.id } })
 
           // Check remaining players
           const remainingPlayers = await tx.matchPlayer.findMany({
@@ -4065,6 +4068,15 @@ export const Trucoshi = ({
       try {
         const shouldReturnBets = table.state() !== EMatchState.FINISHED
         if (server.store && shouldReturnBets) {
+          if (table.lobby.options.satsPerPlayer > 0) {
+            const players = await server.store.matchPlayer.findMany({
+              where: { matchId: table.matchId, payRequestId: { not: null }, satsPaid: { gt: 0 } },
+            })
+            for (const player of players) {
+              await server.deletePlayerAndReturnBet(table, player)
+            }
+          }
+
           await server.store.$transaction(
             async (tx) => {
               const dbMatch = await tx.match.findUnique({
@@ -4084,19 +4096,10 @@ export const Trucoshi = ({
                 "Found match for cleanup"
               )
 
-              // Process refunds for betting matches
               if (table.lobby.options.satsPerPlayer > 0) {
                 for (const player of dbMatch.players) {
                   if (player.payRequestId && player.satsPaid > 0) {
-                    table.log.trace(
-                      {
-                        playerId: player.id,
-                        accountId: player.accountId,
-                        payRequestId: player.payRequestId,
-                      },
-                      "Processing refund for player"
-                    )
-                    await server.deletePlayerAndReturnBet(table, player)
+                    throw new Error("Match still has a pending refund during cleanup")
                   } else {
                     table.log.trace(
                       { playerId: player.id, accountId: player.accountId },
