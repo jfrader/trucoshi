@@ -326,11 +326,7 @@ export interface ITrucoshi {
   onFlorBattle(table: IMatchTable, play: IPlayInstance, hand: IHand | null): Promise<void>
   onWinner(table: IMatchTable, winner: ITeam): Promise<void>
   removePlayerAndCleanup(table: IMatchTable, player: IPlayer): Promise<void>
-  deletePlayerAndReturnBet(
-    table: IMatchTable,
-    player: MatchPlayer,
-    transaction?: Prisma.TransactionClient
-  ): Promise<void>
+  deletePlayerAndReturnBet(table: IMatchTable, player: MatchPlayer): Promise<void>
   cleanupMatchTable(table: IMatchTable): Promise<void>
   getAccountDetails(socket: TrucoshiSocket, accountId: number): Promise<IAccountDetails>
   getMatchDetails(socket: TrucoshiSocket, matchId: number): Promise<IMatchDetails>
@@ -3661,7 +3657,7 @@ export const Trucoshi = ({
       }
       return null
     },
-    async deletePlayerAndReturnBet(table, player, transaction) {
+    async deletePlayerAndReturnBet(table, player) {
       try {
         if (!server.store) {
           table.log.error(
@@ -3680,7 +3676,7 @@ export const Trucoshi = ({
             { playerId: player.id, matchSessionId: table.matchSessionId },
             "Player has no accountId, skipping refund"
           )
-          await (transaction ?? server.store).matchPlayer.delete({ where: { id: player.id } })
+          await server.store.matchPlayer.delete({ where: { id: player.id } })
           return
         }
 
@@ -3693,7 +3689,7 @@ export const Trucoshi = ({
             },
             "Player has no paid bets or payRequestId, skipping refund"
           )
-          await (transaction ?? server.store).matchPlayer.delete({ where: { id: player.id } })
+          await server.store.matchPlayer.delete({ where: { id: player.id } })
           return
         }
 
@@ -3706,11 +3702,11 @@ export const Trucoshi = ({
             { matchId: table.matchId, payRequestId: player.payRequestId },
             "Pay request was not marked as paid"
           )
-          await (transaction ?? server.store).matchPlayer.delete({ where: { id: player.id } })
+          await server.store.matchPlayer.delete({ where: { id: player.id } })
           return
         }
 
-        const refundAndDelete = async (tx: Prisma.TransactionClient) => {
+        await server.store.$transaction(async (tx) => {
           // Ensure matchBet exists
           let matchBet = await tx.matchBet.findUnique({ where: { matchId: table.matchId } })
           if (table.matchId && !matchBet && player.satsPaid > 0) {
@@ -3789,12 +3785,7 @@ export const Trucoshi = ({
             },
             "Sent sats from bet back to player"
           )
-        }
-        if (transaction) {
-          await refundAndDelete(transaction)
-        } else {
-          await server.store.$transaction(refundAndDelete)
-        }
+        })
       } catch (e) {
         table.log.fatal(e, "Failed to return bet sats to player!")
         throw e
@@ -4077,6 +4068,15 @@ export const Trucoshi = ({
       try {
         const shouldReturnBets = table.state() !== EMatchState.FINISHED
         if (server.store && shouldReturnBets) {
+          if (table.lobby.options.satsPerPlayer > 0) {
+            const players = await server.store.matchPlayer.findMany({
+              where: { matchId: table.matchId, payRequestId: { not: null }, satsPaid: { gt: 0 } },
+            })
+            for (const player of players) {
+              await server.deletePlayerAndReturnBet(table, player)
+            }
+          }
+
           await server.store.$transaction(
             async (tx) => {
               const dbMatch = await tx.match.findUnique({
@@ -4096,19 +4096,10 @@ export const Trucoshi = ({
                 "Found match for cleanup"
               )
 
-              // Process refunds for betting matches
               if (table.lobby.options.satsPerPlayer > 0) {
                 for (const player of dbMatch.players) {
                   if (player.payRequestId && player.satsPaid > 0) {
-                    table.log.trace(
-                      {
-                        playerId: player.id,
-                        accountId: player.accountId,
-                        payRequestId: player.payRequestId,
-                      },
-                      "Processing refund for player"
-                    )
-                    await server.deletePlayerAndReturnBet(table, player, tx)
+                    throw new Error("Match still has a pending refund during cleanup")
                   } else {
                     table.log.trace(
                       { playerId: player.id, accountId: player.accountId },

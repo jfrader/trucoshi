@@ -53,7 +53,21 @@ describe("Bet refund cleanup", () => {
         }),
       },
     }
-    const transaction = sinon.stub().callsFake(async (operation) => operation(tx))
+    let transactionActive = false
+    const transaction = sinon.stub().callsFake(async (operation) => {
+      if (transactionActive) throw new Error("Nested refund transaction")
+      const snapshot = [...rows.values()].map((row) => ({ ...row }))
+      transactionActive = true
+      try {
+        return await operation(tx)
+      } catch (error) {
+        rows.clear()
+        for (const row of snapshot) rows.set(row.id, row)
+        throw error
+      } finally {
+        transactionActive = false
+      }
+    })
     server.store = { ...tx, $transaction: transaction } as never
     const table = {
       matchId: 2,
@@ -84,14 +98,14 @@ describe("Bet refund cleanup", () => {
     })
   })
 
-  it("cleans up paid players and their match in the same transaction", async () => {
+  it("commits a paid refund before starting the database-only cleanup transaction", async () => {
     const { rows, tx, transaction, table } = fixture()
     sinon.stub(server, "getTableSockets").resolves()
     const cleanupError = sinon.stub(logger, "error")
 
     await server.cleanupMatchTable(table as never)
 
-    expect(transaction.callCount).to.equal(1)
+    expect(transaction.callCount).to.equal(2)
     expect(rows.size).to.equal(0)
     sinon.assert.calledOnce(tx.match.delete)
     sinon.assert.calledOnce(tx.matchBet.delete)
@@ -106,6 +120,55 @@ describe("Bet refund cleanup", () => {
 
     expect(rows.size).to.equal(0)
     sinon.assert.notCalled(accountsApi.wallet.payUser as sinon.SinonStub)
+  })
+
+  it("does not pay an already refunded player again after a later refund fails", async () => {
+    const { player, rows, tx, table } = fixture()
+    rows.set(8, { ...player, id: 8, accountId: 43, payRequestId: 12 })
+    sinon.stub(server, "getTableSockets").resolves()
+    const cleanupError = sinon.stub(logger, "error")
+    sinon.stub(logger, "fatal")
+    const payouts: number[] = []
+    let rejectSecondPlayer = true
+    const payUser = accountsApi.wallet.payUser as sinon.SinonStub
+    payUser.callsFake(async ({ userId }) => {
+      if (userId === 43 && rejectSecondPlayer) throw new Error("Refund unavailable")
+      payouts.push(userId)
+      return {}
+    })
+
+    await server.cleanupMatchTable(table as never)
+
+    expect(payouts).to.deep.equal([42])
+    expect([...rows.keys()]).to.deep.equal([8])
+    sinon.assert.notCalled(tx.match.delete)
+    sinon.assert.calledOnce(cleanupError)
+
+    rejectSecondPlayer = false
+    await server.cleanupMatchTable(table as never)
+
+    expect(payouts).to.deep.equal([42, 43])
+    expect(rows.size).to.equal(0)
+    sinon.assert.calledOnce(tx.match.delete)
+    sinon.assert.calledOnce(cleanupError)
+  })
+
+  it("does not repeat a completed refund after database-only cleanup fails", async () => {
+    const { rows, tx, table } = fixture()
+    sinon.stub(server, "getTableSockets").resolves()
+    const cleanupError = sinon.stub(logger, "error")
+    tx.match.delete.onFirstCall().rejects(new Error("Cleanup unavailable"))
+
+    await server.cleanupMatchTable(table as never)
+
+    expect(rows.size).to.equal(0)
+    sinon.assert.calledOnce(cleanupError)
+
+    await server.cleanupMatchTable(table as never)
+
+    sinon.assert.calledOnce(accountsApi.wallet.payUser as sinon.SinonStub)
+    sinon.assert.calledTwice(tx.match.delete)
+    sinon.assert.calledOnce(cleanupError)
   })
 
   it("already refunds a forced pre-start leave while other players remain", async () => {
