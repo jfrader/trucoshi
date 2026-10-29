@@ -30,7 +30,7 @@
     "pino": "^9.14.0",
     "prisma": "6.19.2",
     "redis": "5.7.0",
-    "sanitize-html": "^2.18.0",
+    "sanitize-html": "^2.18.1",
     "socket.io": "4.8.3"
   },
   "resolutions": {
