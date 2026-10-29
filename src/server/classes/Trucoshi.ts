@@ -1822,6 +1822,7 @@ export const Trucoshi = ({
       const turn = server.turns.get(matchSessionId)
       if (turn?.timeout) {
         clearTimeout(turn.timeout)
+        turn.timeout = null
       }
     },
     setTurnTimeout({ table, play, user, resolve, turn, cancel }) {
@@ -1855,7 +1856,8 @@ export const Trucoshi = ({
 
       let trucoshiTurn: TrucoshiTurn
 
-      const isActiveTurn = () => server.turns.get(table.matchSessionId) === trucoshiTurn
+      const isActiveTurn = () =>
+        !trucoshiTurn.settled && server.turns.get(table.matchSessionId) === trucoshiTurn
 
       function createTimeout(pausedTime: number) {
         if (!player) {
