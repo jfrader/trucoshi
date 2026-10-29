@@ -313,7 +313,7 @@ export interface ITrucoshi {
     user: IUserSession
     play: IPlayInstance
     resolve: () => void
-    turn: () => void
+    turn: (retry: () => void) => void
     cancel: () => void
   }): void
   clearTurnTimeout(matchSessionId: string): void
@@ -1640,7 +1640,8 @@ export const Trucoshi = ({
               { player: player.getPublicPlayer("log"), card, cardIdx },
               "Play card success"
             )
-            server.clearTurnTimeout(matchTable.matchSessionId)
+            const ownedTurn = server.turns.get(matchTable.matchSessionId)
+            if (ownedTurn?.play === play) ownedTurn.resolve()
 
             const sound = getCardSound({ play, card })
 
@@ -1822,6 +1823,7 @@ export const Trucoshi = ({
       const turn = server.turns.get(matchSessionId)
       if (turn?.timeout) {
         clearTimeout(turn.timeout)
+        turn.timeout = null
       }
     },
     setTurnTimeout({ table, play, user, resolve, turn, cancel }) {
@@ -1850,12 +1852,13 @@ export const Trucoshi = ({
       const isPaused = table.lobby.paused
 
       if (!isPaused) {
-        turn()
+        turn(retry)
       }
 
       let trucoshiTurn: TrucoshiTurn
 
-      const isActiveTurn = () => server.turns.get(table.matchSessionId) === trucoshiTurn
+      const isActiveTurn = () =>
+        !trucoshiTurn.settled && server.turns.get(table.matchSessionId) === trucoshiTurn
 
       function createTimeout(pausedTime: number) {
         if (!player) {
@@ -1980,7 +1983,7 @@ export const Trucoshi = ({
               table.playerReconnected(tPlayer, user)
               tPlayer.disconnectedAt = null
               if (!table.lobby.paused) {
-                turn()
+                turn(retry)
               }
             })
             .catch(() => {
@@ -2052,7 +2055,7 @@ export const Trucoshi = ({
           )
           return
         }
-        turn()
+        turn(retry)
         trucoshiTurn.timeout = createTimeout(pausedTime)
       }
 
@@ -2093,7 +2096,7 @@ export const Trucoshi = ({
         const player = play.player
         const user = server.sessions.getOrThrow(session)
 
-        const turn = () =>
+        const turn = (retry: () => void) =>
           server
             .emitWaitingForPlay({ play, table })
             .then(() => {
@@ -2101,7 +2104,7 @@ export const Trucoshi = ({
             })
             .catch((e) => {
               table.log.error(e, "ONTURN CALLBACK ERROR")
-              setTimeout(turn, PLAYER_TIMEOUT_GRACE)
+              setTimeout(retry, PLAYER_TIMEOUT_GRACE)
             })
 
         server.setTurnTimeout({
@@ -2138,13 +2141,13 @@ export const Trucoshi = ({
           return resolve()
         }
 
-        const turn = () =>
+        const turn = (retry: () => void) =>
           server
             .emitWaitingPossibleSay({ play, table })
             .then(() => resolve())
             .catch((e) => {
               table.log.error(e, "ONTRUCO CALLBACK ERROR")
-              setTimeout(turn, PLAYER_TIMEOUT_GRACE)
+              setTimeout(retry, PLAYER_TIMEOUT_GRACE)
             })
 
         const player = play.player
@@ -2189,13 +2192,13 @@ export const Trucoshi = ({
           return resolve()
         }
 
-        const turn = () =>
+        const turn = (retry: () => void) =>
           server
             .emitWaitingPossibleSay({ play, table })
             .then(() => resolve())
             .catch((e) => {
               table.log.error(e, "ONFLOR CALLBACK ERROR")
-              setTimeout(turn, PLAYER_TIMEOUT_GRACE)
+              setTimeout(retry, PLAYER_TIMEOUT_GRACE)
             })
 
         const player = play.player
@@ -2266,13 +2269,13 @@ export const Trucoshi = ({
           return resolve()
         }
 
-        const turn = () =>
+        const turn = (retry: () => void) =>
           server
             .emitWaitingPossibleSay({ play, table })
             .then(() => resolve())
             .catch((e) => {
               table.log.error(e, "ONENVIDO CALLBACK ERROR")
-              setTimeout(turn, PLAYER_TIMEOUT_GRACE)
+              setTimeout(retry, PLAYER_TIMEOUT_GRACE)
             })
 
         const player = play.player

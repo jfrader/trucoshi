@@ -11,6 +11,7 @@ interface ITrucoshiTurn {
 }
 
 export class TrucoshiTurn implements ITrucoshiTurn {
+  settled = false
   play: IPlayInstance
   timeout: NodeJS.Timeout | null
   createdAt: number
@@ -23,8 +24,17 @@ export class TrucoshiTurn implements ITrucoshiTurn {
     this.play = turn.play
     this.createdAt = Date.now()
     this.timeout = turn.timeout
-    this.resolve = turn.resolve
-    this.cancel = turn.cancel
-    this.retry = turn.retry
+    const settle = (callback: () => void) => {
+      if (this.settled) return
+      this.settled = true
+      if (this.timeout) clearTimeout(this.timeout)
+      this.timeout = null
+      callback()
+    }
+    this.resolve = () => settle(turn.resolve)
+    this.cancel = () => settle(turn.cancel)
+    this.retry = (pausedTime) => {
+      if (!this.settled) turn.retry(pausedTime)
+    }
   }
 }
