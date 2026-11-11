@@ -159,7 +159,7 @@ services:
         ipv4_address: 10.29.0.14
 
   lightning_accounts_bootstrap:
-    image: node:24.18.0-alpine
+    image: node:24.22.3-alpine
     user: "0:0"
     depends_on:
       lightning_accounts_alice:
