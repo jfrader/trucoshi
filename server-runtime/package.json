@@ -36,6 +36,7 @@
   "resolutions": {
     "@grpc/grpc-js": "1.14.5",
     "axios/form-data": "4.0.6",
+    "bitcoinjs-lib": "6.1.8",
     "body-parser": "2.4.0",
     "defu": "6.1.7",
     "deepmerge-ts": "8.0.0",
