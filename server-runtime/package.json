@@ -40,7 +40,7 @@
     "body-parser": "2.4.0",
     "defu": "6.1.7",
     "deepmerge-ts": "8.0.0",
-    "effect": "3.21.0",
+    "effect": "3.22.1",
     "follow-redirects": "1.16.3",
     "js-yaml": "4.3.2",
     "nodemailer": "10.1.4",
@@ -52,7 +52,7 @@
   },
   "overrides": {
     "deepmerge-ts": "8.0.0",
-    "effect": "3.21.0",
+    "effect": "3.22.1",
     "nodemailer": "10.1.4"
   }
 }
